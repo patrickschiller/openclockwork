@@ -1,6 +1,6 @@
 using BagChronos.Infrastructure;
 using BagChronos.Infrastructure.Persistence;
-using BagChronos.SeedData;
+using BagChronos.Infrastructure.Seeding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

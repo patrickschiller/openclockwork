@@ -15,26 +15,26 @@
 
 ### AP 1.1 – Repository-Bootstrap (lokal, vor erstem Push)
 
-- [ ] Mono-Repo-Struktur: `backend/`, `frontend/`, `.github/workflows/`, `docs/`.
-- [ ] `.gitignore` für .NET + Node + macOS/Windows.
-- [ ] Root-`README.md` mit Kurzbeschreibung und Verweis auf `docs/plans/`.
-- [ ] `.editorconfig` für einheitliche Whitespaces.
+- [x] Mono-Repo-Struktur: `backend/`, `frontend/`, `.github/workflows/`, `docs/`.
+- [x] `.gitignore` für .NET + Node + macOS/Windows.
+- [x] Root-`README.md` mit Kurzbeschreibung und Verweis auf `docs/plans/`.
+- [x] `.editorconfig` für einheitliche Whitespaces.
 
 ### AP 1.2 – Backend-Skelett (US 1.1, Vorbereitung Epic 2)
 
-- [ ] `BagChronos.sln` mit Projekt `BagChronos.Api` (ASP.NET Core 8, Minimal APIs).
-- [ ] Health-Endpoint `/api/health` (async).
-- [ ] Swagger/OpenAPI aktiviert (Swashbuckle).
-- [ ] CORS für Frontend-Origin konfigurierbar via `appsettings`.
-- [ ] Konfiguration für SQL-Connection-String über Key Vault Reference (Platzhalter, real in App Service Config).
+- [x] `BagChronos.sln` mit Projekt `BagChronos.Api` (ASP.NET Core 8, Minimal APIs).
+- [x] Health-Endpoint `/api/health` (async).
+- [x] Swagger/OpenAPI aktiviert (Swashbuckle).
+- [x] CORS für Frontend-Origin konfigurierbar via `appsettings`.
+- [x] Konfiguration für SQL-Connection-String über Key Vault Reference (App-Setting `Sql__ConnectionString` zeigt auf `kv-bagchronos-623bc0`).
 
 ### AP 1.3 – Frontend-Skelett (US 1.3)
 
-- [ ] Vite + React + TypeScript Projekt im `frontend/`.
-- [ ] `vite-plugin-pwa` mit Manifest (Name, Icons, Theme-Color) und Service Worker (Workbox autoUpdate).
-- [ ] Material UI v6 (MD3) als Komponentenbibliothek (`@mui/material`, `@emotion/*`).
-- [ ] API-Client (axios oder fetch-Wrapper) mit Basis-URL aus `import.meta.env.VITE_API_BASE_URL`.
-- [ ] Smoke-Page, die `/api/health` aufruft und Status anzeigt.
+- [x] Vite + React + TypeScript Projekt im `frontend/`.
+- [x] `vite-plugin-pwa` mit Manifest (Name, Icons, Theme-Color) und Service Worker (Workbox autoUpdate).
+- [x] Material UI v6 (MD3) als Komponentenbibliothek (`@mui/material`, `@emotion/*`).
+- [x] API-Client (axios oder fetch-Wrapper) mit Basis-URL aus `import.meta.env.VITE_API_BASE_URL`.
+- [x] Smoke-Page, die `/api/health` aufruft und Status anzeigt.
 
 ### AP 1.4 – Azure-Ressourcen (US 1.1)
 
@@ -60,7 +60,7 @@ Schritt-für-Schritt in [`docs/azure-setup.md`](../azure-setup.md). Stand 2026-0
 
 - [x] `https://app-bag-chronos-api.azurewebsites.net/api/health` liefert `200 OK` (verifiziert 2026-04-29 nach Deploy `4a73f1d`).
 - [x] Frontend (`https://calm-dune-04cf13f03.7.azurestaticapps.net`) lädt; CORS-Preflight aus dem Frontend-Origin liefert 204.
-- [ ] Lighthouse PWA-Score > 90.
+- [x] Lighthouse v12 (2026-04-30): Performance 98 / Accessibility 98 / Best Practices 96 / SEO 90. *Lighthouse hat die PWA-Kategorie in v12 entfernt; Installierbarkeit stattdessen direkt verifiziert:* `/manifest.webmanifest` (200, valides Manifest mit Name/Icons 192+512+maskable/`display=standalone`) und `/sw.js` (200, Service Worker via `vite-plugin-pwa` Workbox autoUpdate).
 - [x] Push einer Trivialänderung deployed binnen <10 min (Backend-Deploy in ~3 min, Frontend in <2 min).
 
 ## Risiken & Hinweise
