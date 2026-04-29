@@ -4,7 +4,7 @@ using BagChronos.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
-namespace BagChronos.SeedData;
+namespace BagChronos.Infrastructure.Seeding;
 
 public class SeedRunner(BagChronosDbContext db, ILogger<SeedRunner> logger)
 {
@@ -43,7 +43,6 @@ public class SeedRunner(BagChronosDbContext db, ILogger<SeedRunner> logger)
             AnnualLeaveDays: 30,
             ManagerPersonalNo: hrAdmin.PersonalNo), cancellationToken);
 
-        // 20 Mitarbeiter, abwechselnd den beiden Vorgesetzten zugeordnet
         var employees = new (string First, string Last, TimeModel Model, decimal Hours, int Leave)[]
         {
             ("Lukas", "Becker", TimeModel.Vollzeit, 40m, 30),

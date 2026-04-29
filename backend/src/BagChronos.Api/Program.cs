@@ -3,6 +3,7 @@ using BagChronos.Api.Endpoints;
 using BagChronos.Api.Health;
 using BagChronos.Infrastructure;
 using BagChronos.Infrastructure.Persistence;
+using BagChronos.Infrastructure.Seeding;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -58,6 +59,15 @@ using (var scope = app.Services.CreateScope())
     else
     {
         await db.Database.MigrateAsync();
+    }
+
+    if (string.Equals(Environment.GetEnvironmentVariable("BAGCHRONOS_RUN_SEED"), "true", StringComparison.OrdinalIgnoreCase))
+    {
+        var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<SeedRunner>>();
+        seedLogger.LogWarning("BAGCHRONOS_RUN_SEED=true detected — running seed.");
+        var runner = new SeedRunner(db, seedLogger);
+        await runner.RunAsync();
+        seedLogger.LogWarning("Seed finished. Remember to remove BAGCHRONOS_RUN_SEED.");
     }
 }
 
