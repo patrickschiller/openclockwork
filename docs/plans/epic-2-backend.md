@@ -81,7 +81,8 @@ BagChronos.Tests        → xUnit + FluentAssertions, In-Memory + SQL-Testcontai
 
 ### AP 2.5 – Kernzeit & ERP-Export (US 2.5)
 
-- [ ] `CoreTimeViolationDetector`: prüft jeden TimeEntry gegen `WorkingTimeRule` und schreibt Violation-Records.
+- [x] `CoreTimeViolationDetector` (rein, ohne I/O): erkennt LateArrival/EarlyDeparture pro TimeEntry. Vertrauensarbeitszeit ist ausgenommen. Default-Kernzeit 09:00–15:00 (`CoreTimeRule.Default`), parametrierbar. 10 Unit-Tests.
+- [x] `GET /api/violations?employeeId=&from=&to=` – flacht Violations pro Mitarbeiter aus, on-the-fly berechnet (kein eigenes Persistenzschema). 404 bei unbekanntem Mitarbeiter.
 - [ ] `/api/erp/timeentries`: API-Key-Auth (separater Scope), liefert nur freigegebene Buchungen, paginiert.
 
 ### AP 2.6 – Auth & Security
