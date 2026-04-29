@@ -1,11 +1,17 @@
+using BagChronos.Api.Endpoints;
 using BagChronos.Api.Health;
+using BagChronos.Infrastructure;
+using BagChronos.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddBagChronosInfrastructure(builder.Configuration);
 
-var corsPolicy = "Frontend";
+const string corsPolicy = "Frontend";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(corsPolicy, policy =>
@@ -23,11 +29,20 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<BagChronosDbContext>();
+    await db.Database.EnsureCreatedAsync();
 }
 
 app.UseHttpsRedirection();
 app.UseCors(corsPolicy);
 
 app.MapHealthEndpoints();
+app.MapEmployeesEndpoints();
+app.MapTimeEntriesEndpoints();
+app.MapAccountsEndpoints();
 
 await app.RunAsync();
+
+public partial class Program;

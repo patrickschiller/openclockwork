@@ -75,11 +75,20 @@ Reihenfolge ist verbindlich: Epic 1 muss laufen, bevor Epic 2 deployed werden ka
 ```bash
 cd backend
 dotnet restore
+dotnet build
+
+# Optional: lokale SQLite mit Testdaten füllen (1 HR-Admin, 2 Vorgesetzte, 20 Mitarbeiter)
+dotnet run --project src/BagChronos.SeedData
+
+# API starten
 dotnet run --project src/BagChronos.Api
 ```
 
 - Swagger UI: http://localhost:5080/swagger
 - Health: http://localhost:5080/api/health
+- Beispiel: `GET /api/employees`, `POST /api/timeentries/clock-in`, `GET /api/accounts/{employeeId}`
+
+> Lokal nutzt das Backend SQLite (`backend/bagchronos-dev.db`); in Azure ist es Azure SQL via Connection-String aus Key Vault. Die Datei wird automatisch im Repo-Root des `backend/`-Ordners abgelegt – Seed und API teilen sich dieselbe Datei.
 
 ### Frontend
 
