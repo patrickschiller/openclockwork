@@ -1,3 +1,4 @@
+using BagChronos.Infrastructure.Notifications;
 using BagChronos.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -40,6 +41,8 @@ public static class DependencyInjection
                 options.UseSqlServer(connectionString);
             }
         });
+
+        services.AddScoped<IRequestNotificationService, NoOpRequestNotificationService>();
 
         return services;
     }

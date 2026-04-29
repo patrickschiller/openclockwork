@@ -42,6 +42,7 @@ app.MapHealthEndpoints();
 app.MapEmployeesEndpoints();
 app.MapTimeEntriesEndpoints();
 app.MapAccountsEndpoints();
+app.MapRequestsEndpoints();
 
 await app.RunAsync();
 
