@@ -52,7 +52,7 @@ BagChronos.Tests        → xUnit + FluentAssertions, In-Memory + SQL-Testcontai
 - [x] Entitäten + EF-Konfigurationen für Tabelle oben (`Employee`, `TimeEntry`, `Request`).
 - [x] DbContext + EF-Konfigurationen mit Indizes (PersonalNo unique, Email unique, EmployeeId+ClockIn).
 - [x] Lokal: SQLite via `EnsureCreatedAsync` (Dev-Anchor zu Repo-Root, `DateTimeOffset`-Konverter für SQLite-Sortierung).
-- [ ] Initial-Migration `0001_InitialSchema` für Azure SQL.
+- [x] Initial-Migration `0001_InitialSchema` für SQL Server (`MigrateAsync` beim Start, `EnsureCreatedAsync` nur für SQLite-Dev). Design-Time-Provider liest `BAGCHRONOS_DESIGN_CONNECTION` (Default: LocalDB). EF-Tool ist im `dotnet tool`-Manifest gepinnt (`dotnet tool restore`).
 - [x] Seed-Daten: `BagChronos.SeedData` Konsole (idempotent) – 1 HR-Admin, 2 Vorgesetzte, 20 Mitarbeiter.
 
 ### AP 2.2 – Pausenregelung (US 2.2)

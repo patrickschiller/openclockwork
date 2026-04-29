@@ -25,8 +25,16 @@ await using var provider = services.BuildServiceProvider();
 var logger = provider.GetRequiredService<ILogger<SeedRunner>>();
 var db = provider.GetRequiredService<BagChronosDbContext>();
 
-logger.LogInformation("Ensuring database schema exists...");
-await db.Database.EnsureCreatedAsync();
+if (db.Database.IsSqlite())
+{
+    logger.LogInformation("Ensuring SQLite schema exists...");
+    await db.Database.EnsureCreatedAsync();
+}
+else
+{
+    logger.LogInformation("Applying pending migrations...");
+    await db.Database.MigrateAsync();
+}
 
 var runner = new SeedRunner(db, logger);
 await runner.RunAsync();

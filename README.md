@@ -75,6 +75,7 @@ Reihenfolge ist verbindlich: Epic 1 muss laufen, bevor Epic 2 deployed werden ka
 ```bash
 cd backend
 dotnet restore
+dotnet tool restore        # einmalig: dotnet-ef aus Manifest installieren
 dotnet build
 
 # Optional: lokale SQLite mit Testdaten füllen (1 HR-Admin, 2 Vorgesetzte, 20 Mitarbeiter)
@@ -86,9 +87,30 @@ dotnet run --project src/BagChronos.Api
 
 - Swagger UI: http://localhost:5080/swagger
 - Health: http://localhost:5080/api/health
-- Beispiel: `GET /api/employees`, `POST /api/timeentries/clock-in`, `GET /api/accounts/{employeeId}`
+- Beispiel-Endpoints: `GET /api/employees`, `POST /api/timeentries/clock-in`, `GET /api/accounts/{employeeId}`, `POST /api/requests`, `GET /api/violations?employeeId=...`
 
 > Lokal nutzt das Backend SQLite (`backend/bagchronos-dev.db`); in Azure ist es Azure SQL via Connection-String aus Key Vault. Die Datei wird automatisch im Repo-Root des `backend/`-Ordners abgelegt – Seed und API teilen sich dieselbe Datei.
+
+#### Datenbank-Migrationen (EF Core)
+
+Migrationen werden gegen **SQL Server** gepflegt (Prod-Pfad). Lokal mit SQLite genügt `EnsureCreated`; SQL Server bekommt automatisch `MigrateAsync` beim Start.
+
+```bash
+cd backend
+
+# neue Migration anlegen
+dotnet ef migrations add <Name> \
+  --project src/BagChronos.Infrastructure \
+  --startup-project src/BagChronos.Api \
+  --output-dir Persistence/Migrations
+
+# SQL-Skript für Code-Review erzeugen
+dotnet ef migrations script \
+  --project src/BagChronos.Infrastructure \
+  --startup-project src/BagChronos.Api
+```
+
+Der Design-Time-Provider liest die Connection-String aus `BAGCHRONOS_DESIGN_CONNECTION` oder fällt auf einen LocalDB-Default zurück. Für `migrations add` muss kein SQL Server erreichbar sein.
 
 ### Frontend
 
