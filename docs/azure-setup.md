@@ -14,22 +14,35 @@ Alle Befehle sind so geschrieben, dass sie 1:1 in eine `bash`/`zsh`-Shell kopier
 
 ## 0 Variablen festlegen
 
-```bash
-# Anpassen falls nötig
-export LOCATION="westeurope"
-export RG="rg-bagchronos-prod"
-export SQL_SERVER="sql-bagchronos-$RANDOM"        # muss global eindeutig sein
-export SQL_DB="sqldb-bagchronos"
-export SQL_ADMIN="bagadmin"
-export SQL_PASSWORD="$(openssl rand -base64 24)"  # gut wegspeichern!
-export PLAN="asp-bagchronos-prod"
-export API_APP="app-bagchronos-api"               # global eindeutig
-export SWA_NAME="swa-bagchronos-web"
-export KV_NAME="kv-bagchronos-$RANDOM"            # global eindeutig
-export GH_ORG="<dein-github-user-oder-org>"
-export GH_REPO="bag-chronos"
+> Hinweis: Die Live-Umgebung wurde am 2026-04-29 eingerichtet.
+> Subscription `sub-bag-chronos`, Resource Group `rg-bag-chronos-prod`, Suffix `623bc0`.
+> Wer die Doc neu durchspielt, generiert eigenes `SUFFIX` und legt parallel an oder löscht zuerst die existierende RG (`az group delete --name rg-bag-chronos-prod --yes --no-wait`).
 
-echo "SQL_PASSWORD=$SQL_PASSWORD"   # einmalig sichern (Passwort-Manager)
+```bash
+# Einmalig: feste Variablen in Datei schreiben, dann sourcen.
+# Wichtig: KEIN $(openssl ...) im File, sonst wird es bei jedem `.` neu evaluiert.
+SUFFIX="$(openssl rand -hex 3)"
+SQL_PASSWORD="$(openssl rand -base64 24 | tr -d '/=+' | cut -c1-24)Aa1!"
+
+cat > /tmp/bag-chronos-azure.env <<EOF
+export LOCATION="westeurope"
+export RG="rg-bag-chronos-prod"
+export SUFFIX="${SUFFIX}"
+export SQL_SERVER="sql-bag-chronos-${SUFFIX}"
+export SQL_DB="sqldb-bag-chronos"
+export SQL_ADMIN="bagadmin"
+export SQL_PASSWORD='${SQL_PASSWORD}'
+export PLAN="asp-bag-chronos-prod"
+export API_APP="app-bag-chronos-api"
+export SWA_NAME="swa-bag-chronos-web"
+export KV_NAME="kv-bagchronos-${SUFFIX}"   # KV-Name max 24 Zeichen
+export GH_ORG="patrickschiller"
+export GH_REPO="bag-chronos"
+EOF
+chmod 600 /tmp/bag-chronos-azure.env
+. /tmp/bag-chronos-azure.env
+
+echo "SQL_PASSWORD=$SQL_PASSWORD"   # SOFORT in Passwort-Manager sichern
 ```
 
 ---
@@ -252,7 +265,7 @@ In GitHub: **Settings → Environments** → `production` anlegen (Required revi
 | `AZURE_CLIENT_ID` | aus 6.4 |
 | `AZURE_TENANT_ID` | aus 6.4 |
 | `AZURE_SUBSCRIPTION_ID` | aus 6.4 |
-| `FRONTEND_API_BASE_URL` | `https://app-bagchronos-api.azurewebsites.net` |
+| `FRONTEND_API_BASE_URL` | `https://app-bag-chronos-api.azurewebsites.net` |
 
 ### 7.2 Repository Secrets (Settings → Secrets → Actions)
 

@@ -144,8 +144,8 @@ Die Smoke-Page lädt initial den Health-Endpoint des Backends und zeigt das Erge
 ## Deployment
 
 - Push auf `main` ⇒ automatisches Deployment via GitHub Actions.
-- Backend nach Azure App Service (`app-bagchronos-api`).
-- Frontend nach Azure Static Web App (`swa-bagchronos-web`).
+- Backend nach Azure App Service (`app-bag-chronos-api`).
+- Frontend nach Azure Static Web App (`swa-bag-chronos-web`).
 - Vollständige Cloud-Einrichtung: [`docs/azure-setup.md`](./docs/azure-setup.md).
 
 ---

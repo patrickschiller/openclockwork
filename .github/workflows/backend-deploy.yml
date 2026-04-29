@@ -14,7 +14,7 @@ permissions:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  AZURE_WEBAPP_NAME: app-bagchronos-api
+  AZURE_WEBAPP_NAME: app-bag-chronos-api
   AZURE_PACKAGE_PATH: backend/publish
 
 jobs:

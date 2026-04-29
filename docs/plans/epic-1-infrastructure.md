@@ -38,28 +38,28 @@
 
 ### AP 1.4 – Azure-Ressourcen (US 1.1)
 
-Schritt-für-Schritt in [`docs/azure-setup.md`](../azure-setup.md). Diese AP umfasst:
+Schritt-für-Schritt in [`docs/azure-setup.md`](../azure-setup.md). Stand 2026-04-29 angelegt in Subscription `sub-bag-chronos`, Resource Group `rg-bag-chronos-prod`:
 
-- [ ] Resource Group `rg-bagchronos-prod` (Region z. B. `westeurope`).
-- [ ] Azure SQL Server + Database `sqldb-bagchronos` (Basic/S0 für Start, später skalierbar).
-- [ ] App Service Plan (Linux, B1 für Start).
-- [ ] App Service `app-bagchronos-api` (.NET 8 Runtime).
-- [ ] Static Web App `swa-bagchronos-web` ODER zweiter App Service `app-bagchronos-web` (Node) für PWA.
-- [ ] Key Vault `kv-bagchronos` mit Secret `Sql--ConnectionString`.
-- [ ] Managed Identity an App Service, Zugriff auf Key Vault als `get`/`list` für Secrets.
+- [x] Resource Group `rg-bag-chronos-prod` (`westeurope`).
+- [x] Azure SQL: Server `sql-bag-chronos-623bc0`, Database `sqldb-bag-chronos` (Basic 5 DTU).
+- [x] App Service Plan `asp-bag-chronos-prod` (Linux, B1, Always-On).
+- [x] App Service `app-bag-chronos-api` (.NET 8 Runtime, System-Managed Identity).
+- [x] Static Web App `swa-bag-chronos-web` (Free, `westeurope`).
+- [x] Key Vault `kv-bagchronos-623bc0` mit Secret `Sql--ConnectionString`.
+- [x] Managed Identity am App Service, Rolle `Key Vault Secrets User` auf den Vault.
 
 ### AP 1.5 – CI/CD (US 1.2)
 
-- [ ] `backend-ci.yml`: Build + Test bei PRs gegen `main`.
-- [ ] `frontend-ci.yml`: Lint + Build bei PRs gegen `main`.
-- [ ] `backend-deploy.yml`: bei Push auf `main` Build + `azure/webapps-deploy@v3` (OIDC, kein Publish-Profile).
-- [ ] `frontend-deploy.yml`: bei Push auf `main` Build + Deploy zu Static Web App (`Azure/static-web-apps-deploy@v1`).
-- [ ] OIDC-Federated-Credential im Azure-AD-App-Registration eingerichtet, Tenant/Subscription/ClientId in GitHub als Variables (nicht Secrets) hinterlegt.
+- [x] `backend-ci.yml`: Build + Test bei PRs gegen `main`.
+- [x] `frontend-ci.yml`: Type-Check + Build bei PRs gegen `main`.
+- [x] `backend-deploy.yml`: Push auf `main` → `azure/webapps-deploy@v3` mit OIDC.
+- [x] `frontend-deploy.yml`: Push auf `main` → `Azure/static-web-apps-deploy@v1`.
+- [x] App Registration `github-bag-chronos`, Federated Credentials für `main`, `pull_request`, `environment:production`. GitHub-Variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `FRONTEND_API_BASE_URL` + Secret `AZURE_STATIC_WEB_APPS_API_TOKEN`.
 
 ### AP 1.6 – Verifikation
 
-- [ ] `https://app-bagchronos-api.azurewebsites.net/api/health` liefert `200 OK`.
-- [ ] Frontend lädt, ruft Health-Endpoint erfolgreich auf (CORS prüfen).
+- [ ] `https://app-bag-chronos-api.azurewebsites.net/api/health` liefert `200 OK` (nach erstem Deploy).
+- [ ] Frontend (`https://calm-dune-04cf13f03.7.azurestaticapps.net`) lädt, ruft Health-Endpoint erfolgreich auf (CORS prüfen).
 - [ ] Lighthouse PWA-Score > 90.
 - [ ] Push einer Trivialänderung deployed binnen <10 min.
 
