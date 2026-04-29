@@ -1,49 +1,59 @@
-import { useEffect, useState } from 'react';
-import { AppBar, Box, Container, Toolbar, Typography, Alert, CircularProgress, Stack } from '@mui/material';
-import { fetchHealth, type HealthResponse } from './api/client';
-
-type LoadState =
-  | { kind: 'loading' }
-  | { kind: 'ready'; data: HealthResponse }
-  | { kind: 'error'; message: string };
+import { Route, Routes } from 'react-router-dom';
+import { AppShell } from './app/AppShell';
+import { DashboardPage } from './routes/DashboardPage';
+import { PlaceholderPage } from './routes/PlaceholderPage';
 
 export function App() {
-  const [state, setState] = useState<LoadState>({ kind: 'loading' });
-
-  useEffect(() => {
-    fetchHealth()
-      .then((data) => setState({ kind: 'ready', data }))
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'Unbekannter Fehler';
-        setState({ kind: 'error', message });
-      });
-  }, []);
-
   return (
-    <Box>
-      <AppBar position="static" elevation={0}>
-        <Toolbar>
-          <Typography variant="h6" component="h1">
-            BagChronos
-          </Typography>
-        </Toolbar>
-      </AppBar>
-      <Container maxWidth="sm" sx={{ py: 4 }}>
-        <Stack spacing={2}>
-          <Typography variant="body1">
-            Initiale Smoke-Page. Sobald das Backend erreichbar ist, wird hier der Health-Status angezeigt.
-          </Typography>
-          {state.kind === 'loading' && <CircularProgress aria-label="Lade Health-Status" />}
-          {state.kind === 'ready' && (
-            <Alert severity="success">
-              {state.data.service} – {state.data.status} ({state.data.utcTimestamp})
-            </Alert>
-          )}
-          {state.kind === 'error' && (
-            <Alert severity="error">Backend nicht erreichbar: {state.message}</Alert>
-          )}
-        </Stack>
-      </Container>
-    </Box>
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<DashboardPage />} />
+        <Route
+          path="booking"
+          element={
+            <PlaceholderPage
+              title="Kommen / Gehen"
+              hint="Mobile Buchungsmaske mit GPS folgt mit AP 3.3."
+            />
+          }
+        />
+        <Route
+          path="calendar"
+          element={
+            <PlaceholderPage
+              title="Jahreskalender"
+              hint="Farbcodierte Status (Urlaub, Home-Office, Krankheit, ...) folgt mit AP 3.5."
+            />
+          }
+        />
+        <Route
+          path="requests"
+          element={
+            <PlaceholderPage
+              title="Anträge"
+              hint="Antragsliste und Formulare (Urlaub, Home-Office, Sonderurlaub, Zeitantrag) folgen mit AP 3.4."
+            />
+          }
+        />
+        <Route
+          path="admin/requests"
+          element={
+            <PlaceholderPage
+              title="Genehmigungen"
+              hint="Vorgesetzten-Inbox mit Filter und Sonder-Approval folgt mit AP 3.7."
+            />
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <PlaceholderPage
+              title="Nicht gefunden"
+              hint="Diese Seite existiert nicht."
+            />
+          }
+        />
+      </Route>
+    </Routes>
   );
 }
