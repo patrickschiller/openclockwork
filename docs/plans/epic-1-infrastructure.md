@@ -58,10 +58,10 @@ Schritt-für-Schritt in [`docs/azure-setup.md`](../azure-setup.md). Stand 2026-0
 
 ### AP 1.6 – Verifikation
 
-- [ ] `https://app-bag-chronos-api.azurewebsites.net/api/health` liefert `200 OK` (nach erstem Deploy).
-- [ ] Frontend (`https://calm-dune-04cf13f03.7.azurestaticapps.net`) lädt, ruft Health-Endpoint erfolgreich auf (CORS prüfen).
+- [x] `https://app-bag-chronos-api.azurewebsites.net/api/health` liefert `200 OK` (verifiziert 2026-04-29 nach Deploy `4a73f1d`).
+- [x] Frontend (`https://calm-dune-04cf13f03.7.azurestaticapps.net`) lädt; CORS-Preflight aus dem Frontend-Origin liefert 204.
 - [ ] Lighthouse PWA-Score > 90.
-- [ ] Push einer Trivialänderung deployed binnen <10 min.
+- [x] Push einer Trivialänderung deployed binnen <10 min (Backend-Deploy in ~3 min, Frontend in <2 min).
 
 ## Risiken & Hinweise
 
