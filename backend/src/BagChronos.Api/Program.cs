@@ -1,3 +1,4 @@
+using BagChronos.Api.Auth;
 using BagChronos.Api.Endpoints;
 using BagChronos.Api.Health;
 using BagChronos.Infrastructure;
@@ -10,6 +11,22 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddBagChronosInfrastructure(builder.Configuration);
+
+builder.Services
+    .AddAuthentication(ApiKeyAuthenticationHandler.SchemeName)
+    .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+        ApiKeyAuthenticationHandler.SchemeName,
+        _ => { });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(ErpEndpoints.ErpAuthorizationPolicy, policy =>
+    {
+        policy.AddAuthenticationSchemes(ApiKeyAuthenticationHandler.SchemeName);
+        policy.RequireAuthenticatedUser();
+        policy.RequireRole("ErpClient");
+    });
+});
 
 const string corsPolicy = "Frontend";
 builder.Services.AddCors(options =>
@@ -47,12 +64,16 @@ using (var scope = app.Services.CreateScope())
 app.UseHttpsRedirection();
 app.UseCors(corsPolicy);
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapHealthEndpoints();
 app.MapEmployeesEndpoints();
 app.MapTimeEntriesEndpoints();
 app.MapAccountsEndpoints();
 app.MapRequestsEndpoints();
 app.MapViolationsEndpoints();
+app.MapErpEndpoints();
 
 await app.RunAsync();
 

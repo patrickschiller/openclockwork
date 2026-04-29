@@ -67,7 +67,7 @@ BagChronos.Tests        → xUnit + FluentAssertions, In-Memory + SQL-Testcontai
 - [x] `/api/accounts/{employeeId}`:
   - Überstunden = ∑(Netto-Ist YTD) − ∑(Soll-Minuten YTD nach Wochenstunden / Werktagen).
   - Urlaubskonto = `AnnualLeaveDays − ∑(genehmigte Urlaube)`.
-- [ ] HostedService `DailyAccountRecalculation` (täglich 03:00) – steht aus.
+- [ ] HostedService `DailyAccountRecalculation` (täglich 03:00) – **bewusst zurückgestellt:** der Endpoint berechnet on-the-fly, ein Cache lohnt erst bei realer Last. Reaktivieren, sobald >50 aktive Mitarbeiter oder spürbare Latenz auf dem Endpoint.
 
 ### AP 2.4 – Antrags-Workflow (US 2.4)
 
@@ -83,7 +83,7 @@ BagChronos.Tests        → xUnit + FluentAssertions, In-Memory + SQL-Testcontai
 
 - [x] `CoreTimeViolationDetector` (rein, ohne I/O): erkennt LateArrival/EarlyDeparture pro TimeEntry. Vertrauensarbeitszeit ist ausgenommen. Default-Kernzeit 09:00–15:00 (`CoreTimeRule.Default`), parametrierbar. 10 Unit-Tests.
 - [x] `GET /api/violations?employeeId=&from=&to=` – flacht Violations pro Mitarbeiter aus, on-the-fly berechnet (kein eigenes Persistenzschema). 404 bei unbekanntem Mitarbeiter.
-- [ ] `/api/erp/timeentries`: API-Key-Auth (separater Scope), liefert nur freigegebene Buchungen, paginiert.
+- [x] `/api/erp/timeentries`: API-Key-Auth via `X-Api-Key` (Scheme `ApiKey`, Policy `ErpClient`, Key aus `Erp:ApiKey`). Liefert nur `Status == Approved` Buchungen, sortiert nach `ClockIn`, paginiert (`page`, `pageSize` default 100, max 500). Integration-Tests in `BagChronos.Api.Tests` mit SQLite-In-Memory.
 
 ### AP 2.6 – Auth & Security
 
@@ -94,8 +94,9 @@ BagChronos.Tests        → xUnit + FluentAssertions, In-Memory + SQL-Testcontai
 
 ### AP 2.7 – Tests
 
-- [ ] Unit-Tests Domain (Pausen, Konten, Workflow-Regeln).
-- [ ] Integration-Tests gegen SQL-Testcontainer.
+- [x] Unit-Tests Domain (Pausen, Konten, Workflow-Regeln) – 43 Tests in `BagChronos.Domain.Tests`.
+- [x] API-Integrationstests Bootstrap (`BagChronos.Api.Tests` + `WebApplicationFactory<Program>` + SQLite-In-Memory) – aktuell 5 Tests für ERP-Endpoint.
+- [ ] Weitere Integration-Tests für Clock-In/-Out, Requests-Workflow, Violations.
 - [ ] Contract-Tests gegen veröffentlichte OpenAPI.
 
 ## Reihenfolge der Bearbeitung
