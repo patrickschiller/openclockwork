@@ -15,6 +15,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BagChronos.SeedData", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BagChronos.Domain.Tests", "tests\BagChronos.Domain.Tests\BagChronos.Domain.Tests.csproj", "{B9D657B3-DA5A-4ECF-85DC-53CA2ED279BA}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BagChronos.Api.Tests", "tests\BagChronos.Api.Tests\BagChronos.Api.Tests.csproj", "{5CC71983-2051-426E-B53E-16FF766EA6B8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +89,18 @@ Global
 		{B9D657B3-DA5A-4ECF-85DC-53CA2ED279BA}.Release|x64.Build.0 = Release|Any CPU
 		{B9D657B3-DA5A-4ECF-85DC-53CA2ED279BA}.Release|x86.ActiveCfg = Release|Any CPU
 		{B9D657B3-DA5A-4ECF-85DC-53CA2ED279BA}.Release|x86.Build.0 = Release|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Debug|x64.Build.0 = Debug|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Debug|x86.Build.0 = Debug|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Release|x64.ActiveCfg = Release|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Release|x64.Build.0 = Release|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Release|x86.ActiveCfg = Release|Any CPU
+		{5CC71983-2051-426E-B53E-16FF766EA6B8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -95,5 +111,6 @@ Global
 		{A8DC6934-C0E5-40B4-B940-AAB8ED2AF679} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{66541AD3-5444-4620-8466-55676AF277C7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{B9D657B3-DA5A-4ECF-85DC-53CA2ED279BA} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{5CC71983-2051-426E-B53E-16FF766EA6B8} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
