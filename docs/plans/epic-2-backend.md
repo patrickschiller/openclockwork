@@ -73,8 +73,11 @@ BagChronos.Tests        → xUnit + FluentAssertions, In-Memory + SQL-Testcontai
 
 - [x] Domain-Regel `RequestApprovalRules.RequiresSpecialApproval` (07:00 / 23:00 + Mitternacht-Crossing) inkl. Tests.
 - [x] Anwendung in Clock-Out (`RequiresApproval`-Flag).
-- [ ] State Machine `Submitted → Approved | Rejected` für `Request`-Aggregat – steht aus.
-- [ ] Notifications-Stub (Interface), spätere Implementierung via Email/Teams.
+- [x] State Machine `RequestStateMachine.Approve/Reject` (`Submitted → Approved | Rejected`, Wiederentscheidung verboten) inkl. Tests.
+- [x] Type-spezifische Regel `RequestRules.RequiresSpecialApproval` (07-23-Flag nur bei `TimeCorrection`) inkl. Tests.
+- [x] Endpoints `/api/requests` (POST), `/api/requests` (GET, Filter Employee/Status/Approver), `/api/requests/{id}/approve`, `/api/requests/{id}/reject`.
+- [x] Approver-Rolle wird gegen `Manager`/`HRAdmin` validiert (403 bei Verstoß).
+- [x] Notifications-Stub: `IRequestNotificationService` + `NoOpRequestNotificationService` (loggt), in DI registriert. Echte Implementierung (Email/Teams) folgt mit Auth in AP 2.6.
 
 ### AP 2.5 – Kernzeit & ERP-Export (US 2.5)
 
