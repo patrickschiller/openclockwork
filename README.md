@@ -1,4 +1,4 @@
-# BagChronos
+# BAG-CHRONOS
 
 > Digitales Zeiterfassungs- und Anwesenheitsmanagement-System – Cloud-native, API-first, mobil-fähig.
 
