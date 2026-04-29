@@ -34,25 +34,13 @@ if (app.Environment.IsDevelopment())
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<BagChronosDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    try
+    if (db.Database.IsSqlite())
     {
-        if (db.Database.IsSqlite())
-        {
-            await db.Database.EnsureCreatedAsync();
-        }
-        else
-        {
-            logger.LogInformation("Applying SQL Server migrations");
-            await db.Database.MigrateAsync();
-            logger.LogInformation("Migrations applied successfully");
-        }
+        await db.Database.EnsureCreatedAsync();
     }
-    catch (Exception ex)
+    else
     {
-        logger.LogCritical(ex, "Database initialization failed: {Message}", ex.Message);
-        Console.Error.WriteLine($"FATAL DB INIT: {ex}");
-        throw;
+        await db.Database.MigrateAsync();
     }
 }
 
