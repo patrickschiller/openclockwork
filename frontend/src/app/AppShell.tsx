@@ -51,7 +51,7 @@ export function AppShell() {
         >
           <Toolbar sx={{ px: 3 }}>
             <Typography variant="h6" component="span" sx={{ fontWeight: 600 }}>
-              BagChronos
+              BAG-CHRONOS
             </Typography>
           </Toolbar>
           <List sx={{ px: 1.5 }}>
@@ -86,7 +86,7 @@ export function AppShell() {
           <Toolbar sx={{ gap: 2 }}>
             {!isDesktop && (
               <Typography variant="h6" component="span" sx={{ fontWeight: 600 }}>
-                BagChronos
+                BAG-CHRONOS
               </Typography>
             )}
             <Box sx={{ flex: 1 }} />

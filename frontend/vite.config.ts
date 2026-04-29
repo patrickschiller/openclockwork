@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'BagChronos',
-        short_name: 'BagChronos',
-        description: 'Digitale Zeiterfassung',
+        name: 'BAG-CHRONOS',
+        short_name: 'BAG-CHRONOS',
+        description: 'BAG-CHRONOS – Digitale Zeiterfassung',
         theme_color: '#1976d2',
         background_color: '#ffffff',
         display: 'standalone',
