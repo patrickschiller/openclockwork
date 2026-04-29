@@ -49,28 +49,31 @@ BagChronos.Tests        → xUnit + FluentAssertions, In-Memory + SQL-Testcontai
 
 ### AP 2.1 – Datenmodell & Migrationen (US 2.1)
 
-- [ ] Entitäten + EF-Konfigurationen für Tabelle oben.
-- [ ] Initial-Migration `0001_InitialSchema`.
-- [ ] Seed-Daten für TimeModel-Defaults.
+- [x] Entitäten + EF-Konfigurationen für Tabelle oben (`Employee`, `TimeEntry`, `Request`).
+- [x] DbContext + EF-Konfigurationen mit Indizes (PersonalNo unique, Email unique, EmployeeId+ClockIn).
+- [x] Lokal: SQLite via `EnsureCreatedAsync` (Dev-Anchor zu Repo-Root, `DateTimeOffset`-Konverter für SQLite-Sortierung).
+- [ ] Initial-Migration `0001_InitialSchema` für Azure SQL.
+- [x] Seed-Daten: `BagChronos.SeedData` Konsole (idempotent) – 1 HR-Admin, 2 Vorgesetzte, 20 Mitarbeiter.
 
 ### AP 2.2 – Pausenregelung (US 2.2)
 
-- [ ] Domain-Service `WorkTimeCalculator` (rein, ohne I/O):
+- [x] Domain-Service `WorkTimeCalculator` (rein, ohne I/O):
   - `CalculateNet(grossMinutes)` → 30 min Abzug ab 6 h, weitere 15 min ab 9 h (gesamt 45 min).
-  - Unit-Tests mit Grenzfällen 5:59 / 6:00 / 8:59 / 9:00 / mehrere Sessions am Tag.
-- [ ] DTO `TimeSummary { GrossMinutes, NetMinutes, BreakMinutes }` in jeder Buchungsabfrage.
+  - Unit-Tests mit Grenzfällen 5:59 / 6:00 / 8:59 / 9:00.
+- [x] DTO `TimeSummary { GrossMinutes, NetMinutes, BreakMinutes }` in `/api/timeentries`-Antworten.
 
 ### AP 2.3 – Zeitkonten (US 2.3)
 
-- [ ] `AccountService.GetCurrentAsync(employeeId)`:
-  - Überstunden = ∑(Netto-Ist) − ∑(Soll laut TimeModel).
-  - Urlaubskonto = JahresAnspruch − genehmigte Urlaubsanträge bis heute.
-- [ ] HostedService `DailyAccountRecalculation` (täglich 03:00).
+- [x] `/api/accounts/{employeeId}`:
+  - Überstunden = ∑(Netto-Ist YTD) − ∑(Soll-Minuten YTD nach Wochenstunden / Werktagen).
+  - Urlaubskonto = `AnnualLeaveDays − ∑(genehmigte Urlaube)`.
+- [ ] HostedService `DailyAccountRecalculation` (täglich 03:00) – steht aus.
 
 ### AP 2.4 – Antrags-Workflow (US 2.4)
 
-- [ ] State Machine `Submitted → Approved | Rejected` (kein Editieren genehmigter Anträge).
-- [ ] Regel: Buchung/Zeitantrag mit `From < 07:00 || To > 23:00` ⇒ `RequiresApproval = true`, andere Anträge laufen nach normalem Workflow.
+- [x] Domain-Regel `RequestApprovalRules.RequiresSpecialApproval` (07:00 / 23:00 + Mitternacht-Crossing) inkl. Tests.
+- [x] Anwendung in Clock-Out (`RequiresApproval`-Flag).
+- [ ] State Machine `Submitted → Approved | Rejected` für `Request`-Aggregat – steht aus.
 - [ ] Notifications-Stub (Interface), spätere Implementierung via Email/Teams.
 
 ### AP 2.5 – Kernzeit & ERP-Export (US 2.5)
