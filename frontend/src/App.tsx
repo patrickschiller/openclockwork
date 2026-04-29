@@ -1,6 +1,10 @@
 import { Route, Routes } from 'react-router-dom';
 import { AppShell } from './app/AppShell';
 import { DashboardPage } from './routes/DashboardPage';
+import { BookingPage } from './routes/BookingPage';
+import { CalendarPage } from './routes/CalendarPage';
+import { RequestsPage } from './routes/RequestsPage';
+import { AdminRequestsPage } from './routes/AdminRequestsPage';
 import { PlaceholderPage } from './routes/PlaceholderPage';
 
 export function App() {
@@ -8,42 +12,10 @@ export function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<DashboardPage />} />
-        <Route
-          path="booking"
-          element={
-            <PlaceholderPage
-              title="Kommen / Gehen"
-              hint="Mobile Buchungsmaske mit GPS folgt mit AP 3.3."
-            />
-          }
-        />
-        <Route
-          path="calendar"
-          element={
-            <PlaceholderPage
-              title="Jahreskalender"
-              hint="Farbcodierte Status (Urlaub, Home-Office, Krankheit, ...) folgt mit AP 3.5."
-            />
-          }
-        />
-        <Route
-          path="requests"
-          element={
-            <PlaceholderPage
-              title="Anträge"
-              hint="Antragsliste und Formulare (Urlaub, Home-Office, Sonderurlaub, Zeitantrag) folgen mit AP 3.4."
-            />
-          }
-        />
-        <Route
-          path="admin/requests"
-          element={
-            <PlaceholderPage
-              title="Genehmigungen"
-              hint="Vorgesetzten-Inbox mit Filter und Sonder-Approval folgt mit AP 3.7."
-            />
-          }
-        />
+        <Route path="booking" element={<BookingPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
+        <Route path="requests" element={<RequestsPage />} />
+        <Route path="admin/requests" element={<AdminRequestsPage />} />
         <Route
           path="*"
           element={
