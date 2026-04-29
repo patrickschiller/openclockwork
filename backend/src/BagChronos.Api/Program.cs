@@ -43,6 +43,7 @@ app.MapEmployeesEndpoints();
 app.MapTimeEntriesEndpoints();
 app.MapAccountsEndpoints();
 app.MapRequestsEndpoints();
+app.MapViolationsEndpoints();
 
 await app.RunAsync();
 
