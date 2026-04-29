@@ -45,10 +45,13 @@ Route-Schutz per Rollen-Guard (`Employee` reicht für `/booking`, `Manager+` fü
 
 ### AP 3.1 – Skelett & Theme
 
-- [ ] Vite-Projekt, ESLint + Prettier, TS strict.
-- [ ] MD3-Theme mit Brand-Farben (Light + Dark).
-- [ ] App-Shell (Top-Bar, Bottom-Nav für Mobile, Side-Nav für Desktop).
-- [ ] PWA-Manifest, Icons (192/512 + maskable), Installations-Prompt.
+- [x] Vite-Projekt mit TS strict (Prettier optional, kommt mit Lint-Setup).
+- [x] MD3-Theme `src/theme/theme.ts` mit Light + Dark `colorSchemes` (CSS-Variablen, Pill-Buttons, weiche Cards, Roboto-Flex).
+- [x] App-Shell `src/app/AppShell.tsx`: Top-Bar mit Color-Scheme-Toggle, persistente Side-Nav ab `md`, BottomNavigation mobil.
+- [x] Routing-Skelett (`/`, `/booking`, `/calendar`, `/requests`, `/admin/requests`) mit Platzhalterseiten; Health-Smoke ist Dashboard-Karte.
+- [x] PWA-Manifest in `vite.config.ts` (Name, Theme-Color, Display=standalone).
+- [ ] PWA-Icons (192/512 + maskable PNGs) – Manifest referenziert sie, Dateien liegen noch nicht.
+- [ ] Installations-Prompt-Hook (`beforeinstallprompt`).
 
 ### AP 3.2 – Auth & API-Client
 
