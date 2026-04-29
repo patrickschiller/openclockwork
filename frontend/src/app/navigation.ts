@@ -6,8 +6,9 @@ import {
   InboxOutlined,
   PunchClockOutlined
 } from '@mui/icons-material';
+import type { EmployeeRole } from '../api/client';
 
-export type Role = 'Employee' | 'Manager' | 'HRAdmin';
+export type Role = EmployeeRole;
 
 export interface NavItem {
   to: string;

@@ -5,12 +5,16 @@ import {
   BottomNavigation,
   BottomNavigationAction,
   Drawer,
+  FormControl,
   IconButton,
+  InputLabel,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  MenuItem,
   Paper,
+  Select,
   Toolbar,
   Tooltip,
   Typography,
@@ -20,14 +24,16 @@ import {
 import { DarkModeOutlined, LightModeOutlined } from '@mui/icons-material';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { Theme } from '@mui/material/styles';
-import { visibleNavItems, type Role } from './navigation';
+import { visibleNavItems } from './navigation';
+import { useCurrentEmployee } from './CurrentEmployee';
 
 const drawerWidth = 248;
 
 export function AppShell() {
   const isDesktop = useMediaQuery((t: Theme) => t.breakpoints.up('md'));
+  const { current } = useCurrentEmployee();
 
-  const role: Role = 'HRAdmin';
+  const role = current?.role ?? 'Employee';
   const items = useMemo(() => visibleNavItems(role), [role]);
   const bottomItems = useMemo(() => items.filter((i) => i.showInBottomNav), [items]);
 
@@ -90,6 +96,7 @@ export function AppShell() {
               </Typography>
             )}
             <Box sx={{ flex: 1 }} />
+            <EmployeePicker />
             <ColorSchemeToggle />
           </Toolbar>
         </AppBar>
@@ -138,6 +145,29 @@ export function AppShell() {
         )}
       </Box>
     </Box>
+  );
+}
+
+function EmployeePicker() {
+  const { employees, current, setCurrentId, isLoading } = useCurrentEmployee();
+  if (isLoading || employees.length === 0) return null;
+
+  return (
+    <FormControl size="small" sx={{ minWidth: 220 }}>
+      <InputLabel id="current-employee-label">Angemeldet als</InputLabel>
+      <Select
+        labelId="current-employee-label"
+        label="Angemeldet als"
+        value={current?.id ?? ''}
+        onChange={(e) => setCurrentId(String(e.target.value))}
+      >
+        {employees.map((e) => (
+          <MenuItem key={e.id} value={e.id}>
+            {e.firstName} {e.lastName} · {e.role}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
   );
 }
 

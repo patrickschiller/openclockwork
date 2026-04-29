@@ -58,32 +58,36 @@ Route-Schutz per Rollen-Guard (`Employee` reicht für `/booking`, `Manager+` fü
 - [ ] MSAL-Browser für Azure AD.
 - [ ] Token in `Authorization`-Header injizieren (Axios-Interceptor oder Fetch-Wrapper).
 - [ ] OpenAPI-Generierung als npm-Script (`npm run generate:api`).
+- [x] Übergangslösung: `CurrentEmployeeProvider` (`src/app/CurrentEmployee.tsx`) lädt Mitarbeiter via `/api/employees`, persistiert die Auswahl in `localStorage` und stellt sie als Stand-in für ein echtes Login bereit, bis MSAL kommt. Auswahl-Dropdown sitzt in der App-Bar.
 
 ### AP 3.3 – Mobile Buchung (US 3.1)
 
-- [ ] Geolocation API mit Permissions-Fallback (Buchung möglich auch ohne GPS).
-- [ ] Optimistic UI: Button toggelt Status sofort, rollback bei Fehler.
+- [x] `BookingPage`: Kommen/Gehen-Karte mit Statuschip, optionalem GPS-Switch (Promise-basiertes `getCurrentPosition`, bricht weich auf "ohne GPS senden" zurück) und Buchungstabelle der letzten 20 Einträge.
+- [x] 07–23-Warnbanner für Außerregelzeit-Buchungen (sondergenehmigungspflichtig).
+- [ ] Optimistic UI: Button toggelt Status sofort, rollback bei Fehler. (Aktuell: Pending-State + Invalidate, kein Rollback nötig).
 - [ ] Sichtbarer Offline-Hinweis, falls Netz fehlt (Buchung wird dann nicht queued — bewusst, um Ambiguität zu vermeiden).
 
 ### AP 3.4 – Anträge (US 3.2)
 
-- [ ] Formularvarianten Urlaub / Home-Office / Sonderurlaub / Zeitantrag.
-- [ ] Live-Validierung der Zeitfenster (07–23 Warnung als MD3 `Snackbar` / `Banner`).
+- [x] `RequestsPage` mit Antragsliste + Dialog für neue Anträge. Alle vier Typen (`Vacation`, `HomeOffice`, `SpecialLeave`, `TimeCorrection`) verfügbar.
+- [x] Live-Warnung bei `TimeCorrection` außerhalb 07–23 (MD3 `Alert`).
 - [ ] Datei-Upload für Sonderurlaub-Belege (optional, hinter Feature-Flag).
 
 ### AP 3.5 – Kalender (US 3.3)
 
-- [ ] `YearCalendar` als virtualisiertes Grid; Status-Legende.
-- [ ] Tooltip mit Details bei Hover/Tap.
+- [x] `CalendarPage` zeigt 12 Monate als Grid; Tage werden über genehmigte/offene Requests eingefärbt (Urlaub/Home-Office/Sonderurlaub/Zeitkorrektur). Offene Anträge erhalten gestrichelten Outline.
+- [x] Tooltip pro Tag mit Typ, Status und Begründung.
+- [ ] Erweiterung um Krankheit, Schulung, Gleittage (kommt mit Epic 4 / weitere Statusquellen).
 
 ### AP 3.6 – Dashboard (US 3.4)
 
-- [ ] Drei KPI-Tiles + Verstoß-Banner.
-- [ ] Schnellzugriff "Heute buchen" für Mobile.
+- [x] KPI-Tiles für Überstundenkonto, Resturlaub und YTD-Kernzeitverletzungen (via `/api/accounts`, `/api/violations`).
+- [x] "Aktuelle Buchung"-Karte mit Schnellzugriff zur Buchungsseite.
+- [x] Liste offener Anträge mit Sondergenehmigungs-Chip.
 
 ### AP 3.7 – Admin-Bereich (US 3.5)
 
-- [ ] Inbox mit Filter (offen, genehmigt, abgelehnt) und Highlight für 07–23-Sonderfälle.
+- [x] `AdminRequestsPage` (Manager + HRAdmin only) mit Statusfilter (Offen / Genehmigt / Abgelehnt / Alle), Notizfeld und Approve/Reject-Buttons. Sondergenehmigungs-Zeilen sind farblich hervorgehoben.
 - [ ] Bulk-Approve mit Bestätigung.
 - [ ] Mitarbeiter-CRUD (HRAdmin only).
 

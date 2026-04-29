@@ -10,6 +10,8 @@ Quelle aller fachlichen Anforderungen ist [`base-instructions.md`](../../base-in
    Domänenlogik, Datenmodell, REST-API. Muss vor produktiver Frontend-Arbeit eine stabile API-Vertragsbasis liefern (OpenAPI).
 3. **Epic 3 – Frontend (React & PWA)** ([Plan](./epic-3-frontend.md))
    Browser-Admin-UI und mobile PWA. Konsumiert ausschließlich die in Epic 2 definierte API.
+4. **Epic 4 – Urlaub & Freigabe-Workflow** ([Plan](./epic-4-vacation-workflow.md))
+   Erweiterung der Stammdaten um jahresweise Urlaubsansprüche, korrekte Resttage-Berechnung und vollständiger Genehmigungs-Workflow für Urlaubsanträge.
 
 ## Querschnittliche Regeln (gelten in allen Epics)
 
