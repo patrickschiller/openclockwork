@@ -9,6 +9,8 @@ public class BagChronosDbContext(DbContextOptions<BagChronosDbContext> options) 
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
     public DbSet<Request> Requests => Set<Request>();
+    public DbSet<EmployeeLeaveAllowance> EmployeeLeaveAllowances => Set<EmployeeLeaveAllowance>();
+    public DbSet<RequestEvent> RequestEvents => Set<RequestEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

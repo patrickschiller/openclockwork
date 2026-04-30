@@ -81,6 +81,7 @@ app.MapHealthEndpoints();
 app.MapEmployeesEndpoints();
 app.MapTimeEntriesEndpoints();
 app.MapAccountsEndpoints();
+app.MapLeaveAllowancesEndpoints();
 app.MapRequestsEndpoints();
 app.MapViolationsEndpoints();
 app.MapErpEndpoints();
