@@ -10,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Stack,
   Table,
@@ -18,13 +19,15 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography
 } from '@mui/material';
-import { AddOutlined } from '@mui/icons-material';
+import { AddOutlined, CancelOutlined, HistoryOutlined } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type RequestType } from '../api/client';
+import { api, type RequestType, type WorkflowState } from '../api/client';
 import { useCurrentEmployee } from '../app/CurrentEmployee';
 import { formatDateTime, isOutsideRegularHours } from '../util/format';
+import { RequestEventsDrawer } from '../components/RequestEventsDrawer';
 
 const REQUEST_TYPES: { value: RequestType; label: string; description: string }[] = [
   { value: 'Vacation', label: 'Urlaub', description: 'Mehrere Tage – ganztägig.' },
@@ -33,15 +36,41 @@ const REQUEST_TYPES: { value: RequestType; label: string; description: string }[
   { value: 'TimeCorrection', label: 'Zeitkorrektur', description: 'Manuelle Buchungskorrektur.' }
 ];
 
-const STATUS_TONE: Record<string, 'default' | 'success' | 'error' | 'info'> = {
+const WORKFLOW_TONE: Record<WorkflowState, 'default' | 'success' | 'error' | 'info' | 'warning'> = {
+  Draft: 'default',
   Submitted: 'info',
+  PendingSubstitute: 'info',
+  PendingManager: 'info',
+  PendingHr: 'warning',
   Approved: 'success',
-  Rejected: 'error'
+  Rejected: 'error',
+  ReturnedForRevision: 'warning',
+  Cancelled: 'default'
 };
 
-function emptyForm(): { type: RequestType; from: string; to: string; reason: string } {
+const WORKFLOW_LABEL: Record<WorkflowState, string> = {
+  Draft: 'Entwurf',
+  Submitted: 'Eingereicht',
+  PendingSubstitute: 'Wartet auf Vertretung',
+  PendingManager: 'Wartet auf Vorgesetzte:n',
+  PendingHr: 'Wartet auf HR',
+  Approved: 'Genehmigt',
+  Rejected: 'Abgelehnt',
+  ReturnedForRevision: 'Zur Überarbeitung',
+  Cancelled: 'Storniert'
+};
+
+interface FormState {
+  type: RequestType;
+  from: string;
+  to: string;
+  reason: string;
+  substituteId: string;
+}
+
+function emptyForm(): FormState {
   const today = new Date().toISOString().slice(0, 10);
-  return { type: 'Vacation', from: `${today}T09:00`, to: `${today}T17:00`, reason: '' };
+  return { type: 'Vacation', from: `${today}T09:00`, to: `${today}T17:00`, reason: '', substituteId: '' };
 }
 
 export function RequestsPage() {
@@ -52,6 +81,7 @@ export function RequestsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [feedback, setFeedback] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [eventsRequestId, setEventsRequestId] = useState<string | null>(null);
 
   const requestsQuery = useQuery({
     queryKey: ['requests', 'mine', employeeId],
@@ -59,14 +89,37 @@ export function RequestsPage() {
     enabled: !!employeeId
   });
 
+  const balanceQuery = useQuery({
+    queryKey: ['vacation-balance', employeeId, new Date(form.from).getFullYear()],
+    queryFn: () => api.vacationBalance(employeeId!, new Date(form.from).getFullYear()),
+    enabled: !!employeeId && form.type === 'Vacation'
+  });
+
+  const colleaguesQuery = useQuery({
+    queryKey: ['employees', 'colleagues'],
+    queryFn: () => api.employees(),
+    enabled: form.type === 'Vacation'
+  });
+
   const createMutation = useMutation({
     mutationFn: () => {
       if (!employeeId) throw new Error('Kein Mitarbeiter ausgewählt.');
+      const fromIso = new Date(form.from).toISOString();
+      const toIso = new Date(form.to).toISOString();
+      if (form.type === 'Vacation') {
+        return api.createVacationRequest({
+          employeeId,
+          from: fromIso,
+          to: toIso,
+          substituteId: form.substituteId || null,
+          reason: form.reason || null
+        });
+      }
       return api.createRequest({
         employeeId,
         type: form.type,
-        from: new Date(form.from).toISOString(),
-        to: new Date(form.to).toISOString(),
+        from: fromIso,
+        to: toIso,
         reason: form.reason || null
       });
     },
@@ -75,6 +128,20 @@ export function RequestsPage() {
       setDialogOpen(false);
       setForm(emptyForm());
       void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['vacation-balance'] });
+    },
+    onError: (e: Error) => setFeedback({ kind: 'error', text: e.message })
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => {
+      if (!employeeId) throw new Error('Kein Mitarbeiter ausgewählt.');
+      return api.cancelRequest(id, employeeId, 'Vom Antragsteller storniert');
+    },
+    onSuccess: () => {
+      setFeedback({ kind: 'success', text: 'Antrag storniert.' });
+      void queryClient.invalidateQueries({ queryKey: ['requests'] });
+      void queryClient.invalidateQueries({ queryKey: ['vacation-balance'] });
     },
     onError: (e: Error) => setFeedback({ kind: 'error', text: e.message })
   });
@@ -87,6 +154,32 @@ export function RequestsPage() {
       isOutsideRegularHours(new Date(form.to).toISOString())
     );
   }, [form]);
+
+  const requestedDays = useMemo(() => {
+    if (form.type !== 'Vacation' || !form.from || !form.to) return 0;
+    const from = new Date(form.from);
+    const to = new Date(form.to);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to < from) return 0;
+    let days = 0;
+    const cur = new Date(from);
+    cur.setHours(0, 0, 0, 0);
+    const end = new Date(to);
+    end.setHours(0, 0, 0, 0);
+    while (cur <= end) {
+      const dow = cur.getDay();
+      if (dow !== 0 && dow !== 6) days += 1;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return days;
+  }, [form]);
+
+  const insufficient =
+    form.type === 'Vacation' && balanceQuery.data ? requestedDays > balanceQuery.data.remainingDays : false;
+
+  const colleagues = (colleaguesQuery.data ?? []).filter((c) => c.id !== employeeId && c.isActive);
+
+  const canCancel = (state: WorkflowState) =>
+    state !== 'Approved' && state !== 'Rejected' && state !== 'Cancelled';
 
   return (
     <Stack spacing={3}>
@@ -123,8 +216,10 @@ export function RequestsPage() {
                     <TableCell>Typ</TableCell>
                     <TableCell>Von</TableCell>
                     <TableCell>Bis</TableCell>
+                    <TableCell>Tage</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Begründung</TableCell>
+                    <TableCell align="right">Aktion</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -133,13 +228,36 @@ export function RequestsPage() {
                       <TableCell>{r.type}</TableCell>
                       <TableCell>{formatDateTime(r.from)}</TableCell>
                       <TableCell>{formatDateTime(r.to)}</TableCell>
+                      <TableCell>{r.calculatedDays > 0 ? r.calculatedDays.toFixed(1) : '—'}</TableCell>
                       <TableCell>
                         <Stack direction="row" spacing={0.5}>
-                          <Chip size="small" label={r.status} color={STATUS_TONE[r.status] ?? 'default'} />
+                          <Chip
+                            size="small"
+                            label={WORKFLOW_LABEL[r.workflowState]}
+                            color={WORKFLOW_TONE[r.workflowState]}
+                          />
                           {r.requiresApproval && <Chip size="small" color="warning" label="Sondergenehmigung" />}
                         </Stack>
                       </TableCell>
                       <TableCell>{r.reason ?? '—'}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="Verlauf">
+                          <IconButton size="small" onClick={() => setEventsRequestId(r.id)}>
+                            <HistoryOutlined fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {canCancel(r.workflowState) && (
+                          <Tooltip title="Stornieren">
+                            <IconButton
+                              size="small"
+                              onClick={() => cancelMutation.mutate({ id: r.id })}
+                              disabled={cancelMutation.isPending}
+                            >
+                              <CancelOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -187,6 +305,32 @@ export function RequestsPage() {
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}
             />
+
+            {form.type === 'Vacation' && (
+              <>
+                <TextField
+                  select
+                  label="Vertretung (optional)"
+                  value={form.substituteId}
+                  onChange={(e) => setForm({ ...form, substituteId: e.target.value })}
+                  helperText="Wenn gewählt, muss die Vertretung den Antrag bestätigen, bevor die/der Vorgesetzte entscheidet."
+                >
+                  <MenuItem value="">Keine</MenuItem>
+                  {colleagues.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.firstName} {c.lastName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {balanceQuery.data && (
+                  <Alert severity={insufficient ? 'error' : 'info'}>
+                    {`Resturlaub ${balanceQuery.data.year}: ${balanceQuery.data.remainingDays.toFixed(1)} Tage. Beantragt: ${requestedDays.toFixed(1)} Tag(e). `}
+                    {insufficient && 'Nicht genügend Resttage – bitte Zeitraum anpassen.'}
+                  </Alert>
+                )}
+              </>
+            )}
+
             {showSpecialApprovalWarning && (
               <Alert severity="warning">
                 Diese Zeitkorrektur fällt vor 07:00 oder nach 23:00 und ist sondergenehmigungspflichtig.
@@ -199,12 +343,14 @@ export function RequestsPage() {
           <Button
             variant="contained"
             onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending}
+            disabled={createMutation.isPending || insufficient}
           >
             {createMutation.isPending ? 'Sende…' : 'Einreichen'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <RequestEventsDrawer requestId={eventsRequestId} onClose={() => setEventsRequestId(null)} />
     </Stack>
   );
 }

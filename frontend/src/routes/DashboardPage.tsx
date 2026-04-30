@@ -16,6 +16,12 @@ export function DashboardPage() {
     enabled: !!employeeId
   });
 
+  const vacationQuery = useQuery({
+    queryKey: ['vacation-balance', employeeId, new Date().getFullYear()],
+    queryFn: () => api.vacationBalance(employeeId!),
+    enabled: !!employeeId
+  });
+
   const yearStartIso = `${new Date().getFullYear()}-01-01T00:00:00Z`;
   const violationsQuery = useQuery({
     queryKey: ['violations', employeeId, yearStartIso],
@@ -65,9 +71,19 @@ export function DashboardPage() {
         />
         <KpiCard
           label="Resturlaub"
-          value={accountQuery.data ? `${accountQuery.data.vacationDaysRemaining} Tage` : '—'}
-          hint={accountQuery.data ? `${accountQuery.data.vacationDaysUsed} von ${accountQuery.data.vacationDaysTotal} verbraucht` : ''}
-          loading={accountQuery.isLoading}
+          value={
+            vacationQuery.data
+              ? `${vacationQuery.data.remainingDays.toFixed(1)} Tage`
+              : accountQuery.data
+                ? `${accountQuery.data.vacationDaysRemaining} Tage`
+                : '—'
+          }
+          hint={
+            vacationQuery.data
+              ? `${vacationQuery.data.approvedDays.toFixed(1)} genehmigt · ${vacationQuery.data.pendingDays.toFixed(1)} offen · ${vacationQuery.data.totalEntitlement.toFixed(1)} gesamt`
+              : ''
+          }
+          loading={vacationQuery.isLoading || accountQuery.isLoading}
         />
         <KpiCard
           label="Kernzeitverletzungen YTD"

@@ -3,6 +3,7 @@ import {
   CalendarMonthOutlined,
   DashboardOutlined,
   FactCheckOutlined,
+  HandshakeOutlined,
   InboxOutlined,
   PunchClockOutlined
 } from '@mui/icons-material';
@@ -46,6 +47,13 @@ export const navItems: NavItem[] = [
     icon: FactCheckOutlined,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: true
+  },
+  {
+    to: '/substitute',
+    label: 'Vertretungen',
+    icon: HandshakeOutlined,
+    roles: ['Employee', 'Manager', 'HRAdmin'],
+    showInBottomNav: false
   },
   {
     to: '/admin/requests',

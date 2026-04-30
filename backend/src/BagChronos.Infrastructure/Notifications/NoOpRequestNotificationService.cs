@@ -1,4 +1,5 @@
 using BagChronos.Domain.Entities;
+using BagChronos.Domain.Enums;
 using Microsoft.Extensions.Logging;
 
 namespace BagChronos.Infrastructure.Notifications;
@@ -19,6 +20,14 @@ public sealed class NoOpRequestNotificationService(ILogger<NoOpRequestNotificati
         logger.LogInformation(
             "Request decided: {RequestId} ({Type}) -> {Status} by {ApproverId}",
             request.Id, request.Type, request.Status, request.ApproverId);
+        return Task.CompletedTask;
+    }
+
+    public Task NotifyWorkflowTransitionAsync(Request request, RequestEventKind kind, CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation(
+            "Workflow transition: {RequestId} ({Type}) -> {WorkflowState} via {Kind}",
+            request.Id, request.Type, request.WorkflowState, kind);
         return Task.CompletedTask;
     }
 }

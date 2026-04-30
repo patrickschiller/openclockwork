@@ -1,6 +1,7 @@
 using BagChronos.Domain.Enums;
 using BagChronos.Domain.Services;
 using BagChronos.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace BagChronos.Api.Endpoints;
@@ -12,8 +13,56 @@ public static class AccountsEndpoints
         var group = app.MapGroup("/api/accounts").WithTags("Accounts");
 
         group.MapGet("/{employeeId:guid}", GetAsync).WithName("GetAccount").WithOpenApi();
+        group.MapGet("/{employeeId:guid}/vacation", GetVacationAsync).WithName("GetVacationBalance").WithOpenApi();
 
         return app;
+    }
+
+    private static async Task<IResult> GetVacationAsync(
+        Guid employeeId,
+        BagChronosDbContext db,
+        TimeProvider clock,
+        CancellationToken cancellationToken,
+        [FromQuery] int? year = null)
+    {
+        var employeeExists = await db.Employees.AnyAsync(e => e.Id == employeeId, cancellationToken);
+        if (!employeeExists) return Results.NotFound();
+
+        var targetYear = year ?? clock.GetUtcNow().Year;
+
+        var allowance = await db.EmployeeLeaveAllowances
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.EmployeeId == employeeId && a.Year == targetYear, cancellationToken);
+
+        var yearStart = new DateTimeOffset(targetYear, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var yearEnd = new DateTimeOffset(targetYear, 12, 31, 23, 59, 59, TimeSpan.Zero);
+
+        var requests = await db.Requests
+            .AsNoTracking()
+            .Where(r => r.EmployeeId == employeeId
+                        && r.Type == RequestType.Vacation
+                        && r.From <= yearEnd
+                        && r.To >= yearStart)
+            .ToListAsync(cancellationToken);
+
+        var balance = VacationBalanceService.Compute(
+            targetYear,
+            allowance,
+            requests,
+            LeaveCalculator.GermanHolidaysNrw(targetYear));
+
+        return Results.Ok(new VacationBalanceDto(
+            employeeId,
+            balance.Year,
+            balance.BaseDays,
+            balance.CarryOverDays,
+            balance.AdjustmentDays,
+            balance.TotalEntitlement,
+            balance.ApprovedDays,
+            balance.PendingDays,
+            balance.RemainingDays,
+            allowance?.CarryOverExpiresOn,
+            allowance?.AdjustmentReason));
     }
 
     private static async Task<IResult> GetAsync(
@@ -93,3 +142,16 @@ public record AccountDto(
     int VacationDaysUsed,
     int VacationDaysRemaining,
     DateTimeOffset AsOf);
+
+public record VacationBalanceDto(
+    Guid EmployeeId,
+    int Year,
+    decimal BaseDays,
+    decimal CarryOverDays,
+    decimal AdjustmentDays,
+    decimal TotalEntitlement,
+    decimal ApprovedDays,
+    decimal PendingDays,
+    decimal RemainingDays,
+    DateTimeOffset? CarryOverExpiresOn,
+    string? AdjustmentReason);

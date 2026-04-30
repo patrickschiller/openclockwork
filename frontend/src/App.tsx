@@ -5,6 +5,7 @@ import { BookingPage } from './routes/BookingPage';
 import { CalendarPage } from './routes/CalendarPage';
 import { RequestsPage } from './routes/RequestsPage';
 import { AdminRequestsPage } from './routes/AdminRequestsPage';
+import { SubstitutePage } from './routes/SubstitutePage';
 import { PlaceholderPage } from './routes/PlaceholderPage';
 
 export function App() {
@@ -15,6 +16,7 @@ export function App() {
         <Route path="booking" element={<BookingPage />} />
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="requests" element={<RequestsPage />} />
+        <Route path="substitute" element={<SubstitutePage />} />
         <Route path="admin/requests" element={<AdminRequestsPage />} />
         <Route
           path="*"
