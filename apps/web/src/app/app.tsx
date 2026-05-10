@@ -1,49 +1,69 @@
-import NxWelcome from './nx-welcome';
-
-import { Route, Routes, Link } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
+import { AppShell } from './AppShell';
+import { DashboardPage } from '../routes/DashboardPage';
+import { PlaceholderPage } from '../routes/PlaceholderPage';
 
 export function App() {
   return (
-    <div>
-      <NxWelcome title="web" />
-
-      {/* START: routes */}
-      {/* These routes and navigation have been generated for you */}
-      {/* Feel free to move and update them to fit your needs */}
-      <br />
-      <hr />
-      <br />
-      <div role="navigation">
-        <ul>
-          <li>
-            <Link to="/">Home</Link>
-          </li>
-          <li>
-            <Link to="/page-2">Page 2</Link>
-          </li>
-        </ul>
-      </div>
-      <Routes>
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<DashboardPage />} />
         <Route
-          path="/"
+          path="booking"
           element={
-            <div>
-              This is the generated root route.{' '}
-              <Link to="/page-2">Click here for page 2.</Link>
-            </div>
+            <PlaceholderPage
+              title="Buchen"
+              hint="Kommen / Gehen mit GPS — kommt in Epic 2."
+            />
           }
         />
         <Route
-          path="/page-2"
+          path="calendar"
           element={
-            <div>
-              <Link to="/">Click here to go back to root page.</Link>
-            </div>
+            <PlaceholderPage
+              title="Kalender"
+              hint="Jahreskalender mit Krankheit, Urlaub, Home-Office — kommt in Epic 3."
+            />
           }
         />
-      </Routes>
-      {/* END: routes */}
-    </div>
+        <Route
+          path="requests"
+          element={
+            <PlaceholderPage
+              title="Anträge"
+              hint="Urlaub, Home-Office, Sonderurlaub, Zeitanträge — kommt in Epic 3."
+            />
+          }
+        />
+        <Route
+          path="substitute"
+          element={
+            <PlaceholderPage
+              title="Vertretungen"
+              hint="Vertretungs-Inbox für eingehende Urlaubsanträge — kommt in Epic 4."
+            />
+          }
+        />
+        <Route
+          path="admin/requests"
+          element={
+            <PlaceholderPage
+              title="Genehmigungen"
+              hint="Manager- und HR-Genehmigungs-Queue — kommt in Epic 4."
+            />
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <PlaceholderPage
+              title="Nicht gefunden"
+              hint="Diese Seite existiert nicht."
+            />
+          }
+        />
+      </Route>
+    </Routes>
   );
 }
 
