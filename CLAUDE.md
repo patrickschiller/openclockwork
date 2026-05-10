@@ -15,6 +15,8 @@ This file is consumed by Claude Code (claude.ai/code) when working in this repos
 
 `base-instructions.md` will continue to evolve. When it is updated, the new content takes precedence over older code: prefer reconciling code with the spec over preserving an out-of-date implementation.
 
+Implementation plans broken down by epic live in [`docs/plans/`](docs/plans/README.md). All four epic plans (Workspace + CI, NestJS Backend, React/Tailwind Frontend, Vacation/Workflow) are written against the current NestJS/Prisma/Tailwind/shadcn stack and are binding. Status checkboxes reflect the actual code state in this repo, not historical .NET work.
+
 ## Tech stack (binding decisions)
 
 These were chosen deliberately. Do not introduce alternatives without flagging the deviation.
@@ -29,6 +31,72 @@ These were chosen deliberately. Do not introduce alternatives without flagging t
 | Mobile      | The same React PWA. Architecture must keep a future React Native migration plausible — avoid browser-only APIs in shared business logic; isolate them in adapters. |
 | Tests       | **Jest** for the NestJS app, **Vitest** for the web client and shared libs, **Playwright** for end-to-end. New endpoints and business rules without tests will not be merged. |
 | CI/CD       | **GitHub Actions** for lint + type-check + test + build, plus a DCO sign-off check on every PR. Deployment targets are pluggable; no hard dependency on a specific cloud. |
+
+## Repository layout
+
+```
+apps/
+  api/            NestJS service (entry: src/main.ts, modules under src/app/)
+  api-e2e/        Jest-based API integration tests
+  web/            React + Vite + Tailwind + shadcn PWA
+                  src/api/        — generated/typed API client + react-query hooks
+                  src/components/ — shadcn/ui primitives + composite components
+                  src/routes/     — page-level components mounted by react-router
+                  src/app/        — AppShell, navigation, providers
+  web-e2e/        Playwright tests for the web client
+libs/
+  shared/         Pure-TS shared types and domain functions (importable by api + web)
+prisma/
+  schema.prisma   Single source of truth for the DB; migrations live alongside it
+docs/             Architecture notes, ADRs, deployment guides (currently empty)
+legacy/frontend/  Pre-pivot Vite/React snapshot. **Read-only reference.** Do not
+                  modify or import from here; the active web client is apps/web/.
+base-instructions.md   Authoritative German requirements specification
+```
+
+The local working directory is still named `bag-chronos/` for historical reasons — that is unrelated to the project name and does not affect anything.
+
+## Common commands
+
+All scripts run from the repo root. Nx caches outputs locally (Nx Cloud is disabled).
+
+```bash
+# One-time setup
+pnpm install
+docker compose up -d db          # start local PostgreSQL on :5432
+cp .env.example .env             # then edit secrets
+pnpm prisma generate             # regenerate client after schema changes
+pnpm prisma migrate dev          # create + apply a new migration
+
+# Day-to-day
+pnpm nx run-many -t serve -p api,web   # api on :3000, web on :4200 (proxies to api)
+pnpm nx serve api                       # backend only
+pnpm nx dev web                         # web only (Vite dev target)
+
+# Quality gates (mirrors CI in .github/workflows/ci.yml)
+pnpm lint            # nx run-many -t lint
+pnpm typecheck       # nx run-many -t typecheck
+pnpm test            # nx run-many -t test
+pnpm build           # nx run-many -t build
+pnpm format          # prettier write via nx format:write
+
+# Run a single project's tests
+pnpm nx test api              # Jest for the NestJS app
+pnpm nx test web              # Vitest for the React client
+pnpm nx test shared           # Vitest for libs/shared
+
+# Run a single test file or pattern
+pnpm nx test api -- --testPathPattern=time-entry      # Jest pattern
+pnpm nx test web -- src/routes/DashboardPage.spec.tsx # Vitest by path
+pnpm nx test web -- -t "renders the dashboard"        # Vitest by test name
+
+# E2E
+pnpm nx e2e web-e2e           # Playwright
+pnpm nx test api-e2e          # API integration (Jest)
+
+# Affected-only (faster on PR branches)
+pnpm nx affected -t lint typecheck test build
+```
 
 ## Architecture rules
 
@@ -73,4 +141,5 @@ Don't introduce frameworks, ORMs, UI kits, or services the spec doesn't call for
 - No new top-level `.md` files unless the user asks for them. Use `docs/` for architecture notes, ADRs, and deployment guides.
 - Sign every commit with DCO (`git commit -s`). The CI will reject unsigned commits in pull requests.
 - Conventional Commits (`feat:`, `fix:`, `chore:`, ...) are used in this repository's commit messages.
-- The local working directory is currently still named `bag-chronos/` for historical reasons — that does not affect the project name. Renaming the folder is a manual follow-up the user will do when convenient.
+- After changing `prisma/schema.prisma`, always run `pnpm prisma generate` so the typed client stays in sync; create migrations with `pnpm prisma migrate dev` and commit them.
+- The `legacy/frontend/` tree is a pre-pivot snapshot kept for reference only. Do not edit it, import from it, or treat it as authoritative — the live web client is `apps/web/`.
