@@ -45,9 +45,10 @@ apps/
   api/            NestJS service: REST, WebSocket gateway, Prisma client
   web/            React + Vite + Tailwind + shadcn PWA
 libs/
-  shared/         Shared TS types and contract definitions
+  shared/         Shared TS types and pure-TS domain functions
 prisma/           Prisma schema and migrations (single source of DB truth)
-docs/             Architecture notes, ADRs, deployment guides
+docs/
+  plans/          Per-epic implementation plans (binding for current work)
 base-instructions.md   Authoritative German requirements specification
 CLAUDE.md         Implementation guide consumed by Claude Code
 ```
