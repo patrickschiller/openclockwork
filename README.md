@@ -1,158 +1,95 @@
-# BAG-CHRONOS
+# OpenClockwork
 
-> Digitales Zeiterfassungs- und Anwesenheitsmanagement-System – Cloud-native, API-first, mobil-fähig.
+> Open-source digital time-and-attendance management — **Zeiterfassung** done right, on a modern web stack.
 
-Mitarbeiter buchen Kommen/Gehen mobil per PWA, Vorgesetzte verwalten Anträge im Browser, das Backend rechnet Salden, Pausen und Kernzeitverletzungen automatisch und stellt Daten via API für ein externes ERP bereit. Vollständige fachliche Spezifikation: [`base-instructions.md`](./base-instructions.md).
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![DCO](https://img.shields.io/badge/DCO-required-blue)](CONTRIBUTING.md#developer-certificate-of-origin-dco)
+[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#project-status)
 
----
+OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. It models real-world German labour-law requirements (statutory break deduction, *Soll/Ist* hour accounts, vacation balances, multi-stage approval workflows for *Urlaub*, *Home-Office*, *Sonderurlaub*, *Zeitanträge*) — but it is built to be useful anywhere that needs a credible alternative to commercial *Zeiterfassung* products.
 
-## Tech-Stack
+The project is intentionally small in scope and opinionated in its choices, so a single developer or a small team can stand it up, run it, and trust the numbers.
 
-| Schicht | Technologie | Anmerkungen |
-|---|---|---|
-| **Backend** | C# / .NET 8, ASP.NET Core Minimal APIs | **Alle I/O-Methoden async** – harte Regel |
-| **Persistenz** | Azure SQL + EF Core 8 (Code-First) | Connection-String über Key Vault Reference |
-| **Auth** | Azure AD (MSAL / Microsoft.Identity.Web) | Rollen: Employee, Manager, HRAdmin, ErpClient |
-| **Frontend Web** | React 18 + Vite + TypeScript | Material UI v6 mit MD3-Theme |
-| **Frontend Mobile** | Gleicher Code als PWA (`vite-plugin-pwa`) | Architektur hält React-Native-Migration offen |
-| **Hosting** | Azure App Service (API) + Static Web App (Frontend) | Linux Plan, B1 für Start |
-| **CI/CD** | GitHub Actions, OIDC-Federation zu Azure | Kein Publish-Profile, keine Long-Lived Secrets |
-| **Secrets** | Azure Key Vault + Managed Identity | Keine Secrets im Repo, niemals |
+## Project status
 
-Querschnittliche Regeln stehen in [`docs/plans/README.md`](./docs/plans/README.md) und [`CLAUDE.md`](./CLAUDE.md).
+**Alpha — under active development.** The project is being built from a [German requirements specification](base-instructions.md) and an [implementation guide for Claude Code](CLAUDE.md). APIs, schemas, and UI flows will change without notice until a `0.1.0` tag is published. Do not run this in production yet.
 
----
+## Why another time tracker?
 
-## Repository-Layout
+Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignore German labour law, or enterprise *Zeitwirtschaft* suites priced for HR departments with budget. OpenClockwork sits in the middle:
+
+- **Lawful by construction.** Statutory break deduction, core-hour violation flags, and the 07:00 / 23:00 approval threshold are encoded in the domain layer, not bolted on by the customer.
+- **Self-hostable.** PostgreSQL + a Node backend + a static web client. No SaaS lock-in; your data stays on your infrastructure.
+- **PWA-first mobile experience.** Employees clock in and out from their phones with optional GPS — no app-store gatekeeper, no native build pipeline.
+- **API-first.** The web client is just one consumer of the public REST + WebSocket API. ERP integration is a first-class endpoint, not an afterthought.
+- **Open source under Apache 2.0.** Fork it, embed it, sell support around it. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for the terms.
+
+## Tech stack
+
+| Layer        | Technology                              |
+| ------------ | --------------------------------------- |
+| Workspace    | Nx monorepo (pnpm)                      |
+| Frontend     | React 18, Vite, Tailwind CSS, shadcn/ui |
+| Backend      | NestJS (Node.js, TypeScript strict)     |
+| Database     | PostgreSQL with Prisma ORM              |
+| Realtime     | Socket.IO (NestJS WebSocket gateway)    |
+| Tests        | Vitest (web), Jest (api), Playwright    |
+| CI           | GitHub Actions                          |
+
+The full set of binding decisions and domain rules lives in [CLAUDE.md](CLAUDE.md) and [base-instructions.md](base-instructions.md).
+
+## Repository layout
 
 ```
-backend/                 ASP.NET Core 8 Web API
-  BagChronos.sln
-  src/BagChronos.Api/    Minimal APIs, Health-Endpoint, Swagger
-frontend/                React + Vite + PWA
-  src/                   App-Code (TS, MUI MD3)
-  public/                Statische Assets, PWA-Icons
-docs/
-  plans/                 Implementierungspläne pro Epic
-  azure-setup.md         Schritt-für-Schritt Azure + GitHub Actions
-.github/workflows/       CI (PR) + Deploy (Push auf main)
-base-instructions.md     Fachliche Spezifikation (Quelle der Wahrheit)
-CLAUDE.md                Hinweise für KI-Assistenten in diesem Repo
+apps/
+  api/            NestJS service: REST, WebSocket gateway, Prisma client
+  web/            React + Vite + Tailwind + shadcn PWA
+libs/
+  shared/         Shared TS types and contract definitions
+prisma/           Prisma schema and migrations (single source of DB truth)
+docs/             Architecture notes, ADRs, deployment guides
+base-instructions.md   Authoritative German requirements specification
+CLAUDE.md         Implementation guide consumed by Claude Code
 ```
 
----
+## Getting started (development)
 
-## Epics auf einen Blick
-
-| # | Titel | Inhalt | Plan |
-|---|---|---|---|
-| **1** | Infrastruktur & CI/CD | Azure-Ressourcen, Repo-Bootstrap, GitHub-Actions-Pipelines, PWA-Grundgerüst | [Plan](./docs/plans/epic-1-infrastructure.md) |
-| **2** | Backend (C# / API-First) | Domänenmodell (Mitarbeiter, Buchungen, Konten, Anträge), Pausenregelung, Workflow-Engine, ERP-Schnittstelle, Auth | [Plan](./docs/plans/epic-2-backend.md) |
-| **3** | Frontend (React & PWA) | Mobile Buchung mit GPS, Antragsformulare, Jahreskalender, Dashboard, Admin-Inbox | [Plan](./docs/plans/epic-3-frontend.md) |
-
-Reihenfolge ist verbindlich: Epic 1 muss laufen, bevor Epic 2 deployed werden kann; Epic 3 hängt am API-Vertrag aus Epic 2.
-
-### Schlüsselregeln aus der Fachspezifikation
-
-- **Pausen:** automatischer Abzug von 30 min ab 6 h, weitere 15 min ab 9 h Arbeitszeit (gesamt 45 min).
-- **Sonderfreigabe:** Buchungen/Anträge mit Zeit **vor 07:00 oder nach 23:00** triggern Genehmigungspflicht; Frontend warnt visuell.
-- **Zeitmodelle:** Teilzeit, Vollzeit, Vertrauensarbeitszeit, Gleitzeit – ein Modell pro Mitarbeiter.
-- **Konten:** Überstundenkonto (Ist − Soll) und Urlaubskonto, beide per API als Saldo abrufbar.
-- **ERP-Export:** separater API-Endpoint, eigener Auth-Scope, nur freigegebene Buchungen.
-
----
-
-## Schnellstart (lokal)
-
-### Voraussetzungen
-
-- .NET SDK **8.x**
-- Node.js **20.x** + npm
-- (für Cloud-Setup) Azure CLI ≥ 2.60
-
-### Backend
+Prerequisites: **Node 20+**, **pnpm 9+**, **Docker** (for the local PostgreSQL).
 
 ```bash
-cd backend
-dotnet restore
-dotnet tool restore        # einmalig: dotnet-ef aus Manifest installieren
-dotnet build
+# Clone
+git clone https://github.com/patrickschiller/openclockwork.git
+cd openclockwork
 
-# Optional: lokale SQLite mit Testdaten füllen (1 HR-Admin, 2 Vorgesetzte, 20 Mitarbeiter)
-dotnet run --project src/BagChronos.SeedData
+# Install dependencies
+pnpm install
 
-# API starten
-dotnet run --project src/BagChronos.Api
+# Boot a local Postgres
+docker compose up -d db
+
+# Apply migrations and seed
+pnpm prisma migrate dev
+
+# Run the backend (port 3000) and the web client (port 4200) in parallel
+pnpm nx run-many -t serve -p api,web
 ```
 
-- Swagger UI: http://localhost:5080/swagger
-- Health: http://localhost:5080/api/health
-- Beispiel-Endpoints: `GET /api/employees`, `POST /api/timeentries/clock-in`, `GET /api/accounts/{employeeId}`, `POST /api/requests`, `GET /api/violations?employeeId=...`
+The web client is then available at http://localhost:4200 and proxies API calls to http://localhost:3000.
 
-> Lokal nutzt das Backend SQLite (`backend/bagchronos-dev.db`); in Azure ist es Azure SQL via Connection-String aus Key Vault. Die Datei wird automatisch im Repo-Root des `backend/`-Ordners abgelegt – Seed und API teilen sich dieselbe Datei.
+## Contributing
 
-#### Datenbank-Migrationen (EF Core)
+Contributions are very welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and the [Developer Certificate of Origin](https://developercertificate.org/) requirement (every commit must be `Signed-off-by:` your real name).
 
-Migrationen werden gegen **SQL Server** gepflegt (Prod-Pfad). Lokal mit SQLite genügt `EnsureCreated`; SQL Server bekommt automatisch `MigrateAsync` beim Start.
+For bugs and feature ideas, open a GitHub issue. For security vulnerabilities, follow the private process in [SECURITY.md](SECURITY.md).
 
-```bash
-cd backend
+By participating, you agree to abide by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-# neue Migration anlegen
-dotnet ef migrations add <Name> \
-  --project src/BagChronos.Infrastructure \
-  --startup-project src/BagChronos.Api \
-  --output-dir Persistence/Migrations
+## License
 
-# SQL-Skript für Code-Review erzeugen
-dotnet ef migrations script \
-  --project src/BagChronos.Infrastructure \
-  --startup-project src/BagChronos.Api
-```
+OpenClockwork is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for required attribution when redistributing or building derivative works.
 
-Der Design-Time-Provider liest die Connection-String aus `BAGCHRONOS_DESIGN_CONNECTION` oder fällt auf einen LocalDB-Default zurück. Für `migrations add` muss kein SQL Server erreichbar sein.
+The name "OpenClockwork" and any associated marks are trademarks of the project authors. The Apache License grants no right to use them beyond honest origin attribution.
 
-### Frontend
+## Acknowledgements
 
-```bash
-cd frontend
-cp .env.example .env      # VITE_API_BASE_URL ggf. anpassen
-npm install
-npm run dev
-```
-
-- App: http://localhost:5173
-
-Die Smoke-Page lädt initial den Health-Endpoint des Backends und zeigt das Ergebnis an. Wenn das funktioniert, ist die Umgebung sauber aufgesetzt.
-
----
-
-## Workflow für Entwickler
-
-1. **Branch** vom aktuellen `main` ziehen (Trunk-based, kurze Branches).
-2. Vor dem ersten Commit `dotnet build` bzw. `npm run typecheck` lokal grün bekommen.
-3. **Pull Request** gegen `main` öffnen → CI-Workflows laufen automatisch:
-   - `backend-ci` (Build + Test)
-   - `frontend-ci` (Type-Check + Build)
-4. **Review + Merge** → Push auf `main` triggert die Deploy-Workflows nach Azure.
-5. Nach Merge: Smoke-Test auf Prod-URLs (Health + Frontend lädt).
-
-> ⚠️ **Niemals** Secrets oder Connection-Strings ins Repo committen. Lokal `.env`, in Azure Key Vault, in GitHub als Encrypted Secret/Variable.
-
----
-
-## Deployment
-
-- Push auf `main` ⇒ automatisches Deployment via GitHub Actions.
-- Backend nach Azure App Service (`app-bag-chronos-api`).
-- Frontend nach Azure Static Web App (`swa-bag-chronos-web`).
-- Vollständige Cloud-Einrichtung: [`docs/azure-setup.md`](./docs/azure-setup.md).
-
----
-
-## Weiterführende Dokumente
-
-- 📐 Fachliche Spezifikation: [`base-instructions.md`](./base-instructions.md)
-- 🗺️ Plan-Übersicht: [`docs/plans/README.md`](./docs/plans/README.md)
-- ☁️ Azure-Setup & GitHub Actions: [`docs/azure-setup.md`](./docs/azure-setup.md)
-- 🤖 Hinweise für KI-Assistenten: [`CLAUDE.md`](./CLAUDE.md)
+OpenClockwork is created and maintained by [Patrick Schiller](https://github.com/patrickschiller) and the open-source contributors listed in the project's commit history. The German requirements specification that drives the design comes from earlier in-house work and is now released under the same Apache 2.0 license alongside the code.

@@ -1,0 +1,186 @@
+// Prisma schema for OpenClockwork.
+//
+// Single source of truth for the PostgreSQL database. Migrations are tracked
+// under prisma/migrations/ and must be checked into git. Never edit a migration
+// after it has been merged to main; create a new one instead.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// Enums
+// -------------------------------------------------------------
+
+enum Role {
+  Employee
+  Manager
+  HRAdmin
+}
+
+enum TimeModel {
+  Teilzeit
+  Vollzeit
+  Vertrauensarbeitszeit
+  Gleitzeit
+}
+
+enum EntrySource {
+  Manual
+  Pwa
+  Terminal
+  Erp
+}
+
+enum EntryStatus {
+  Open
+  Pending
+  Approved
+  Rejected
+}
+
+enum RequestType {
+  Vacation
+  HomeOffice
+  SpecialLeave
+  TimeAdjustment
+}
+
+enum RequestStatus {
+  Submitted
+  Approved
+  Rejected
+  Cancelled
+}
+
+enum WorkflowState {
+  Draft
+  PendingSubstitute
+  PendingManager
+  PendingHr
+  Approved
+  Rejected
+  Cancelled
+}
+
+enum RequestEventKind {
+  Submitted
+  SubstituteAccepted
+  SubstituteDeclined
+  ManagerApproved
+  ManagerRejected
+  Returned
+  Resubmitted
+  HrConfirmed
+  HrRejected
+  Cancelled
+}
+
+// -------------------------------------------------------------
+// Models
+// -------------------------------------------------------------
+
+model Employee {
+  id                String   @id @default(uuid()) @db.Uuid
+  personalNo        String   @unique
+  firstName         String
+  lastName          String
+  email             String   @unique
+  role              Role     @default(Employee)
+  timeModel         TimeModel
+  weeklyHours       Decimal  @db.Decimal(5, 2)
+  annualLeaveDays   Decimal  @db.Decimal(5, 2)
+  isActive          Boolean  @default(true)
+  managerId         String?  @db.Uuid
+  manager           Employee?  @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[] @relation("ManagerToReports")
+  timeEntries       TimeEntry[]
+  requests          Request[]   @relation("RequestEmployee")
+  approverRequests  Request[]   @relation("RequestApprover")
+  substituteRequests Request[]  @relation("RequestSubstitute")
+  leaveAllowances   EmployeeLeaveAllowance[]
+  events            RequestEvent[] @relation("EventActor")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([role])
+  @@index([managerId])
+}
+
+model TimeEntry {
+  id            String       @id @default(uuid()) @db.Uuid
+  employeeId    String       @db.Uuid
+  employee      Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  clockIn       DateTime
+  clockOut      DateTime?
+  source        EntrySource  @default(Manual)
+  status        EntryStatus  @default(Open)
+  latitude      Decimal?     @db.Decimal(9, 6)
+  longitude     Decimal?     @db.Decimal(9, 6)
+  note          String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([employeeId, clockIn])
+  @@index([status])
+}
+
+model Request {
+  id                  String         @id @default(uuid()) @db.Uuid
+  employeeId          String         @db.Uuid
+  employee            Employee       @relation("RequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  type                RequestType
+  status              RequestStatus  @default(Submitted)
+  workflowState       WorkflowState  @default(Draft)
+  from                DateTime
+  to                  DateTime
+  reason              String?
+  requiresApproval    Boolean        @default(false)
+  calculatedDays      Decimal        @default(0) @db.Decimal(6, 2)
+  substituteId        String?        @db.Uuid
+  substitute          Employee?      @relation("RequestSubstitute", fields: [substituteId], references: [id], onDelete: SetNull)
+  substituteAcceptedAt DateTime?
+  currentApproverId   String?        @db.Uuid
+  currentApprover     Employee?      @relation("RequestApprover", fields: [currentApproverId], references: [id], onDelete: SetNull)
+  hrConfirmedAt       DateTime?
+  cancelledAt         DateTime?
+  events              RequestEvent[]
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([employeeId, workflowState])
+  @@index([currentApproverId])
+  @@index([substituteId])
+}
+
+model RequestEvent {
+  id          String           @id @default(uuid()) @db.Uuid
+  requestId   String           @db.Uuid
+  request     Request          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  kind        RequestEventKind
+  actorId     String?          @db.Uuid
+  actor       Employee?        @relation("EventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  note        String?
+  occurredAt  DateTime         @default(now())
+
+  @@index([requestId, occurredAt])
+}
+
+model EmployeeLeaveAllowance {
+  id            String   @id @default(uuid()) @db.Uuid
+  employeeId    String   @db.Uuid
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year          Int
+  baseDays      Decimal  @db.Decimal(5, 2)
+  carryOverDays Decimal  @default(0) @db.Decimal(5, 2)
+  bonusDays     Decimal  @default(0) @db.Decimal(5, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([employeeId, year])
+}
