@@ -1,0 +1,42 @@
+name: DCO
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  dco-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify Signed-off-by trailer on every commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=()
+          while read -r commit; do
+            msg=$(git log -1 --format=%B "$commit")
+            if ! grep -Eq '^Signed-off-by: .+ <.+@.+>' <<< "$msg"; then
+              missing+=("$commit")
+            fi
+          done < <(git rev-list "$BASE_SHA..$HEAD_SHA")
+
+          if (( ${#missing[@]} )); then
+            echo "::error::The following commits are missing a Signed-off-by trailer:"
+            for c in "${missing[@]}"; do
+              echo "  $c $(git log -1 --format=%s "$c")"
+            done
+            echo ""
+            echo "All contributions must be signed off under the Developer Certificate of Origin."
+            echo "See CONTRIBUTING.md. Run: git rebase --signoff ${BASE_SHA}"
+            exit 1
+          fi
+          echo "All commits are signed off."

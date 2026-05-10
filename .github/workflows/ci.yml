@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: openclockwork
+          POSTGRES_PASSWORD: openclockwork
+          POSTGRES_DB: openclockwork
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openclockwork -d openclockwork"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5432/openclockwork?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Lint
+        run: pnpm nx run-many -t lint
+
+      - name: Typecheck
+        run: pnpm nx run-many -t typecheck
+
+      - name: Test
+        run: pnpm nx run-many -t test --configuration=ci
+
+      - name: Build
+        run: pnpm nx run-many -t build
