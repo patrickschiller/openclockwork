@@ -2,8 +2,8 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export type EmployeeRole = 'Employee' | 'Manager' | 'HRAdmin';
 export type TimeModel = 'Teilzeit' | 'Vollzeit' | 'Vertrauensarbeitszeit' | 'Gleitzeit';
-export type RequestType = 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeCorrection';
-export type RequestStatus = 'Submitted' | 'Approved' | 'Rejected';
+export type RequestType = 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeAdjustment';
+export type RequestStatus = 'Submitted' | 'Approved' | 'Rejected' | 'Cancelled';
 export type WorkflowState =
   | 'Draft'
   | 'Submitted'
@@ -12,7 +12,6 @@ export type WorkflowState =
   | 'PendingHr'
   | 'Approved'
   | 'Rejected'
-  | 'ReturnedForRevision'
   | 'Cancelled';
 export type EntryStatus = 'Open' | 'Pending' | 'Approved' | 'Rejected';
 export type RequestEventKind =
@@ -23,7 +22,7 @@ export type RequestEventKind =
   | 'ManagerRejected'
   | 'HrConfirmed'
   | 'HrRejected'
-  | 'ReturnedForRevision'
+  | 'Returned'
   | 'Cancelled'
   | 'Resubmitted';
 
@@ -173,24 +172,62 @@ export interface ClockInPayload {
   accuracyMeters: number | null;
 }
 
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  employee: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: EmployeeRole;
+  };
+}
+
+export const TOKEN_STORAGE_KEY = 'openclockwork.accessToken';
+
+function readToken(): string | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_STORAGE_KEY) : null;
+  } catch {
+    return null;
+  }
+}
+
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {})
-    }
-  });
+  const token = readToken();
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    ...((init?.headers as Record<string, string> | undefined) ?? {}),
+  };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
-      const body = (await response.json()) as { error?: string };
-      if (body?.error) message = body.error;
+      const body = (await response.json()) as { message?: string | string[]; error?: string };
+      if (Array.isArray(body?.message)) message = body.message.join('; ');
+      else if (typeof body?.message === 'string') message = body.message;
+      else if (body?.error) message = body.error;
     } catch {
-      // body was not JSON
+      // body not JSON
     }
-    throw new Error(message);
+    throw new ApiError(response.status, message);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
@@ -198,6 +235,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<HealthResponse>('/api/health'),
+  login: (payload: LoginPayload) =>
+    request<LoginResponse>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  me: () => request<{ id: string; email: string; role: EmployeeRole }>('/api/auth/me'),
   employees: () => request<EmployeeDto[]>('/api/employees'),
   account: (employeeId: string) => request<AccountDto>(`/api/accounts/${employeeId}`),
   timeEntries: (employeeId: string, from?: string, to?: string) => {
@@ -209,12 +252,12 @@ export const api = {
   clockIn: (payload: ClockInPayload) =>
     request<TimeEntryDto>('/api/timeentries/clock-in', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     }),
   clockOut: (employeeId: string) =>
     request<TimeEntryDto>('/api/timeentries/clock-out', {
       method: 'POST',
-      body: JSON.stringify({ employeeId })
+      body: JSON.stringify({ employeeId }),
     }),
   listRequests: (
     filters: {
@@ -224,79 +267,68 @@ export const api = {
       approverId?: string;
       currentApproverId?: string;
       substituteId?: string;
-    } = {}
+    } = {},
   ) => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.set('employeeId', filters.employeeId);
-    if (filters.status) params.set('status', filters.status);
-    if (filters.workflowState) params.set('workflowState', filters.workflowState);
-    if (filters.approverId) params.set('approverId', filters.approverId);
-    if (filters.currentApproverId) params.set('currentApproverId', filters.currentApproverId);
-    if (filters.substituteId) params.set('substituteId', filters.substituteId);
+    for (const [k, v] of Object.entries(filters)) if (v) params.set(k, String(v));
     const qs = params.toString();
     return request<RequestDto[]>(`/api/requests${qs ? `?${qs}` : ''}`);
   },
   getRequest: (id: string) => request<RequestDto>(`/api/requests/${id}`),
   getRequestEvents: (id: string) => request<RequestEventDto[]>(`/api/requests/${id}/events`),
   createRequest: (payload: CreateRequestPayload) =>
-    request<RequestDto>('/api/requests', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }),
+    request<RequestDto>('/api/requests', { method: 'POST', body: JSON.stringify(payload) }),
   createVacationRequest: (payload: CreateVacationPayload) =>
-    request<RequestDto>('/api/requests/vacation', {
-      method: 'POST',
-      body: JSON.stringify(payload)
-    }),
-  approveRequest: (id: string, approverId: string, note?: string) =>
+    request<RequestDto>('/api/requests/vacation', { method: 'POST', body: JSON.stringify(payload) }),
+  approveRequest: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/approve`, {
       method: 'POST',
-      body: JSON.stringify({ approverId, note: note ?? null })
+      body: JSON.stringify({ actorId, note: note ?? null }),
     }),
-  rejectRequest: (id: string, approverId: string, note?: string) =>
+  rejectRequest: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/reject`, {
       method: 'POST',
-      body: JSON.stringify({ approverId, note: note ?? null })
+      body: JSON.stringify({ actorId, note: note ?? null }),
     }),
   managerApprove: (id: string, actorId: string, note?: string, requiresHrConfirmation = false) =>
     request<RequestDto>(`/api/requests/${id}/manager-approve`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null, requiresHrConfirmation })
+      body: JSON.stringify({ actorId, note: note ?? null, requiresHrConfirmation }),
     }),
   managerReject: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/manager-reject`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null })
+      body: JSON.stringify({ actorId, note: note ?? null }),
     }),
   hrConfirm: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/hr-confirm`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null })
+      body: JSON.stringify({ actorId, note: note ?? null }),
     }),
   hrReject: (id: string, actorId: string, note: string) =>
     request<RequestDto>(`/api/requests/${id}/hr-reject`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note })
+      body: JSON.stringify({ actorId, note }),
     }),
   substituteAccept: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/substitute/accept`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null })
+      body: JSON.stringify({ actorId, note: note ?? null }),
     }),
   substituteDecline: (id: string, actorId: string, note: string) =>
     request<RequestDto>(`/api/requests/${id}/substitute/decline`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note })
+      body: JSON.stringify({ actorId, note }),
     }),
   returnRequest: (id: string, actorId: string, note: string) =>
     request<RequestDto>(`/api/requests/${id}/return`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note })
+      body: JSON.stringify({ actorId, note }),
     }),
   cancelRequest: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/cancel`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null })
+      body: JSON.stringify({ actorId, note: note ?? null }),
     }),
   vacationBalance: (employeeId: string, year?: number) => {
     const qs = year ? `?year=${year}` : '';
@@ -307,14 +339,14 @@ export const api = {
   upsertLeaveAllowance: (employeeId: string, year: number, payload: UpsertLeaveAllowancePayload) =>
     request<LeaveAllowanceDto>(`/api/employees/${employeeId}/leave-allowances/${year}`, {
       method: 'PUT',
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     }),
   violations: (employeeId: string, from?: string, to?: string) => {
     const params = new URLSearchParams({ employeeId });
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     return request<ViolationDto[]>(`/api/violations?${params.toString()}`);
-  }
+  },
 };
 
 export async function fetchHealth(): Promise<HealthResponse> {

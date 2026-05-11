@@ -1,68 +1,41 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { useAuth } from './auth';
 import { AppShell } from './AppShell';
+import { LoginPage } from '../routes/LoginPage';
 import { DashboardPage } from '../routes/DashboardPage';
+import { BookingPage } from '../routes/BookingPage';
+import { RequestsPage } from '../routes/RequestsPage';
+import { CalendarPage } from '../routes/CalendarPage';
+import { SubstitutePage } from '../routes/SubstitutePage';
+import { AdminRequestsPage } from '../routes/AdminRequestsPage';
 import { PlaceholderPage } from '../routes/PlaceholderPage';
 
 export function App() {
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="*" element={<LoginPage />} />
+      </Routes>
+    );
+  }
+
   return (
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<DashboardPage />} />
-        <Route
-          path="booking"
-          element={
-            <PlaceholderPage
-              title="Buchen"
-              hint="Kommen / Gehen mit GPS — kommt in Epic 2."
-            />
-          }
-        />
-        <Route
-          path="calendar"
-          element={
-            <PlaceholderPage
-              title="Kalender"
-              hint="Jahreskalender mit Krankheit, Urlaub, Home-Office — kommt in Epic 3."
-            />
-          }
-        />
-        <Route
-          path="requests"
-          element={
-            <PlaceholderPage
-              title="Anträge"
-              hint="Urlaub, Home-Office, Sonderurlaub, Zeitanträge — kommt in Epic 3."
-            />
-          }
-        />
-        <Route
-          path="substitute"
-          element={
-            <PlaceholderPage
-              title="Vertretungen"
-              hint="Vertretungs-Inbox für eingehende Urlaubsanträge — kommt in Epic 4."
-            />
-          }
-        />
-        <Route
-          path="admin/requests"
-          element={
-            <PlaceholderPage
-              title="Genehmigungen"
-              hint="Manager- und HR-Genehmigungs-Queue — kommt in Epic 4."
-            />
-          }
-        />
+        <Route path="booking" element={<BookingPage />} />
+        <Route path="calendar" element={<CalendarPage />} />
+        <Route path="requests" element={<RequestsPage />} />
+        <Route path="substitute" element={<SubstitutePage />} />
+        <Route path="admin/requests" element={<AdminRequestsPage />} />
         <Route
           path="*"
-          element={
-            <PlaceholderPage
-              title="Nicht gefunden"
-              hint="Diese Seite existiert nicht."
-            />
-          }
+          element={<PlaceholderPage title="Nicht gefunden" hint="Diese Seite existiert nicht." />}
         />
       </Route>
+      <Route path="login" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

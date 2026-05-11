@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useCurrentEmployee } from './CurrentEmployee';
-import { visibleNavItems, type NavItem } from './navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,12 +9,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from './auth';
+import { useRealtimeInvalidation } from './realtime';
+import { visibleNavItems, type NavItem } from './navigation';
 
 export function AppShell() {
-  const { current } = useCurrentEmployee();
-  const role = current?.role ?? 'Employee';
+  const { user, logout } = useAuth();
+  useRealtimeInvalidation();
+  const role = user?.role ?? 'Employee';
   const items = useMemo(() => visibleNavItems(role), [role]);
   const bottomItems = useMemo(() => items.filter((i) => i.showInBottomNav), [items]);
   const location = useLocation();
@@ -42,7 +44,32 @@ export function AppShell() {
         <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card/80 px-4 backdrop-blur md:px-6">
           <span className="text-base font-semibold md:hidden">OpenClockwork</span>
           <div className="flex-1" />
-          <EmployeePicker />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                {user ? (
+                  <span>
+                    {user.firstName} {user.lastName}
+                    <span className="ml-2 text-xs text-muted-foreground">{user.role}</span>
+                  </span>
+                ) : (
+                  <span>Profil</span>
+                )}
+                <ChevronDown className="h-4 w-4 opacity-60" aria-hidden="true" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Angemeldet als</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
+                {user?.email}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={logout} className="gap-2 text-destructive">
+                <LogOut className="h-4 w-4" /> Abmelden
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
 
         <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-8 md:pt-8">
@@ -99,45 +126,5 @@ function BottomNavLink({ item, active }: { item: NavItem; active: boolean }) {
       <Icon className="h-5 w-5" aria-hidden="true" />
       <span>{item.label}</span>
     </NavLink>
-  );
-}
-
-function EmployeePicker() {
-  const { employees, current, setCurrentId, isLoading } = useCurrentEmployee();
-  if (isLoading || employees.length === 0) {
-    return <span className="text-sm text-muted-foreground">Lade Profile…</span>;
-  }
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          {current ? (
-            <span>
-              {current.firstName} {current.lastName}
-              <span className="ml-2 text-xs text-muted-foreground">{current.role}</span>
-            </span>
-          ) : (
-            <span>Profil wählen</span>
-          )}
-          <ChevronDown className="h-4 w-4 opacity-60" aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel>Angemeldet als</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {employees.map((e) => (
-          <DropdownMenuItem
-            key={e.id}
-            onSelect={() => setCurrentId(e.id)}
-            className="flex items-center justify-between gap-2"
-          >
-            <span>
-              {e.firstName} {e.lastName}
-            </span>
-            <span className="text-xs text-muted-foreground">{e.role}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

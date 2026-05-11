@@ -3,29 +3,28 @@ import { BrowserRouter } from 'react-router-dom';
 import * as ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './app/app';
-import { CurrentEmployeeProvider } from './app/CurrentEmployee';
+import { AuthProvider } from './app/auth';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
       refetchOnWindowFocus: false,
+      retry: 1,
     },
   },
 });
 
-const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement,
-);
+const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
 root.render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <CurrentEmployeeProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
           <App />
-        </BrowserRouter>
-      </CurrentEmployeeProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,
 );
