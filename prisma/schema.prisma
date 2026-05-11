@@ -82,6 +82,13 @@ enum RequestEventKind {
   Cancelled
 }
 
+// Absences are recorded facts (Krankheit etc.), not approval workflows.
+// `kind` is intentionally an enum so it can grow (Schulung, Gleittage) later
+// without breaking existing rows.
+enum AbsenceKind {
+  Sickness
+}
+
 // -------------------------------------------------------------
 // Models
 // -------------------------------------------------------------
@@ -109,6 +116,7 @@ model Employee {
   substituteRequests Request[]                @relation("RequestSubstitute")
   leaveAllowances    EmployeeLeaveAllowance[]
   events             RequestEvent[]           @relation("EventActor")
+  absences           Absence[]
   createdAt          DateTime                 @default(now())
   updatedAt          DateTime                 @updatedAt
 
@@ -208,6 +216,22 @@ model RequestEvent {
   occurredAt DateTime         @default(now())
 
   @@index([requestId, occurredAt])
+}
+
+model Absence {
+  id         String      @id @default(uuid()) @db.Uuid
+  employeeId String      @db.Uuid
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind       AbsenceKind @default(Sickness)
+  from       DateTime    @db.Date
+  to         DateTime    @db.Date
+  certified  Boolean     @default(false)
+  note       String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([employeeId, from])
+  @@index([kind, from])
 }
 
 model EmployeeLeaveAllowance {

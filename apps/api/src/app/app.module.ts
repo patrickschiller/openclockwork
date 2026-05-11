@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AbsencesModule } from './absences/absences.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { AuthModule } from './auth/auth.module';
 import { EmployeesModule } from './employees/employees.module';
@@ -28,6 +29,7 @@ import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
     LeaveAllowancesModule,
     AccountsModule,
     RequestsModule,
+    AbsencesModule,
     ViolationsModule,
     ErpExportModule,
   ],
