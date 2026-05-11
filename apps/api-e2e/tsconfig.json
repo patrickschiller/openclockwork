@@ -8,5 +8,9 @@
     "types": ["jest", "node"]
   },
   "include": ["jest.config.ts", "src/**/*.ts"],
-  "references": []
+  "references": [
+    {
+      "path": "../api"
+    }
+  ]
 }
