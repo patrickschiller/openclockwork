@@ -128,8 +128,14 @@ function RequestRow({ request, role, actorId, onAudit, qc }: RequestRowProps) {
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['requests'] });
 
+  // TimeAdjustment outside 07–23 always needs HR confirmation; the manager
+  // approves the Sondergenehmigung first, HR finalises the time correction.
+  const forcedHr = request.type === 'TimeAdjustment' && request.requiresApproval;
+  const hrChecked = forcedHr || requiresHr;
+  const isTimeAdjustment = request.type === 'TimeAdjustment';
+
   const approve = useMutation({
-    mutationFn: () => api.managerApprove(request.id, actorId, note || undefined, requiresHr),
+    mutationFn: () => api.managerApprove(request.id, actorId, note || undefined, hrChecked),
     onSuccess: refresh,
   });
   const reject = useMutation({
@@ -157,11 +163,15 @@ function RequestRow({ request, role, actorId, onAudit, qc }: RequestRowProps) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-medium">
-            {request.type} · {new Date(request.from).toLocaleDateString('de-DE')} –{' '}
-            {new Date(request.to).toLocaleDateString('de-DE')}
+            {request.type} ·{' '}
+            {isTimeAdjustment
+              ? `${new Date(request.from).toLocaleString('de-DE')} – ${new Date(request.to).toLocaleString('de-DE')}`
+              : `${new Date(request.from).toLocaleDateString('de-DE')} – ${new Date(request.to).toLocaleDateString('de-DE')}`}
           </p>
           <p className="text-xs text-muted-foreground">
-            {Number(request.calculatedDays).toFixed(1)} Werktage
+            {isTimeAdjustment
+              ? `${Math.max(0, Math.round((new Date(request.to).getTime() - new Date(request.from).getTime()) / 60_000))} min`
+              : `${Number(request.calculatedDays).toFixed(1)} Werktage`}
             {request.reason ? ` · ${request.reason}` : ''}
           </p>
         </div>
@@ -186,13 +196,20 @@ function RequestRow({ request, role, actorId, onAudit, qc }: RequestRowProps) {
             placeholder="optional"
             className="mt-1 h-8 text-sm"
           />
+          {forcedHr && inManagerInbox && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Außerhalb der Rahmenarbeitszeit — Genehmigung läuft automatisch in zwei Stufen
+              (Vorgesetzte/r, dann HR).
+            </p>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {inManagerInbox && (
               <>
                 <label className="flex items-center gap-1 text-xs">
                   <input
                     type="checkbox"
-                    checked={requiresHr}
+                    checked={hrChecked}
+                    disabled={forcedHr}
                     onChange={(e) => setRequiresHr(e.target.checked)}
                   />
                   HR-Bestätigung erforderlich

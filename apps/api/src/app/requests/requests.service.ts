@@ -187,6 +187,12 @@ export class RequestsService {
       // Vacation must use the multi-stage workflow.
       return this.transitionVacation(request, 'manager_approve', actorId, note);
     }
+    if (requiresTwoStageApproval(request)) {
+      // Off-hours TimeAdjustment: manager approves the off-hours allowance,
+      // then HR finalises the actual time correction.
+      await this.assertApproverRole(actorId);
+      return this.transitionVacation(request, 'manager_approve_with_hr', actorId, note);
+    }
     await this.assertApproverRole(actorId);
     const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.request.update({
@@ -246,7 +252,12 @@ export class RequestsService {
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertApproverRole(actorId);
-    const event: WorkflowEvent = requiresHrConfirmation ? 'manager_approve_with_hr' : 'manager_approve';
+    // Off-hours TimeAdjustments always need HR confirmation, regardless of the
+    // flag set by the manager — the spec calls for a "Sondergenehmigung" first,
+    // then the actual time correction.
+    const forced = requiresTwoStageApproval(request);
+    const event: WorkflowEvent =
+      requiresHrConfirmation || forced ? 'manager_approve_with_hr' : 'manager_approve';
     return this.transitionVacation(request, event, actorId, note);
   }
 
@@ -395,6 +406,13 @@ export class RequestsService {
       throw new ForbiddenException('Only HRAdmin may HR-confirm/-reject');
     }
   }
+}
+
+function requiresTwoStageApproval(request: Request): boolean {
+  // Off-hours TimeAdjustment must be approved twice: manager confirms the
+  // Sondergenehmigung for working outside 07:00–23:00, HR finalises the
+  // actual time correction.
+  return request.type === 'TimeAdjustment' && request.requiresApproval;
 }
 
 function mapEventToKind(event: WorkflowEvent): RequestEventKind {
