@@ -1,17 +1,46 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
-import { useCurrentEmployee } from '../app/CurrentEmployee';
+import { useCurrentUser } from '../app/auth';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export function DashboardPage() {
-  const { current } = useCurrentEmployee();
-  const employeeId = current?.id;
+function fmtMinutes(min: number): string {
+  const sign = min < 0 ? '−' : '';
+  const abs = Math.abs(min);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return `${sign}${h}h ${m.toString().padStart(2, '0')}min`;
+}
 
+export function DashboardPage() {
+  const user = useCurrentUser();
+  const employeeId = user.id;
+  const year = new Date().getUTCFullYear();
+  const yearStart = new Date(Date.UTC(year, 0, 1)).toISOString();
+
+  const accountQuery = useQuery({
+    queryKey: ['account', employeeId],
+    queryFn: () => api.account(employeeId),
+  });
   const vacationQuery = useQuery({
-    queryKey: ['vacation-balance', employeeId, new Date().getFullYear()],
-    queryFn: () => api.vacationBalance(employeeId!),
-    enabled: !!employeeId,
-    retry: false,
+    queryKey: ['vacation-balance', employeeId, year],
+    queryFn: () => api.vacationBalance(employeeId, year),
+  });
+  const violationsQuery = useQuery({
+    queryKey: ['violations', employeeId, year],
+    queryFn: () => api.violations(employeeId, yearStart),
+  });
+  const openRequestsQuery = useQuery({
+    queryKey: ['requests', { employeeId, status: 'Submitted' }],
+    queryFn: () => api.listRequests({ employeeId, status: 'Submitted' }),
+  });
+  const openEntryQuery = useQuery({
+    queryKey: ['time-entries', employeeId, 'open'],
+    queryFn: () => api.timeEntries(employeeId),
+    select: (entries) => entries.find((e) => !e.clockOut) ?? null,
   });
 
   return (
@@ -19,46 +48,99 @@ export function DashboardPage() {
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          {current
-            ? `Willkommen, ${current.firstName} ${current.lastName}.`
-            : 'Lade Profil…'}
+          Willkommen, {user.firstName} {user.lastName}.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard
           label="Resturlaub"
-          value={
-            vacationQuery.data
-              ? `${vacationQuery.data.remainingDays.toFixed(1)} Tage`
-              : '—'
-          }
+          value={vacationQuery.data ? `${vacationQuery.data.remainingDays.toFixed(1)} Tage` : '—'}
           hint={
             vacationQuery.data
               ? `${vacationQuery.data.approvedDays.toFixed(1)} genehmigt · ${vacationQuery.data.pendingDays.toFixed(1)} offen · ${vacationQuery.data.totalEntitlement.toFixed(1)} gesamt`
-              : 'Backend nicht erreichbar'
+              : 'Lade…'
           }
         />
-        <KpiCard label="Überstundenkonto" value="—" hint="API folgt in Epic 2" />
-        <KpiCard label="Kernzeitverletzungen YTD" value="—" hint="API folgt in Epic 2" />
+        <KpiCard
+          label="Überstundenkonto"
+          value={accountQuery.data ? fmtMinutes(accountQuery.data.overtimeMinutes) : '—'}
+          hint={accountQuery.data ? `Stand ${new Date(accountQuery.data.asOf).toLocaleString('de-DE')}` : 'Lade…'}
+        />
+        <KpiCard
+          label="Kernzeitverletzungen YTD"
+          value={violationsQuery.data ? String(violationsQuery.data.length) : '—'}
+          hint={
+            violationsQuery.data && violationsQuery.data.length > 0
+              ? `${violationsQuery.data.filter((v) => v.kind === 'LateArrival').length} verspätet · ${violationsQuery.data.filter((v) => v.kind === 'EarlyDeparture').length} zu früh`
+              : 'Keine Verstöße erkannt'
+          }
+        />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Status</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
-          <p>
-            OpenClockwork Web läuft auf Nx + Vite + Tailwind + shadcn/ui. Die NestJS-API
-            (<code>apps/api</code>) ist als Skeleton vorhanden, aber noch ohne Endpunkte —
-            Implementation startet in Epic 2.
-          </p>
-          <p>
-            Bis dahin schlagen alle Daten-Queries fehl, das Routing und die Shell sind aber
-            bereits vollständig.
-          </p>
-        </CardContent>
-      </Card>
+      {violationsQuery.data && violationsQuery.data.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTitle>Kernzeitverletzungen erkannt</AlertTitle>
+          <AlertDescription>
+            {violationsQuery.data.length} Verstoß / Verstöße im laufenden Jahr — Details auf der
+            Buchungs-Seite.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Aktuelle Buchung</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {openEntryQuery.data ? (
+              <>
+                <p>
+                  Eingestempelt seit{' '}
+                  <strong>{new Date(openEntryQuery.data.clockIn).toLocaleString('de-DE')}</strong>.
+                </p>
+                <Button asChild>
+                  <Link to="/booking">Zur Buchungsseite</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-muted-foreground">Du bist aktuell nicht eingestempelt.</p>
+                <Button asChild>
+                  <Link to="/booking">Kommen / Gehen</Link>
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Offene Anträge</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {openRequestsQuery.data && openRequestsQuery.data.length > 0 ? (
+              <ul className="space-y-2">
+                {openRequestsQuery.data.slice(0, 5).map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-2">
+                    <span>
+                      {r.type} · {new Date(r.from).toLocaleDateString('de-DE')} –{' '}
+                      {new Date(r.to).toLocaleDateString('de-DE')}
+                    </span>
+                    <Badge variant="secondary">{r.workflowState}</Badge>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">Keine offenen Anträge.</p>
+            )}
+            <Button variant="outline" asChild>
+              <Link to="/requests">Alle Anträge</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
