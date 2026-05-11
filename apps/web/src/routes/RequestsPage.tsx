@@ -31,6 +31,20 @@ function isoDateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+function formatRange(type: RequestType, fromIso: string, toIso: string): string {
+  const f = new Date(fromIso);
+  const t = new Date(toIso);
+  if (type === 'TimeAdjustment') {
+    return `${f.toLocaleString('de-DE')} – ${t.toLocaleString('de-DE')}`;
+  }
+  return `${f.toLocaleDateString('de-DE')} – ${t.toLocaleDateString('de-DE')}`;
+}
+
+function minutesBetween(fromIso: string, toIso: string): number {
+  const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
+  return Math.max(0, Math.round(ms / 60_000));
+}
+
 export function RequestsPage() {
   const user = useCurrentUser();
   const employeeId = user.id;
@@ -77,12 +91,12 @@ export function RequestsPage() {
                 <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
                     <p className="font-medium">
-                      {TYPE_LABEL[r.type as RequestType]} ·{' '}
-                      {new Date(r.from).toLocaleDateString('de-DE')} –{' '}
-                      {new Date(r.to).toLocaleDateString('de-DE')}
+                      {TYPE_LABEL[r.type as RequestType]} · {formatRange(r.type as RequestType, r.from, r.to)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {Number(r.calculatedDays).toFixed(1)} Werktage
+                      {r.type === 'TimeAdjustment'
+                        ? `${minutesBetween(r.from, r.to)} min`
+                        : `${Number(r.calculatedDays).toFixed(1)} Werktage`}
                       {r.reason ? ` · ${r.reason}` : ''}
                     </p>
                   </div>
@@ -106,6 +120,13 @@ interface NewRequestFormProps {
   onClose: () => void;
 }
 
+function isoDateTimeLocalNow(): string {
+  const d = new Date();
+  // datetime-local needs YYYY-MM-DDTHH:mm in *local* time
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function NewRequestForm({ onClose }: NewRequestFormProps) {
   const user = useCurrentUser();
   const employeeId = user.id;
@@ -113,6 +134,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   const [type, setType] = useState<RequestType>('Vacation');
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
+  const [fromDt, setFromDt] = useState(isoDateTimeLocalNow);
+  const [toDt, setToDt] = useState(isoDateTimeLocalNow);
   const [reason, setReason] = useState('');
   const [substituteId, setSubstituteId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -127,12 +150,30 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
     enabled: type === 'Vacation',
   });
 
+  const isTimeAdjustment = type === 'TimeAdjustment';
+
   const isOffHours = useMemo(() => {
-    if (type !== 'TimeAdjustment') return false;
-    const f = new Date(from);
-    const t = new Date(to);
-    return f.getHours() < 7 || t.getHours() >= 23;
-  }, [type, from, to]);
+    if (!isTimeAdjustment) return false;
+    // datetime-local strings are interpreted as local time when passed to Date.
+    const f = new Date(fromDt);
+    const t = new Date(toDt);
+    if (Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())) return false;
+    if (f.getHours() < 7) return true;
+    if (t.getHours() > 23 || (t.getHours() === 23 && t.getMinutes() > 0)) return true;
+    if (
+      t.getFullYear() !== f.getFullYear() ||
+      t.getMonth() !== f.getMonth() ||
+      t.getDate() !== f.getDate()
+    ) {
+      return true; // crosses midnight
+    }
+    return false;
+  }, [isTimeAdjustment, fromDt, toDt]);
+
+  const invalidRange = useMemo(() => {
+    if (isTimeAdjustment) return new Date(toDt).getTime() <= new Date(fromDt).getTime();
+    return new Date(to).getTime() < new Date(from).getTime();
+  }, [isTimeAdjustment, from, to, fromDt, toDt]);
 
   const create = useMutation({
     mutationFn: () => {
@@ -145,11 +186,17 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
           reason: reason || null,
         });
       }
+      const fromIso = isTimeAdjustment
+        ? new Date(fromDt).toISOString()
+        : new Date(`${from}T00:00:00.000Z`).toISOString();
+      const toIso = isTimeAdjustment
+        ? new Date(toDt).toISOString()
+        : new Date(`${to}T00:00:00.000Z`).toISOString();
       return api.createRequest({
         employeeId,
         type,
-        from: new Date(`${from}T00:00:00.000Z`).toISOString(),
-        to: new Date(`${to}T00:00:00.000Z`).toISOString(),
+        from: fromIso,
+        to: toIso,
         reason: reason || null,
       });
     },
@@ -187,11 +234,29 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="from">Von</Label>
-            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            {isTimeAdjustment ? (
+              <Input
+                id="from"
+                type="datetime-local"
+                value={fromDt}
+                onChange={(e) => setFromDt(e.target.value)}
+              />
+            ) : (
+              <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="to">Bis</Label>
-            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            {isTimeAdjustment ? (
+              <Input
+                id="to"
+                type="datetime-local"
+                value={toDt}
+                onChange={(e) => setToDt(e.target.value)}
+              />
+            ) : (
+              <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            )}
           </div>
         </div>
         <div className="space-y-2">
@@ -232,7 +297,20 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
         {isOffHours && (
           <Alert variant="destructive">
             <AlertDescription>
-              Zeit liegt außerhalb 07:00–23:00 — der Antrag wird sondergenehmigungspflichtig.
+              Zeit liegt außerhalb der Rahmenarbeitszeit 07:00–23:00.
+              Der/die Vorgesetzte muss zuerst die <strong>Sondergenehmigung</strong> für die
+              Zeiten außerhalb erteilen, anschließend bestätigt HR die eigentliche
+              Zeitkorrektur (zweistufiger Workflow).
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {invalidRange && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {isTimeAdjustment
+                ? '"Bis" muss nach "Von" liegen.'
+                : '"Bis" darf nicht vor "Von" liegen.'}
             </AlertDescription>
           </Alert>
         )}
@@ -248,7 +326,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
           Abbrechen
         </Button>
         <Button
-          disabled={create.isPending || insufficientVacation}
+          disabled={create.isPending || insufficientVacation || invalidRange}
           onClick={() => {
             setError(null);
             create.mutate();
