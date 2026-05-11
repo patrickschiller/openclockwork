@@ -1,9 +1,4 @@
 /* eslint-disable */
-import axios from 'axios';
-
-module.exports = async function () {
-  // Configure axios for tests to use.
-  const host = process.env.HOST ?? 'localhost';
-  const port = process.env.PORT ?? '3000';
-  axios.defaults.baseURL = `http://${host}:${port}`;
-};
+// Per-spec setup runs after global-setup, so DATABASE_URL etc. are already
+// in process.env. Nothing to do here right now — kept for future hooks.
+export {};

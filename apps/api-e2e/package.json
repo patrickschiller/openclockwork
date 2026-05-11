@@ -13,13 +13,10 @@
           "{projectRoot}/test-output/jest/coverage"
         ],
         "options": {
-          "jestConfig": "apps/api-e2e/jest.config.cts",
-          "passWithNoTests": true
-        },
-        "dependsOn": [
-          "api:build",
-          "api:serve"
-        ]
+          "jestConfig": "apps/api-e2e/jest.config.js",
+          "passWithNoTests": true,
+          "runInBand": true
+        }
       }
     }
   }
