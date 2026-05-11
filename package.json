@@ -27,7 +27,9 @@
     "db:up": "docker compose up -d db",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset --force"
+    "db:reset": "prisma migrate reset --force",
+    "generate:api": "ts-node --project apps/api/tsconfig.app.json --transpile-only apps/api/src/generate-openapi.ts && openapi-typescript apps/api/openapi.json -o apps/web/src/api/generated.ts",
+    "verify:api": "pnpm generate:api && git diff --exit-code -- apps/api/openapi.json apps/web/src/api/generated.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -78,12 +80,14 @@
     "jiti": "2.4.2",
     "jsdom": "~22.1.0",
     "nx": "22.7.0",
+    "openapi-typescript": "^7.13.0",
     "pg": "^8.20.0",
     "postcss": "8.4.38",
     "prettier": "^3.8.1",
     "supertest": "^7.2.2",
     "swc-loader": "^0.2.7",
     "tailwindcss": "3.4.3",
+    "ts-node": "^10.9.2",
     "tslib": "^2.3.0",
     "tsx": "^4.21.0",
     "typescript": "~5.9.2",
