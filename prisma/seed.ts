@@ -32,12 +32,15 @@ async function ensureEmployee(input: {
   timeModel: 'Teilzeit' | 'Vollzeit' | 'Vertrauensarbeitszeit' | 'Gleitzeit';
   weeklyHours: number;
   annualLeaveDays: number;
+  startDate: Date;
+  overtimeOpeningBalanceMinutes?: number;
   managerEmail?: string;
 }) {
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
   const manager = input.managerEmail
     ? await prisma.employee.findUnique({ where: { email: input.managerEmail } })
     : null;
+  const opening = input.overtimeOpeningBalanceMinutes ?? 0;
   const data: Prisma.EmployeeCreateInput = {
     personalNo: input.personalNo,
     firstName: input.firstName,
@@ -48,6 +51,8 @@ async function ensureEmployee(input: {
     timeModel: input.timeModel,
     weeklyHours: input.weeklyHours,
     annualLeaveDays: input.annualLeaveDays,
+    startDate: input.startDate,
+    overtimeOpeningBalanceMinutes: opening,
     isActive: true,
     ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
   };
@@ -62,6 +67,8 @@ async function ensureEmployee(input: {
       timeModel: input.timeModel,
       weeklyHours: input.weeklyHours,
       annualLeaveDays: input.annualLeaveDays,
+      startDate: input.startDate,
+      overtimeOpeningBalanceMinutes: opening,
       ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
     },
   });
@@ -134,6 +141,13 @@ async function ensureTimeEntry(employeeId: string, clockIn: Date, clockOut: Date
 }
 
 async function main() {
+  // Default startDates so seed employees have a sensible bookkeeping anchor.
+  // The HR/managers were "always there"; some employees joined recently, one
+  // is migrated from a legacy system and arrives with an overtime credit.
+  const ALWAYS = new Date(Date.UTC(new Date().getUTCFullYear() - 3, 0, 1));
+  const Y0401 = new Date(Date.UTC(new Date().getUTCFullYear(), 3, 1));
+  const Y0501 = new Date(Date.UTC(new Date().getUTCFullYear(), 4, 1));
+
   // Work schedules (must exist before employees are assigned to them).
   const standard = await ensureWorkSchedule({
     name: 'Standard 09–17 mit Doppel-Kernzeit',
@@ -171,6 +185,7 @@ async function main() {
     timeModel: 'Vollzeit',
     weeklyHours: 40,
     annualLeaveDays: 30,
+    startDate: ALWAYS,
   });
 
   // Managers
@@ -183,6 +198,7 @@ async function main() {
     timeModel: 'Vollzeit',
     weeklyHours: 40,
     annualLeaveDays: 30,
+    startDate: ALWAYS,
     managerEmail: hr.email,
   });
   const manager2 = await ensureEmployee({
@@ -194,17 +210,21 @@ async function main() {
     timeModel: 'Vollzeit',
     weeklyHours: 40,
     annualLeaveDays: 30,
+    startDate: ALWAYS,
     managerEmail: hr.email,
   });
 
-  // Employees
+  // Employees — startDate + optional opening balance illustrate both new fields.
   const employees = [
-    { personalNo: '1001', firstName: 'Anna',   lastName: 'Müller',     mgr: manager1.email, weeklyHours: 40, model: 'Vollzeit'   as const },
-    { personalNo: '1002', firstName: 'Bernd',  lastName: 'Schulz',     mgr: manager1.email, weeklyHours: 32, model: 'Teilzeit'   as const },
-    { personalNo: '1003', firstName: 'Cengiz', lastName: 'Yilmaz',     mgr: manager1.email, weeklyHours: 40, model: 'Gleitzeit'  as const },
-    { personalNo: '1004', firstName: 'Diana',  lastName: 'Fischer',    mgr: manager2.email, weeklyHours: 40, model: 'Vollzeit'   as const },
-    { personalNo: '1005', firstName: 'Erik',   lastName: 'Lindgren',   mgr: manager2.email, weeklyHours: 40, model: 'Vertrauensarbeitszeit' as const },
-    { personalNo: '1006', firstName: 'Fatma',  lastName: 'Demir',      mgr: manager2.email, weeklyHours: 20, model: 'Teilzeit'   as const },
+    { personalNo: '1001', firstName: 'Anna',   lastName: 'Müller',     mgr: manager1.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0 },
+    { personalNo: '1002', firstName: 'Bernd',  lastName: 'Schulz',     mgr: manager1.email, weeklyHours: 32, model: 'Teilzeit'   as const, startDate: ALWAYS, opening: 0 },
+    { personalNo: '1003', firstName: 'Cengiz', lastName: 'Yilmaz',     mgr: manager1.email, weeklyHours: 40, model: 'Gleitzeit'  as const, startDate: ALWAYS, opening: 0 },
+    { personalNo: '1004', firstName: 'Diana',  lastName: 'Fischer',    mgr: manager2.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0 },
+    // Erik joined April 1st this year — without startDate he'd be hugely negative
+    { personalNo: '1005', firstName: 'Erik',   lastName: 'Lindgren',   mgr: manager2.email, weeklyHours: 40, model: 'Vertrauensarbeitszeit' as const, startDate: Y0401, opening: 0 },
+    // Fatma is a migrant from a previous system: she came over with +540 min
+    // (= 9 h) overtime credit on May 1st.
+    { personalNo: '1006', firstName: 'Fatma',  lastName: 'Demir',      mgr: manager2.email, weeklyHours: 20, model: 'Teilzeit'   as const, startDate: Y0501, opening: 540 },
   ];
 
   const created = [hr, manager1, manager2];
@@ -218,6 +238,8 @@ async function main() {
       timeModel: e.model,
       weeklyHours: e.weeklyHours,
       annualLeaveDays: 30,
+      startDate: e.startDate,
+      overtimeOpeningBalanceMinutes: e.opening,
       managerEmail: e.mgr,
     });
     created.push(c);

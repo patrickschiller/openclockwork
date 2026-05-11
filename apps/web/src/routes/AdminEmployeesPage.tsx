@@ -29,6 +29,18 @@ import { useCurrentUser } from '../app/auth';
 const ROLES: EmployeeRole[] = ['Employee', 'Manager', 'HRAdmin'];
 const TIME_MODELS: TimeModel[] = ['Vollzeit', 'Teilzeit', 'Gleitzeit', 'Vertrauensarbeitszeit'];
 
+function formatHm(minutes: number): string {
+  if (minutes === 0) return '0:00';
+  const sign = minutes < 0 ? '−' : '+';
+  const abs = Math.abs(minutes);
+  return `${sign}${Math.floor(abs / 60)}:${String(abs % 60).padStart(2, '0')}`;
+}
+
+function todayIsoDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 interface EditorState {
   mode: 'create' | 'edit';
   employee?: EmployeeDto;
@@ -123,6 +135,8 @@ export function AdminEmployeesPage() {
                   <th className="px-4 py-2">Modell</th>
                   <th className="px-4 py-2 text-right">Wo. h</th>
                   <th className="px-4 py-2 text-right">Urlaub</th>
+                  <th className="px-4 py-2">Eintritt</th>
+                  <th className="px-4 py-2 text-right">Übertrag</th>
                   <th className="px-4 py-2">Manager</th>
                   <th className="px-4 py-2">Arbeitszeitplan</th>
                   <th className="px-4 py-2">Status</th>
@@ -145,6 +159,15 @@ export function AdminEmployeesPage() {
                       <td className="px-4 py-2 text-xs">{e.timeModel}</td>
                       <td className="px-4 py-2 text-right text-xs">{e.weeklyHours}</td>
                       <td className="px-4 py-2 text-right text-xs">{e.annualLeaveDays}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {new Date(e.startDate).toLocaleDateString('de-DE')}
+                      </td>
+                      <td
+                        className="px-4 py-2 text-right text-xs"
+                        title={`${e.overtimeOpeningBalanceMinutes} min Übertrag`}
+                      >
+                        {formatHm(e.overtimeOpeningBalanceMinutes)}
+                      </td>
                       <td className="px-4 py-2 text-xs text-muted-foreground">
                         {manager ? `${manager.firstName} ${manager.lastName}` : '—'}
                       </td>
@@ -228,7 +251,7 @@ export function AdminEmployeesPage() {
                 })}
                 {employees.data && employees.data.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={13} className="px-4 py-8 text-center text-sm text-muted-foreground">
                       Keine Mitarbeiter:innen.
                     </td>
                   </tr>
@@ -283,6 +306,8 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
     timeModel: (seed?.timeModel ?? 'Vollzeit') as TimeModel,
     weeklyHours: seed?.weeklyHours ?? 40,
     annualLeaveDays: seed?.annualLeaveDays ?? 30,
+    startDate: seed?.startDate ?? todayIsoDate(),
+    overtimeOpeningBalanceMinutes: seed?.overtimeOpeningBalanceMinutes ?? 0,
     managerId: seed?.managerId ?? '',
     workScheduleId: seed?.workScheduleId ?? '',
     isActive: seed?.isActive ?? true,
@@ -302,6 +327,8 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
           timeModel: draft.timeModel,
           weeklyHours: Number(draft.weeklyHours),
           annualLeaveDays: Number(draft.annualLeaveDays),
+          startDate: draft.startDate,
+          overtimeOpeningBalanceMinutes: Number(draft.overtimeOpeningBalanceMinutes) || 0,
           managerId: draft.managerId || null,
           workScheduleId: draft.workScheduleId || null,
         };
@@ -318,6 +345,8 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
         timeModel: draft.timeModel,
         weeklyHours: Number(draft.weeklyHours),
         annualLeaveDays: Number(draft.annualLeaveDays),
+        startDate: draft.startDate,
+        overtimeOpeningBalanceMinutes: Number(draft.overtimeOpeningBalanceMinutes) || 0,
         managerId: draft.managerId || null,
         workScheduleId: draft.workScheduleId || null,
         isActive: draft.isActive,
@@ -381,6 +410,18 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
             label="Jahresurlaub (Tage)"
             value={String(draft.annualLeaveDays)}
             onChange={(v) => setDraft({ ...draft, annualLeaveDays: Number(v) })}
+            type="number"
+          />
+          <Field
+            label="Eintrittsdatum"
+            value={draft.startDate}
+            onChange={(v) => setDraft({ ...draft, startDate: v })}
+            type="date"
+          />
+          <Field
+            label="Übertrag Überstunden (Minuten, ± erlaubt)"
+            value={String(draft.overtimeOpeningBalanceMinutes)}
+            onChange={(v) => setDraft({ ...draft, overtimeOpeningBalanceMinutes: Number(v) })}
             type="number"
           />
           <Select

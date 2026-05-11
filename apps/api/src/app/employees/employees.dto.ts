@@ -2,6 +2,8 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsInt,
+  IsISO8601,
   IsNumber,
   IsOptional,
   IsString,
@@ -27,10 +29,16 @@ export interface EmployeeDto {
   timeModel: string;
   weeklyHours: number;
   annualLeaveDays: number;
+  startDate: string; // YYYY-MM-DD
+  overtimeOpeningBalanceMinutes: number;
   managerId: string | null;
   workScheduleId: string | null;
   workScheduleName: string | null;
   isActive: boolean;
+}
+
+function dateOnly(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 export function toEmployeeDto(e: EmployeeWithSchedule | Employee): EmployeeDto {
@@ -45,6 +53,8 @@ export function toEmployeeDto(e: EmployeeWithSchedule | Employee): EmployeeDto {
     timeModel: e.timeModel,
     weeklyHours: Number(e.weeklyHours),
     annualLeaveDays: Number(e.annualLeaveDays),
+    startDate: dateOnly(e.startDate),
+    overtimeOpeningBalanceMinutes: e.overtimeOpeningBalanceMinutes,
     managerId: e.managerId,
     workScheduleId: e.workScheduleId,
     workScheduleName: ws?.name ?? null,
@@ -87,6 +97,13 @@ export class CreateEmployeeDto {
   @IsNumber()
   @Min(0)
   annualLeaveDays!: number;
+
+  @IsISO8601({ strict: true })
+  startDate!: string;
+
+  @IsOptional()
+  @IsInt()
+  overtimeOpeningBalanceMinutes?: number;
 
   @IsOptional()
   @IsUUID()
@@ -135,6 +152,14 @@ export class UpdateEmployeeDto {
   @IsNumber()
   @Min(0)
   annualLeaveDays?: number;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  startDate?: string;
+
+  @IsOptional()
+  @IsInt()
+  overtimeOpeningBalanceMinutes?: number;
 
   @IsOptional()
   @IsUUID()

@@ -67,11 +67,16 @@ export interface SeedEmployeeInput {
   timeModel?: 'Vollzeit' | 'Teilzeit' | 'Gleitzeit' | 'Vertrauensarbeitszeit';
   weeklyHours?: number;
   annualLeaveDays?: number;
+  startDate?: Date;
+  overtimeOpeningBalanceMinutes?: number;
   managerId?: string | null;
 }
 
 export async function seedEmployee(prisma: PrismaService, input: SeedEmployeeInput) {
   const passwordHash = await bcrypt.hash(input.password ?? 'test1234', 4);
+  // Default startDate is "Jan 1 of three years ago" so most tests don't have
+  // to think about it; specs that care override it explicitly.
+  const defaultStart = new Date(Date.UTC(new Date().getUTCFullYear() - 3, 0, 1));
   return prisma.employee.create({
     data: {
       personalNo: input.personalNo,
@@ -83,6 +88,8 @@ export async function seedEmployee(prisma: PrismaService, input: SeedEmployeeInp
       timeModel: input.timeModel ?? 'Vollzeit',
       weeklyHours: input.weeklyHours ?? 40,
       annualLeaveDays: input.annualLeaveDays ?? 30,
+      startDate: input.startDate ?? defaultStart,
+      overtimeOpeningBalanceMinutes: input.overtimeOpeningBalanceMinutes ?? 0,
       isActive: true,
       managerId: input.managerId ?? null,
     },
