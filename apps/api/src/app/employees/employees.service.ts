@@ -64,6 +64,7 @@ export class EmployeesService {
           annualLeaveDays: dto.annualLeaveDays,
           startDate: new Date(dto.startDate),
           overtimeOpeningBalanceMinutes: dto.overtimeOpeningBalanceMinutes ?? 0,
+          bundesland: dto.bundesland ?? 'NW',
           isActive: true,
           managerId: dto.managerId ?? null,
           workScheduleId: dto.workScheduleId ?? null,
@@ -103,6 +104,7 @@ export class EmployeesService {
     if (dto.overtimeOpeningBalanceMinutes !== undefined) {
       data.overtimeOpeningBalanceMinutes = dto.overtimeOpeningBalanceMinutes;
     }
+    if (dto.bundesland !== undefined) data.bundesland = dto.bundesland;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.managerId !== undefined) {
       data.manager = dto.managerId ? { connect: { id: dto.managerId } } : { disconnect: true };

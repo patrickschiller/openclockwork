@@ -70,6 +70,18 @@ export class UpsertWorkScheduleDto {
   @IsBoolean()
   isDefault?: boolean;
 
+  @ApiPropertyOptional({
+    minimum: 0,
+    maximum: 127,
+    default: 31,
+    description: 'Working-day bitmask. Mon=1, Tue=2, …, Sun=64. Mo–Fr = 31, Mo–Sa = 63.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(127)
+  workingDays?: number;
+
   @ApiProperty({ type: [CoreTimeWindowDto] })
   @IsArray()
   @ValidateNested({ each: true })
@@ -111,6 +123,7 @@ export interface WorkScheduleResponse {
   frameStart: string;
   frameEnd: string;
   isDefault: boolean;
+  workingDays: number;
   coreTimes: CoreTimeWindowResponse[];
   employeeCount: number;
   updatedAt: string;
@@ -127,6 +140,7 @@ export function toScheduleResponse(
     frameStart: schedule.frameStart,
     frameEnd: schedule.frameEnd,
     isDefault: schedule.isDefault,
+    workingDays: schedule.workingDays,
     coreTimes: schedule.coreTimes.map((c) => ({
       id: c.id,
       label: c.label,

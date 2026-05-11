@@ -34,6 +34,7 @@ async function ensureEmployee(input: {
   annualLeaveDays: number;
   startDate: Date;
   overtimeOpeningBalanceMinutes?: number;
+  bundesland?: string;
   managerEmail?: string;
 }) {
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
@@ -41,6 +42,7 @@ async function ensureEmployee(input: {
     ? await prisma.employee.findUnique({ where: { email: input.managerEmail } })
     : null;
   const opening = input.overtimeOpeningBalanceMinutes ?? 0;
+  const bundesland = input.bundesland ?? 'NW';
   const data: Prisma.EmployeeCreateInput = {
     personalNo: input.personalNo,
     firstName: input.firstName,
@@ -53,6 +55,7 @@ async function ensureEmployee(input: {
     annualLeaveDays: input.annualLeaveDays,
     startDate: input.startDate,
     overtimeOpeningBalanceMinutes: opening,
+    bundesland,
     isActive: true,
     ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
   };
@@ -69,6 +72,7 @@ async function ensureEmployee(input: {
       annualLeaveDays: input.annualLeaveDays,
       startDate: input.startDate,
       overtimeOpeningBalanceMinutes: opening,
+      bundesland,
       ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
     },
   });
@@ -216,15 +220,13 @@ async function main() {
 
   // Employees — startDate + optional opening balance illustrate both new fields.
   const employees = [
-    { personalNo: '1001', firstName: 'Anna',   lastName: 'Müller',     mgr: manager1.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0 },
-    { personalNo: '1002', firstName: 'Bernd',  lastName: 'Schulz',     mgr: manager1.email, weeklyHours: 32, model: 'Teilzeit'   as const, startDate: ALWAYS, opening: 0 },
-    { personalNo: '1003', firstName: 'Cengiz', lastName: 'Yilmaz',     mgr: manager1.email, weeklyHours: 40, model: 'Gleitzeit'  as const, startDate: ALWAYS, opening: 0 },
-    { personalNo: '1004', firstName: 'Diana',  lastName: 'Fischer',    mgr: manager2.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0 },
-    // Erik joined April 1st this year — without startDate he'd be hugely negative
-    { personalNo: '1005', firstName: 'Erik',   lastName: 'Lindgren',   mgr: manager2.email, weeklyHours: 40, model: 'Vertrauensarbeitszeit' as const, startDate: Y0401, opening: 0 },
-    // Fatma is a migrant from a previous system: she came over with +540 min
-    // (= 9 h) overtime credit on May 1st.
-    { personalNo: '1006', firstName: 'Fatma',  lastName: 'Demir',      mgr: manager2.email, weeklyHours: 20, model: 'Teilzeit'   as const, startDate: Y0501, opening: 540 },
+    { personalNo: '1001', firstName: 'Anna',   lastName: 'Müller',     mgr: manager1.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0,   bundesland: 'NW' },
+    { personalNo: '1002', firstName: 'Bernd',  lastName: 'Schulz',     mgr: manager1.email, weeklyHours: 32, model: 'Teilzeit'   as const, startDate: ALWAYS, opening: 0,   bundesland: 'NW' },
+    // Cengiz arbeitet im Außenbüro München — hat die BY-Feiertage (z.B. Fronleichnam, Mariä Himmelfahrt)
+    { personalNo: '1003', firstName: 'Cengiz', lastName: 'Yilmaz',     mgr: manager1.email, weeklyHours: 40, model: 'Gleitzeit'  as const, startDate: ALWAYS, opening: 0,   bundesland: 'BY' },
+    { personalNo: '1004', firstName: 'Diana',  lastName: 'Fischer',    mgr: manager2.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0,   bundesland: 'NW' },
+    { personalNo: '1005', firstName: 'Erik',   lastName: 'Lindgren',   mgr: manager2.email, weeklyHours: 40, model: 'Vertrauensarbeitszeit' as const, startDate: Y0401, opening: 0,   bundesland: 'NW' },
+    { personalNo: '1006', firstName: 'Fatma',  lastName: 'Demir',      mgr: manager2.email, weeklyHours: 20, model: 'Teilzeit'   as const, startDate: Y0501, opening: 540, bundesland: 'NW' },
   ];
 
   const created = [hr, manager1, manager2];
@@ -240,6 +242,7 @@ async function main() {
       annualLeaveDays: 30,
       startDate: e.startDate,
       overtimeOpeningBalanceMinutes: e.opening,
+      bundesland: e.bundesland,
       managerEmail: e.mgr,
     });
     created.push(c);

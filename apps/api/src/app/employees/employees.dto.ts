@@ -17,6 +17,10 @@ import type { Employee, WorkSchedule } from '@prisma/client';
 
 const ROLES = ['Employee', 'Manager', 'HRAdmin'] as const;
 const TIME_MODELS = ['Teilzeit', 'Vollzeit', 'Vertrauensarbeitszeit', 'Gleitzeit'] as const;
+const BUNDESLAENDER = [
+  'BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
+  'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH',
+] as const;
 
 export type EmployeeWithSchedule = Employee & { workSchedule: WorkSchedule | null };
 
@@ -32,6 +36,7 @@ export interface EmployeeDto {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes: number;
+  bundesland: string;
   managerId: string | null;
   workScheduleId: string | null;
   workScheduleName: string | null;
@@ -56,6 +61,7 @@ export function toEmployeeDto(e: EmployeeWithSchedule | Employee): EmployeeDto {
     annualLeaveDays: Number(e.annualLeaveDays),
     startDate: dateOnly(e.startDate),
     overtimeOpeningBalanceMinutes: e.overtimeOpeningBalanceMinutes,
+    bundesland: e.bundesland,
     managerId: e.managerId,
     workScheduleId: e.workScheduleId,
     workScheduleName: ws?.name ?? null,
@@ -116,6 +122,11 @@ export class CreateEmployeeDto {
   @IsOptional()
   @IsInt()
   overtimeOpeningBalanceMinutes?: number;
+
+  @ApiPropertyOptional({ enum: BUNDESLAENDER, default: 'NW', description: 'ISO-3166-2 code of the German state — drives the holiday calendar.' })
+  @IsOptional()
+  @IsEnum(BUNDESLAENDER)
+  bundesland?: (typeof BUNDESLAENDER)[number];
 
   @ApiPropertyOptional({ nullable: true, format: 'uuid' })
   @IsOptional()
@@ -184,6 +195,11 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsInt()
   overtimeOpeningBalanceMinutes?: number;
+
+  @ApiPropertyOptional({ enum: BUNDESLAENDER })
+  @IsOptional()
+  @IsEnum(BUNDESLAENDER)
+  bundesland?: (typeof BUNDESLAENDER)[number];
 
   @ApiPropertyOptional({ nullable: true, format: 'uuid' })
   @IsOptional()

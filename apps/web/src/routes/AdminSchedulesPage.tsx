@@ -34,6 +34,7 @@ interface FormDraft {
   frameStart: string;
   frameEnd: string;
   isDefault: boolean;
+  workingDays: number;
   cores: CoreDraft[];
 }
 
@@ -43,6 +44,7 @@ const EMPTY_DRAFT: FormDraft = {
   frameStart: '07:00',
   frameEnd: '23:00',
   isDefault: false,
+  workingDays: 31, // Mo–Fr
   cores: [],
 };
 
@@ -53,6 +55,7 @@ function fromSchedule(s: WorkScheduleDto): FormDraft {
     frameStart: s.frameStart,
     frameEnd: s.frameEnd,
     isDefault: s.isDefault,
+    workingDays: s.workingDays,
     cores: s.coreTimes.map((c) => ({
       label: c.label ?? '',
       start: c.start,
@@ -192,6 +195,9 @@ function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardPr
           <span className="font-medium">Rahmen:</span> {schedule.frameStart}–{schedule.frameEnd}
         </p>
         <p>
+          <span className="font-medium">Arbeitstage:</span> {weekdayLabel(schedule.workingDays)}
+        </p>
+        <p>
           <span className="font-medium">Kernzeiten:</span> {describeCores(schedule.coreTimes)}
         </p>
 
@@ -303,6 +309,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
         frameStart: draft.frameStart,
         frameEnd: draft.frameEnd,
         isDefault: draft.isDefault,
+        workingDays: draft.workingDays,
         coreTimes: draft.cores.map((c) => ({
           label: c.label.trim() || null,
           start: c.start,
@@ -398,6 +405,34 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
             />
             Als Default-Plan markieren (wird verwendet, wenn Mitarbeiter keinen eigenen Plan hat)
           </label>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Arbeitstage</p>
+            <p className="text-xs text-muted-foreground">
+              An Tagen außerhalb dieser Auswahl gilt der Mitarbeiter als nicht-anwesend
+              — keine Soll-Stunden, keine Urlaubsabrechnung. Default Mo–Fr.
+            </p>
+            <div className="flex flex-wrap gap-1 text-xs">
+              {WEEKDAY_LABELS.map((label, i) => {
+                const bit = 1 << i;
+                const active = (draft.workingDays & bit) !== 0;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setDraft({ ...draft, workingDays: draft.workingDays ^ bit })}
+                    className={`rounded border px-3 py-1 ${
+                      active
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-input bg-background'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">

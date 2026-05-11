@@ -32,6 +32,43 @@ export interface HealthResponse {
   utcTimestamp: string;
 }
 
+export type Bundesland =
+  | 'BW'
+  | 'BY'
+  | 'BE'
+  | 'BB'
+  | 'HB'
+  | 'HH'
+  | 'HE'
+  | 'MV'
+  | 'NI'
+  | 'NW'
+  | 'RP'
+  | 'SL'
+  | 'SN'
+  | 'ST'
+  | 'SH'
+  | 'TH';
+
+export const BUNDESLAND_LABEL: Record<Bundesland, string> = {
+  BW: 'Baden-Württemberg',
+  BY: 'Bayern',
+  BE: 'Berlin',
+  BB: 'Brandenburg',
+  HB: 'Bremen',
+  HH: 'Hamburg',
+  HE: 'Hessen',
+  MV: 'Mecklenburg-Vorpommern',
+  NI: 'Niedersachsen',
+  NW: 'Nordrhein-Westfalen',
+  RP: 'Rheinland-Pfalz',
+  SL: 'Saarland',
+  SN: 'Sachsen',
+  ST: 'Sachsen-Anhalt',
+  SH: 'Schleswig-Holstein',
+  TH: 'Thüringen',
+};
+
 export interface EmployeeDto {
   id: string;
   personalNo: string;
@@ -44,6 +81,7 @@ export interface EmployeeDto {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes: number;
+  bundesland: Bundesland;
   managerId: string | null;
   workScheduleId: string | null;
   workScheduleName: string | null;
@@ -62,6 +100,7 @@ export interface CreateEmployeePayload {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes?: number;
+  bundesland?: Bundesland;
   managerId: string | null;
   workScheduleId: string | null;
 }
@@ -77,6 +116,7 @@ export interface UpdateEmployeePayload {
   annualLeaveDays?: number;
   startDate?: string;
   overtimeOpeningBalanceMinutes?: number;
+  bundesland?: Bundesland;
   managerId?: string | null;
   workScheduleId?: string | null;
   isActive?: boolean;
@@ -235,6 +275,7 @@ export interface WorkScheduleDto {
   frameStart: string;
   frameEnd: string;
   isDefault: boolean;
+  workingDays: number;
   coreTimes: CoreTimeWindowDto[];
   employeeCount: number;
   updatedAt: string;
@@ -246,6 +287,7 @@ export interface UpsertWorkSchedulePayload {
   frameStart: string;
   frameEnd: string;
   isDefault: boolean;
+  workingDays: number;
   coreTimes: Array<{ label: string | null; start: string; end: string; weekdays: number }>;
 }
 
