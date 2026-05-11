@@ -43,7 +43,37 @@ export interface EmployeeDto {
   weeklyHours: number;
   annualLeaveDays: number;
   managerId: string | null;
+  workScheduleId: string | null;
+  workScheduleName: string | null;
   isActive: boolean;
+}
+
+export interface CreateEmployeePayload {
+  personalNo: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  role: EmployeeRole;
+  timeModel: TimeModel;
+  weeklyHours: number;
+  annualLeaveDays: number;
+  managerId: string | null;
+  workScheduleId: string | null;
+}
+
+export interface UpdateEmployeePayload {
+  personalNo?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: EmployeeRole;
+  timeModel?: TimeModel;
+  weeklyHours?: number;
+  annualLeaveDays?: number;
+  managerId?: string | null;
+  workScheduleId?: string | null;
+  isActive?: boolean;
 }
 
 export interface TimeSummaryDto {
@@ -271,7 +301,21 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   me: () => request<{ id: string; email: string; role: EmployeeRole }>('/api/auth/me'),
-  employees: () => request<EmployeeDto[]>('/api/employees'),
+  employees: (includeInactive = false) =>
+    request<EmployeeDto[]>(`/api/employees${includeInactive ? '?includeInactive=true' : ''}`),
+  createEmployee: (payload: CreateEmployeePayload) =>
+    request<EmployeeDto>('/api/employees', { method: 'POST', body: JSON.stringify(payload) }),
+  updateEmployee: (id: string, payload: UpdateEmployeePayload) =>
+    request<EmployeeDto>(`/api/employees/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  setEmployeePassword: (id: string, password: string) =>
+    request<void>(`/api/employees/${id}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    }),
+  deactivateEmployee: (id: string) =>
+    request<EmployeeDto>(`/api/employees/${id}`, { method: 'DELETE' }),
+  reactivateEmployee: (id: string) =>
+    request<EmployeeDto>(`/api/employees/${id}/reactivate`, { method: 'POST' }),
   account: (employeeId: string) => request<AccountDto>(`/api/accounts/${employeeId}`),
   timeEntries: (employeeId: string, from?: string, to?: string) => {
     const params = new URLSearchParams({ employeeId });
