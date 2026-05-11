@@ -2,11 +2,14 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestj
 import { ApiTags } from '@nestjs/swagger';
 import { RequestsService } from './requests.service';
 import {
+  BulkApproveDto,
+  BulkRejectDto,
   CreateRequestDto,
   CreateVacationDto,
   ManagerApproveDto,
   TransitionDto,
   TransitionWithRequiredNoteDto,
+  type BulkResult,
   type RequestDto,
   type RequestEventDto,
 } from './requests.dto';
@@ -118,5 +121,22 @@ export class RequestsController {
   @Post(':id/cancel')
   cancel(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: TransitionDto): Promise<RequestDto> {
     return this.service.cancel(id, body.actorId, body.note ?? null);
+  }
+
+  // ----- Bulk -----
+
+  @Post('bulk-approve')
+  bulkApprove(@Body() body: BulkApproveDto): Promise<BulkResult[]> {
+    return this.service.bulkApprove(
+      body.actorId,
+      body.ids,
+      body.note ?? null,
+      !!body.requiresHrConfirmation,
+    );
+  }
+
+  @Post('bulk-reject')
+  bulkReject(@Body() body: BulkRejectDto): Promise<BulkResult[]> {
+    return this.service.bulkReject(body.actorId, body.ids, body.note);
   }
 }

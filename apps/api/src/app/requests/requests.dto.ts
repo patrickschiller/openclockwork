@@ -1,4 +1,13 @@
-import { IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsEnum,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import type { Request } from '@prisma/client';
 
 export class CreateRequestDto {
@@ -62,6 +71,46 @@ export class TransitionWithRequiredNoteDto {
   @IsString()
   @MaxLength(2000)
   note!: string;
+}
+
+export class BulkApproveDto {
+  @IsUUID()
+  actorId!: string;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID('all', { each: true })
+  ids!: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string | null;
+
+  @IsOptional()
+  requiresHrConfirmation?: boolean;
+}
+
+export class BulkRejectDto {
+  @IsUUID()
+  actorId!: string;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsUUID('all', { each: true })
+  ids!: string[];
+
+  @IsString()
+  @MaxLength(2000)
+  note!: string;
+}
+
+export interface BulkResult {
+  id: string;
+  ok: boolean;
+  workflowState?: string;
+  status?: string;
+  error?: string;
 }
 
 export interface RequestDto {
