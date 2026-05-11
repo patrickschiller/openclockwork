@@ -8,6 +8,7 @@ import { RequestsPage } from '../routes/RequestsPage';
 import { CalendarPage } from '../routes/CalendarPage';
 import { SubstitutePage } from '../routes/SubstitutePage';
 import { AdminRequestsPage } from '../routes/AdminRequestsPage';
+import { AdminSchedulesPage } from '../routes/AdminSchedulesPage';
 import { PlaceholderPage } from '../routes/PlaceholderPage';
 
 export function App() {
@@ -30,6 +31,7 @@ export function App() {
         <Route path="requests" element={<RequestsPage />} />
         <Route path="substitute" element={<SubstitutePage />} />
         <Route path="admin/requests" element={<AdminRequestsPage />} />
+        <Route path="admin/schedules" element={<AdminSchedulesPage />} />
         <Route
           path="*"
           element={<PlaceholderPage title="Nicht gefunden" hint="Diese Seite existiert nicht." />}

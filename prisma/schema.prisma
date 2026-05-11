@@ -101,6 +101,8 @@ model Employee {
   managerId          String?                  @db.Uuid
   manager            Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
   reports            Employee[]               @relation("ManagerToReports")
+  workScheduleId     String?                  @db.Uuid
+  workSchedule       WorkSchedule?            @relation(fields: [workScheduleId], references: [id], onDelete: SetNull)
   timeEntries        TimeEntry[]
   requests           Request[]                @relation("RequestEmployee")
   approverRequests   Request[]                @relation("RequestApprover")
@@ -112,6 +114,36 @@ model Employee {
 
   @@index([role])
   @@index([managerId])
+  @@index([workScheduleId])
+}
+
+// Frame and core working hours. A schedule is assigned per Employee
+// (Employee.workScheduleId). Multiple core-time windows per schedule are
+// supported (e.g. 10:00–11:00 and 14:00–15:00). Times are stored as
+// "HH:mm" strings; weekdays as a 7-bit mask (Mon=1, Tue=2, ..., Sun=64).
+model WorkSchedule {
+  id          String                 @id @default(uuid()) @db.Uuid
+  name        String                 @unique
+  description String?
+  frameStart  String // "HH:mm" — start of permitted booking window
+  frameEnd    String // "HH:mm" — end of permitted booking window
+  isDefault   Boolean                @default(false)
+  coreTimes   WorkScheduleCoreTime[]
+  employees   Employee[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+model WorkScheduleCoreTime {
+  id         String       @id @default(uuid()) @db.Uuid
+  scheduleId String       @db.Uuid
+  schedule   WorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  label      String?
+  start      String // "HH:mm"
+  end        String // "HH:mm"
+  weekdays   Int          @default(31) // bitmask Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64
+
+  @@index([scheduleId])
 }
 
 model TimeEntry {

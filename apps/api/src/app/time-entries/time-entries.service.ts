@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { requiresSpecialApproval } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
+import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
 import { toTimeEntryDto, type ClockInDto, type TimeEntryDto } from './time-entries.dto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class TimeEntriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly events: EventsGateway,
+    private readonly schedules: WorkSchedulesService,
   ) {}
 
   async list(employeeId: string, from?: Date, to?: Date): Promise<TimeEntryDto[]> {
@@ -34,6 +36,7 @@ export class TimeEntriesService {
     if (open) {
       throw new ConflictException('There is already an open time entry — clock out first');
     }
+    const schedule = await this.schedules.resolveForEmployee(dto.employeeId);
     const now = new Date();
     const created = await this.prisma.timeEntry.create({
       data: {
@@ -41,7 +44,7 @@ export class TimeEntriesService {
         clockIn: now,
         source: 'Pwa',
         status: 'Open',
-        requiresApproval: requiresSpecialApproval(now, null),
+        requiresApproval: requiresSpecialApproval(now, null, schedule.frame),
         latitude: dto.latitude ?? null,
         longitude: dto.longitude ?? null,
         accuracyMeters: dto.accuracyMeters ?? null,
@@ -65,7 +68,8 @@ export class TimeEntriesService {
     if (now.getTime() <= open.clockIn.getTime()) {
       throw new BadRequestException('Clock-out must be after clock-in');
     }
-    const requires = requiresSpecialApproval(open.clockIn, now);
+    const schedule = await this.schedules.resolveForEmployee(employeeId);
+    const requires = requiresSpecialApproval(open.clockIn, now, schedule.frame);
     const updated = await this.prisma.timeEntry.update({
       where: { id: open.id },
       data: {

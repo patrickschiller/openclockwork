@@ -139,6 +139,36 @@ export interface ViolationDto {
   kind: string;
   boundary: string;
   deltaMinutes: number;
+  windowLabel?: string;
+}
+
+export interface CoreTimeWindowDto {
+  id: string;
+  label: string | null;
+  start: string;
+  end: string;
+  weekdays: number;
+}
+
+export interface WorkScheduleDto {
+  id: string;
+  name: string;
+  description: string | null;
+  frameStart: string;
+  frameEnd: string;
+  isDefault: boolean;
+  coreTimes: CoreTimeWindowDto[];
+  employeeCount: number;
+  updatedAt: string;
+}
+
+export interface UpsertWorkSchedulePayload {
+  name: string;
+  description: string | null;
+  frameStart: string;
+  frameEnd: string;
+  isDefault: boolean;
+  coreTimes: Array<{ label: string | null; start: string; end: string; weekdays: number }>;
 }
 
 export interface CreateRequestPayload {
@@ -347,6 +377,33 @@ export const api = {
     if (to) params.set('to', to);
     return request<ViolationDto[]>(`/api/violations?${params.toString()}`);
   },
+  workSchedules: () => request<WorkScheduleDto[]>('/api/work-schedules'),
+  workSchedule: (id: string) => request<WorkScheduleDto>(`/api/work-schedules/${id}`),
+  createWorkSchedule: (payload: UpsertWorkSchedulePayload) =>
+    request<WorkScheduleDto>('/api/work-schedules', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateWorkSchedule: (id: string, payload: UpsertWorkSchedulePayload) =>
+    request<WorkScheduleDto>(`/api/work-schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteWorkSchedule: (id: string) =>
+    request<void>(`/api/work-schedules/${id}`, { method: 'DELETE' }),
+  assignSchedule: (id: string, employeeId: string) =>
+    request<void>(`/api/work-schedules/${id}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ employeeId }),
+    }),
+  bulkAssignSchedule: (id: string, timeModel: TimeModel, overrideExisting: boolean) =>
+    request<{ scheduleId: string; assigned: number; skipped: number }>(
+      `/api/work-schedules/${id}/bulk-assign`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ timeModel, overrideExisting }),
+      },
+    ),
 };
 
 export async function fetchHealth(): Promise<HealthResponse> {

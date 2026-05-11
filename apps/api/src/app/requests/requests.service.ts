@@ -17,6 +17,7 @@ import { VacationBalanceService } from '../accounts/vacation-balance.service';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestNotificationService } from '../notifications/request-notification.service';
+import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
 import {
   toRequestDto,
   type CreateRequestDto,
@@ -41,6 +42,7 @@ export class RequestsService {
     private readonly employees: EmployeesService,
     private readonly notifications: RequestNotificationService,
     private readonly vacationBalance: VacationBalanceService,
+    private readonly schedules: WorkSchedulesService,
   ) {}
 
   async list(filter: ListRequestsFilter): Promise<RequestDto[]> {
@@ -98,8 +100,11 @@ export class RequestsService {
     if (to.getTime() < from.getTime()) {
       throw new BadRequestException('"to" must be on/after "from"');
     }
-    const requires =
-      dto.type === 'TimeAdjustment' ? requiresSpecialApproval(from, to) : false;
+    let requires = false;
+    if (dto.type === 'TimeAdjustment') {
+      const schedule = await this.schedules.resolveForEmployee(employee.id);
+      requires = requiresSpecialApproval(from, to, schedule.frame);
+    }
     const calculatedDays = calculateWorkingDays(from, to);
     const created = await this.prisma.$transaction(async (tx) => {
       const request = await tx.request.create({
