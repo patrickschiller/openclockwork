@@ -20,6 +20,7 @@ import { RequestNotificationService } from '../notifications/request-notificatio
 import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
 import {
   toRequestDto,
+  type BulkResult,
   type CreateRequestDto,
   type CreateVacationDto,
   type RequestDto,
@@ -304,6 +305,84 @@ export class RequestsService {
     const request = await this.assertRequest(id);
     await this.assertApproverRole(actorId);
     return this.transitionVacation(request, 'manager_return', actorId, note);
+  }
+
+  // ----- Bulk operations -----
+
+  /**
+   * Approve a batch of requests. Each ID is dispatched to the right transition
+   * based on its current `workflowState`:
+   * - `PendingManager` → manager_approve (or manager_approve_with_hr if the
+   *    request is `requiresApproval`-flagged or the caller asked for HR review)
+   * - `PendingHr`      → hr_confirm
+   *
+   * Errors per ID are captured so a single broken row does not abort the batch.
+   */
+  async bulkApprove(
+    actorId: string,
+    ids: string[],
+    note: string | null,
+    requiresHrConfirmation: boolean,
+  ): Promise<BulkResult[]> {
+    const out: BulkResult[] = [];
+    for (const id of ids) {
+      try {
+        const request = await this.assertRequest(id);
+        if (request.workflowState === 'PendingManager') {
+          await this.assertApproverRole(actorId);
+          const forced = requiresTwoStageApproval(request);
+          const event: WorkflowEvent =
+            requiresHrConfirmation || forced ? 'manager_approve_with_hr' : 'manager_approve';
+          const updated = await this.transitionVacation(request, event, actorId, note);
+          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+        } else if (request.workflowState === 'PendingHr') {
+          await this.assertHrAdminRole(actorId);
+          const updated = await this.transitionVacation(request, 'hr_confirm', actorId, note);
+          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+        } else {
+          out.push({
+            id,
+            ok: false,
+            error: `Request is in state "${request.workflowState}" — not approvable in bulk`,
+          });
+        }
+      } catch (err) {
+        out.push({ id, ok: false, error: err instanceof Error ? err.message : 'unknown error' });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Reject a batch of requests. Note is required (passed to every ID).
+   * - `PendingManager` → manager_reject
+   * - `PendingHr`      → hr_reject
+   */
+  async bulkReject(actorId: string, ids: string[], note: string): Promise<BulkResult[]> {
+    const out: BulkResult[] = [];
+    for (const id of ids) {
+      try {
+        const request = await this.assertRequest(id);
+        if (request.workflowState === 'PendingManager') {
+          await this.assertApproverRole(actorId);
+          const updated = await this.transitionVacation(request, 'manager_reject', actorId, note);
+          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+        } else if (request.workflowState === 'PendingHr') {
+          await this.assertHrAdminRole(actorId);
+          const updated = await this.transitionVacation(request, 'hr_reject', actorId, note);
+          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+        } else {
+          out.push({
+            id,
+            ok: false,
+            error: `Request is in state "${request.workflowState}" — not rejectable in bulk`,
+          });
+        }
+      } catch (err) {
+        out.push({ id, ok: false, error: err instanceof Error ? err.message : 'unknown error' });
+      }
+    }
+    return out;
   }
 
   async cancel(id: string, actorId: string, note: string | null): Promise<RequestDto> {

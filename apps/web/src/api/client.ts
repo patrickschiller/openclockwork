@@ -163,6 +163,14 @@ export interface RequestEventDto {
   note: string | null;
 }
 
+export interface BulkResult {
+  id: string;
+  ok: boolean;
+  workflowState?: WorkflowState;
+  status?: RequestStatus;
+  error?: string;
+}
+
 export interface ViolationDto {
   timeEntryId: string;
   employeeId: string;
@@ -432,6 +440,21 @@ export const api = {
     request<RequestDto>(`/api/requests/${id}/cancel`, {
       method: 'POST',
       body: JSON.stringify({ actorId, note: note ?? null }),
+    }),
+  bulkApproveRequests: (
+    actorId: string,
+    ids: string[],
+    note?: string,
+    requiresHrConfirmation = false,
+  ) =>
+    request<BulkResult[]>('/api/requests/bulk-approve', {
+      method: 'POST',
+      body: JSON.stringify({ actorId, ids, note: note ?? null, requiresHrConfirmation }),
+    }),
+  bulkRejectRequests: (actorId: string, ids: string[], note: string) =>
+    request<BulkResult[]>('/api/requests/bulk-reject', {
+      method: 'POST',
+      body: JSON.stringify({ actorId, ids, note }),
     }),
   vacationBalance: (employeeId: string, year?: number) => {
     const qs = year ? `?year=${year}` : '';
