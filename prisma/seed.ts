@@ -5,6 +5,24 @@ const prisma = new PrismaClient();
 
 const DEFAULT_PASSWORD = 'openclockwork';
 
+const UMLAUT_MAP: Record<string, string> = {
+  ä: 'ae',
+  ö: 'oe',
+  ü: 'ue',
+  ß: 'ss',
+};
+
+function toEmailLocalPart(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[äöüß]/g, (ch) => UMLAUT_MAP[ch] ?? ch)
+    .replace(/[^a-z]/g, '');
+}
+
+function emailFor(firstName: string, lastName: string): string {
+  return `${toEmailLocalPart(firstName)}.${toEmailLocalPart(lastName)}@openclockwork.test`;
+}
+
 async function ensureEmployee(input: {
   personalNo: string;
   firstName: string;
@@ -34,11 +52,12 @@ async function ensureEmployee(input: {
     ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
   };
   return prisma.employee.upsert({
-    where: { email: input.email },
+    where: { personalNo: input.personalNo },
     create: data,
     update: {
       firstName: input.firstName,
       lastName: input.lastName,
+      email: input.email,
       role: input.role,
       timeModel: input.timeModel,
       weeklyHours: input.weeklyHours,
@@ -126,7 +145,7 @@ async function main() {
       personalNo: e.personalNo,
       firstName: e.firstName,
       lastName: e.lastName,
-      email: `${e.firstName.toLowerCase()}.${e.lastName.toLowerCase().replace(/[^a-z]/g, '')}@openclockwork.test`,
+      email: emailFor(e.firstName, e.lastName),
       role: 'Employee',
       timeModel: e.model,
       weeklyHours: e.weeklyHours,
