@@ -3,7 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { api, type AbsenceDto, type RequestDto, type RequestType } from '../api/client';
+import {
+  api,
+  type AbsenceDto,
+  type AbsenceKind,
+  type RequestDto,
+  type RequestType,
+} from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { cn } from '@/lib/utils';
 
@@ -36,7 +42,17 @@ const TYPE_LABEL: Record<RequestType, string> = {
   TimeAdjustment: 'Zeitkorrektur',
 };
 
-const SICKNESS_COLOR = 'bg-rose-500';
+const ABSENCE_COLOR: Record<AbsenceKind, string> = {
+  Sickness: 'bg-rose-500',
+  Training: 'bg-indigo-500',
+  Flextime: 'bg-yellow-500',
+};
+
+const ABSENCE_LABEL: Record<AbsenceKind, string> = {
+  Sickness: 'Krankheit',
+  Training: 'Schulung',
+  Flextime: 'Gleittag',
+};
 
 function daysInMonth(year: number, monthIdx0: number): number {
   return new Date(Date.UTC(year, monthIdx0 + 1, 0)).getUTCDate();
@@ -90,7 +106,7 @@ export function CalendarPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Kalender {year}</h1>
           <p className="text-sm text-muted-foreground">
-            Genehmigte und offene Anträge plus Krankmeldungen im Jahresüberblick
+            Genehmigte und offene Anträge plus Abwesenheiten im Jahresüberblick
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -110,10 +126,12 @@ export function CalendarPage() {
             {TYPE_LABEL[t]}
           </span>
         ))}
-        <span className="flex items-center gap-2">
-          <span className={cn('inline-block h-3 w-3 rounded-full', SICKNESS_COLOR)} aria-hidden />
-          Krankheit
-        </span>
+        {(Object.keys(ABSENCE_COLOR) as AbsenceKind[]).map((k) => (
+          <span key={k} className="flex items-center gap-2">
+            <span className={cn('inline-block h-3 w-3 rounded-full', ABSENCE_COLOR[k])} aria-hidden />
+            {ABSENCE_LABEL[k]}
+          </span>
+        ))}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -155,20 +173,20 @@ function Month({ year, monthIdx0, requests, absences }: MonthProps) {
       ))}
       {cells.map((d, i) => {
         if (d === null) return <span key={i} />;
-        const sickness = absencesOnDay(year, monthIdx0, d, absences);
+        const dayAbsences = absencesOnDay(year, monthIdx0, d, absences);
         const requestsHere = requestsOnDay(year, monthIdx0, d, requests);
 
-        // Sickness wins visually — overrides request colors.
-        if (sickness.length > 0) {
+        // Absences (sickness / training / flextime) win visually over requests.
+        if (dayAbsences.length > 0) {
+          const a = dayAbsences[0];
+          const titleSuffix = a.kind === 'Sickness' && a.certified ? ' (Attest)' : '';
           return (
             <span
               key={i}
-              title={`Krankheit${sickness[0].note ? ' — ' + sickness[0].note : ''}${
-                sickness[0].certified ? ' (Attest)' : ''
-              }`}
+              title={`${ABSENCE_LABEL[a.kind]}${a.note ? ' — ' + a.note : ''}${titleSuffix}`}
               className={cn(
                 'flex h-7 items-center justify-center rounded text-[11px] text-white',
-                SICKNESS_COLOR,
+                ABSENCE_COLOR[a.kind],
               )}
             >
               {d}

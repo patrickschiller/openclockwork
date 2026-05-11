@@ -1,7 +1,7 @@
 import { IsBoolean, IsEnum, IsISO8601, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import type { Absence } from '@prisma/client';
 
-const ABSENCE_KINDS = ['Sickness'] as const;
+const ABSENCE_KINDS = ['Sickness', 'Training', 'Flextime'] as const;
 
 export class CreateAbsenceDto {
   @IsUUID()
