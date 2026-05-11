@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { api, type RequestDto, type RequestType } from '../api/client';
+import { api, type AbsenceDto, type RequestDto, type RequestType } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { cn } from '@/lib/utils';
 
@@ -29,31 +29,37 @@ const TYPE_COLOR: Record<RequestType, string> = {
   TimeAdjustment: 'bg-amber-500',
 };
 
+const TYPE_LABEL: Record<RequestType, string> = {
+  Vacation: 'Urlaub',
+  HomeOffice: 'Home-Office',
+  SpecialLeave: 'Sonderurlaub',
+  TimeAdjustment: 'Zeitkorrektur',
+};
+
+const SICKNESS_COLOR = 'bg-rose-500';
+
 function daysInMonth(year: number, monthIdx0: number): number {
   return new Date(Date.UTC(year, monthIdx0 + 1, 0)).getUTCDate();
 }
 
 function startWeekdayMon0(year: number, monthIdx0: number): number {
-  // Monday-first index (Mon=0..Sun=6)
-  const dow = new Date(Date.UTC(year, monthIdx0, 1)).getUTCDay(); // Sun=0..Sat=6
+  const dow = new Date(Date.UTC(year, monthIdx0, 1)).getUTCDay();
   return (dow + 6) % 7;
 }
 
-function dayCovered(year: number, monthIdx0: number, day: number, requests: RequestDto[]): RequestDto[] {
+function utcRange(iso: string): number {
+  const d = new Date(iso);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+function requestsOnDay(year: number, monthIdx0: number, day: number, requests: RequestDto[]): RequestDto[] {
   const ts = Date.UTC(year, monthIdx0, day);
-  return requests.filter((r) => {
-    const from = Date.UTC(
-      new Date(r.from).getUTCFullYear(),
-      new Date(r.from).getUTCMonth(),
-      new Date(r.from).getUTCDate(),
-    );
-    const to = Date.UTC(
-      new Date(r.to).getUTCFullYear(),
-      new Date(r.to).getUTCMonth(),
-      new Date(r.to).getUTCDate(),
-    );
-    return ts >= from && ts <= to;
-  });
+  return requests.filter((r) => ts >= utcRange(r.from) && ts <= utcRange(r.to));
+}
+
+function absencesOnDay(year: number, monthIdx0: number, day: number, absences: AbsenceDto[]): AbsenceDto[] {
+  const ts = Date.UTC(year, monthIdx0, day);
+  return absences.filter((a) => ts >= utcRange(a.from) && ts <= utcRange(a.to));
 }
 
 export function CalendarPage() {
@@ -64,18 +70,28 @@ export function CalendarPage() {
     queryKey: ['requests', { employeeId: user.id }],
     queryFn: () => api.listRequests({ employeeId: user.id }),
   });
+  const absencesQuery = useQuery({
+    queryKey: ['absences', user.id],
+    queryFn: () => api.absences({ employeeId: user.id }),
+  });
 
   const requests = useMemo(
-    () => (requestsQuery.data ?? []).filter((r) => r.workflowState !== 'Cancelled' && r.workflowState !== 'Rejected'),
+    () =>
+      (requestsQuery.data ?? []).filter(
+        (r) => r.workflowState !== 'Cancelled' && r.workflowState !== 'Rejected',
+      ),
     [requestsQuery.data],
   );
+  const absences = absencesQuery.data ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Kalender {year}</h1>
-          <p className="text-sm text-muted-foreground">Genehmigte und offene Anträge im Jahresüberblick</p>
+          <p className="text-sm text-muted-foreground">
+            Genehmigte und offene Anträge plus Krankmeldungen im Jahresüberblick
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setYear(year - 1)} aria-label="Vorheriges Jahr">
@@ -91,9 +107,13 @@ export function CalendarPage() {
         {(Object.keys(TYPE_COLOR) as RequestType[]).map((t) => (
           <span key={t} className="flex items-center gap-2">
             <span className={cn('inline-block h-3 w-3 rounded-full', TYPE_COLOR[t])} aria-hidden />
-            {t}
+            {TYPE_LABEL[t]}
           </span>
         ))}
+        <span className="flex items-center gap-2">
+          <span className={cn('inline-block h-3 w-3 rounded-full', SICKNESS_COLOR)} aria-hidden />
+          Krankheit
+        </span>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -103,7 +123,7 @@ export function CalendarPage() {
               <CardTitle className="text-base">{label}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Month year={year} monthIdx0={monthIdx0} requests={requests} />
+              <Month year={year} monthIdx0={monthIdx0} requests={requests} absences={absences} />
             </CardContent>
           </Card>
         ))}
@@ -116,9 +136,10 @@ interface MonthProps {
   year: number;
   monthIdx0: number;
   requests: RequestDto[];
+  absences: AbsenceDto[];
 }
 
-function Month({ year, monthIdx0, requests }: MonthProps) {
+function Month({ year, monthIdx0, requests, absences }: MonthProps) {
   const total = daysInMonth(year, monthIdx0);
   const startOffset = startWeekdayMon0(year, monthIdx0);
 
@@ -134,15 +155,35 @@ function Month({ year, monthIdx0, requests }: MonthProps) {
       ))}
       {cells.map((d, i) => {
         if (d === null) return <span key={i} />;
-        const matches = dayCovered(year, monthIdx0, d, requests);
-        const main = matches[0];
+        const sickness = absencesOnDay(year, monthIdx0, d, absences);
+        const requestsHere = requestsOnDay(year, monthIdx0, d, requests);
+
+        // Sickness wins visually — overrides request colors.
+        if (sickness.length > 0) {
+          return (
+            <span
+              key={i}
+              title={`Krankheit${sickness[0].note ? ' — ' + sickness[0].note : ''}${
+                sickness[0].certified ? ' (Attest)' : ''
+              }`}
+              className={cn(
+                'flex h-7 items-center justify-center rounded text-[11px] text-white',
+                SICKNESS_COLOR,
+              )}
+            >
+              {d}
+            </span>
+          );
+        }
+
+        const main = requestsHere[0];
         const isPending = main && main.workflowState !== 'Approved';
         return (
           <span
             key={i}
             title={
               main
-                ? `${main.type} (${main.workflowState})${main.reason ? ' — ' + main.reason : ''}`
+                ? `${TYPE_LABEL[main.type as RequestType]} (${main.workflowState})${main.reason ? ' — ' + main.reason : ''}`
                 : undefined
             }
             className={cn(

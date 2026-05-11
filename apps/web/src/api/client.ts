@@ -172,6 +172,35 @@ export interface ViolationDto {
   windowLabel?: string;
 }
 
+export type AbsenceKind = 'Sickness';
+
+export interface AbsenceDto {
+  id: string;
+  employeeId: string;
+  kind: AbsenceKind;
+  from: string; // YYYY-MM-DD
+  to: string;   // YYYY-MM-DD
+  certified: boolean;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface CreateAbsencePayload {
+  employeeId: string;
+  kind?: AbsenceKind;
+  from: string;
+  to: string;
+  certified?: boolean;
+  note?: string | null;
+}
+
+export interface UpdateAbsencePayload {
+  from?: string;
+  to?: string;
+  certified?: boolean;
+  note?: string | null;
+}
+
 export interface CoreTimeWindowDto {
   id: string;
   label: string | null;
@@ -421,6 +450,20 @@ export const api = {
     if (to) params.set('to', to);
     return request<ViolationDto[]>(`/api/violations?${params.toString()}`);
   },
+  absences: (filters: { employeeId?: string; from?: string; to?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (filters.employeeId) params.set('employeeId', filters.employeeId);
+    if (filters.from) params.set('from', filters.from);
+    if (filters.to) params.set('to', filters.to);
+    const qs = params.toString();
+    return request<AbsenceDto[]>(`/api/absences${qs ? `?${qs}` : ''}`);
+  },
+  createAbsence: (payload: CreateAbsencePayload) =>
+    request<AbsenceDto>('/api/absences', { method: 'POST', body: JSON.stringify(payload) }),
+  updateAbsence: (id: string, payload: UpdateAbsencePayload) =>
+    request<AbsenceDto>(`/api/absences/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteAbsence: (id: string) =>
+    request<void>(`/api/absences/${id}`, { method: 'DELETE' }),
   workSchedules: () => request<WorkScheduleDto[]>('/api/work-schedules'),
   workSchedule: (id: string) => request<WorkScheduleDto>(`/api/work-schedules/${id}`),
   createWorkSchedule: (payload: UpsertWorkSchedulePayload) =>

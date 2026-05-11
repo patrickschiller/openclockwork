@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   ListChecks,
   Settings,
+  Stethoscope,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -54,6 +55,13 @@ export const navItems: NavItem[] = [
     to: '/substitute',
     label: 'Vertretungen',
     icon: Handshake,
+    roles: ['Employee', 'Manager', 'HRAdmin'],
+    showInBottomNav: false,
+  },
+  {
+    to: '/sickness',
+    label: 'Krankmeldung',
+    icon: Stethoscope,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: false,
   },

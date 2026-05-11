@@ -7,6 +7,7 @@ import { BookingPage } from '../routes/BookingPage';
 import { RequestsPage } from '../routes/RequestsPage';
 import { CalendarPage } from '../routes/CalendarPage';
 import { SubstitutePage } from '../routes/SubstitutePage';
+import { SicknessPage } from '../routes/SicknessPage';
 import { AdminRequestsPage } from '../routes/AdminRequestsPage';
 import { AdminSchedulesPage } from '../routes/AdminSchedulesPage';
 import { AdminEmployeesPage } from '../routes/AdminEmployeesPage';
@@ -31,6 +32,7 @@ export function App() {
         <Route path="calendar" element={<CalendarPage />} />
         <Route path="requests" element={<RequestsPage />} />
         <Route path="substitute" element={<SubstitutePage />} />
+        <Route path="sickness" element={<SicknessPage />} />
         <Route path="admin/requests" element={<AdminRequestsPage />} />
         <Route path="admin/schedules" element={<AdminSchedulesPage />} />
         <Route path="admin/employees" element={<AdminEmployeesPage />} />
