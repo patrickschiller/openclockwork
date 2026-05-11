@@ -82,11 +82,13 @@ enum RequestEventKind {
   Cancelled
 }
 
-// Absences are recorded facts (Krankheit etc.), not approval workflows.
-// `kind` is intentionally an enum so it can grow (Schulung, Gleittage) later
-// without breaking existing rows.
+// Absences are recorded facts (Krankheit / Schulung / Gleittage etc.), not
+// approval workflows. The enum is open so additional kinds can be added in
+// future without changing the model.
 enum AbsenceKind {
   Sickness
+  Training
+  Flextime
 }
 
 // -------------------------------------------------------------

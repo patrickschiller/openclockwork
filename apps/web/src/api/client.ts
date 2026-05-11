@@ -186,7 +186,7 @@ export interface ViolationDto {
   windowLabel?: string;
 }
 
-export type AbsenceKind = 'Sickness';
+export type AbsenceKind = 'Sickness' | 'Training' | 'Flextime';
 
 export interface AbsenceDto {
   id: string;

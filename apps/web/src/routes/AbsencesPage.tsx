@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -16,8 +16,22 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, type EmployeeDto } from '../api/client';
+import { api, type AbsenceKind, type EmployeeDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
+
+const KIND_OPTIONS: AbsenceKind[] = ['Sickness', 'Training', 'Flextime'];
+
+const KIND_LABEL: Record<AbsenceKind, string> = {
+  Sickness: 'Krankheit',
+  Training: 'Schulung',
+  Flextime: 'Gleittag',
+};
+
+const KIND_BADGE: Record<AbsenceKind, 'destructive' | 'secondary' | 'outline'> = {
+  Sickness: 'destructive',
+  Training: 'secondary',
+  Flextime: 'outline',
+};
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -32,7 +46,7 @@ function daysBetween(fromIso: string, toIso: string): number {
   return Math.max(1, Math.round(ms / 86_400_000) + 1);
 }
 
-export function SicknessPage() {
+export function AbsencesPage() {
   const user = useCurrentUser();
   const canManageOthers = user.role === 'Manager' || user.role === 'HRAdmin';
   const qc = useQueryClient();
@@ -65,16 +79,16 @@ export function SicknessPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Krankmeldungen</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Abwesenheiten</h1>
           <p className="text-sm text-muted-foreground">
-            Krankheit ist kein Antrag — sie wird gemeldet und ist sofort gültig. Manager:innen
-            und HR können Meldungen für betreute Mitarbeiter:innen eintragen.
+            Krankheit, Schulungen, Gleittage — werden ohne Genehmigung als Tatsache eingetragen.
+            Manager:innen und HR können Einträge für betreute Mitarbeiter:innen anlegen.
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="mr-2 h-4 w-4" /> Krank melden
+              <Plus className="mr-2 h-4 w-4" /> Eintragen
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
@@ -127,6 +141,9 @@ export function SicknessPage() {
                 <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
                     <p className="font-medium">
+                      <Badge variant={KIND_BADGE[a.kind]} className="mr-2">
+                        {KIND_LABEL[a.kind]}
+                      </Badge>
                       {fmtDate(a.from)} – {fmtDate(a.to)}
                       <span className="ml-2 text-xs text-muted-foreground">
                         {daysBetween(a.from, a.to)} Kalendertage
@@ -140,9 +157,10 @@ export function SicknessPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {a.certified ? (
+                    {a.kind === 'Sickness' && a.certified && (
                       <Badge variant="secondary">Attest vorgelegt</Badge>
-                    ) : (
+                    )}
+                    {a.kind === 'Sickness' && !a.certified && (
                       <Badge variant="outline">ohne Attest</Badge>
                     )}
                     <Button
@@ -151,7 +169,7 @@ export function SicknessPage() {
                       title="Löschen"
                       disabled={remove.isPending}
                       onClick={() => {
-                        if (window.confirm('Krankmeldung wirklich löschen?')) {
+                        if (window.confirm('Eintrag wirklich löschen?')) {
                           remove.mutate(a.id);
                         }
                       }}
@@ -163,7 +181,7 @@ export function SicknessPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">Keine Krankmeldungen.</p>
+            <p className="text-sm text-muted-foreground">Keine Einträge.</p>
           )}
         </CardContent>
       </Card>
@@ -180,23 +198,23 @@ interface NewAbsenceFormProps {
 
 function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }: NewAbsenceFormProps) {
   const [employeeId, setEmployeeId] = useState(defaultEmployeeId);
+  const [kind, setKind] = useState<AbsenceKind>('Sickness');
   const [from, setFrom] = useState(isoToday);
   const [to, setTo] = useState(isoToday);
   const [certified, setCertified] = useState(false);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const valid = useMemo(() => {
-    return !!employeeId && from <= to;
-  }, [employeeId, from, to]);
+  const valid = !!employeeId && from <= to;
 
   const create = useMutation({
     mutationFn: () =>
       api.createAbsence({
         employeeId,
+        kind,
         from: new Date(from + 'T00:00:00.000Z').toISOString(),
         to: new Date(to + 'T00:00:00.000Z').toISOString(),
-        certified,
+        certified: kind === 'Sickness' ? certified : false,
         note: note || null,
       }),
     onSuccess: onClose,
@@ -206,8 +224,8 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Krank melden</DialogTitle>
-        <DialogDescription>Zeitraum + optional Notiz / Attest</DialogDescription>
+        <DialogTitle>Abwesenheit eintragen</DialogTitle>
+        <DialogDescription>Typ, Zeitraum, optionale Notiz</DialogDescription>
       </DialogHeader>
       <div className="space-y-4 py-2">
         {canPickOther && (
@@ -227,6 +245,21 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
             </select>
           </div>
         )}
+        <div className="space-y-2">
+          <Label htmlFor="kind">Typ</Label>
+          <select
+            id="kind"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as AbsenceKind)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+          >
+            {KIND_OPTIONS.map((k) => (
+              <option key={k} value={k}>
+                {KIND_LABEL[k]}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="from">Von</Label>
@@ -237,14 +270,25 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
             <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={certified} onChange={(e) => setCertified(e.target.checked)} />
-          ärztliches Attest liegt vor
-        </label>
+        {kind === 'Sickness' && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={certified} onChange={(e) => setCertified(e.target.checked)} />
+            ärztliches Attest liegt vor
+          </label>
+        )}
         <div className="space-y-2">
           <Label htmlFor="note">Notiz (optional)</Label>
           <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} />
         </div>
+        {kind === 'Flextime' && (
+          <Alert>
+            <AlertDescription>
+              Hinweis: Gleittage reduzieren das Überstundenkonto aktuell <strong>nicht</strong>{' '}
+              automatisch — die rechnerische Verrechnung kommt in einer späteren Iteration. Der
+              Kalender und die Liste zeigen den Eintrag korrekt.
+            </AlertDescription>
+          </Alert>
+        )}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

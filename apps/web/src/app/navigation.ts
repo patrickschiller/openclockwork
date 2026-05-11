@@ -59,8 +59,8 @@ export const navItems: NavItem[] = [
     showInBottomNav: false,
   },
   {
-    to: '/sickness',
-    label: 'Krankmeldung',
+    to: '/absences',
+    label: 'Abwesenheiten',
     icon: Stethoscope,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: false,
