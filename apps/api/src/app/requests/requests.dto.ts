@@ -1,6 +1,8 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsISO8601,
   IsOptional,
@@ -10,19 +12,26 @@ import {
 } from 'class-validator';
 import type { Request } from '@prisma/client';
 
+const REQUEST_TYPES = ['Vacation', 'HomeOffice', 'SpecialLeave', 'TimeAdjustment'] as const;
+
 export class CreateRequestDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
 
-  @IsEnum(['Vacation', 'HomeOffice', 'SpecialLeave', 'TimeAdjustment'])
-  type!: 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeAdjustment';
+  @ApiProperty({ enum: REQUEST_TYPES })
+  @IsEnum(REQUEST_TYPES)
+  type!: (typeof REQUEST_TYPES)[number];
 
+  @ApiProperty({ format: 'date-time', example: '2026-08-03T00:00:00.000Z' })
   @IsISO8601()
   from!: string;
 
+  @ApiProperty({ format: 'date-time', example: '2026-08-07T00:00:00.000Z' })
   @IsISO8601()
   to!: string;
 
+  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -30,19 +39,24 @@ export class CreateRequestDto {
 }
 
 export class CreateVacationDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
 
+  @ApiProperty({ format: 'date-time' })
   @IsISO8601()
   from!: string;
 
+  @ApiProperty({ format: 'date-time' })
   @IsISO8601()
   to!: string;
 
+  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
   @IsOptional()
   @IsUUID()
   substituteId?: string | null;
 
+  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -50,9 +64,11 @@ export class CreateVacationDto {
 }
 
 export class TransitionDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;
 
+  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -60,46 +76,58 @@ export class TransitionDto {
 }
 
 export class ManagerApproveDto extends TransitionDto {
+  @ApiPropertyOptional({ default: false })
   @IsOptional()
+  @IsBoolean()
   requiresHrConfirmation?: boolean;
 }
 
 export class TransitionWithRequiredNoteDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;
 
+  @ApiProperty({ maxLength: 2000 })
   @IsString()
   @MaxLength(2000)
   note!: string;
 }
 
 export class BulkApproveDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;
 
+  @ApiProperty({ type: [String], format: 'uuid' })
   @IsArray()
   @ArrayNotEmpty()
   @IsUUID('all', { each: true })
   ids!: string[];
 
+  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   note?: string | null;
 
+  @ApiPropertyOptional({ default: false })
   @IsOptional()
+  @IsBoolean()
   requiresHrConfirmation?: boolean;
 }
 
 export class BulkRejectDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;
 
+  @ApiProperty({ type: [String], format: 'uuid' })
   @IsArray()
   @ArrayNotEmpty()
   @IsUUID('all', { each: true })
   ids!: string[];
 
+  @ApiProperty({ maxLength: 2000 })
   @IsString()
   @MaxLength(2000)
   note!: string;

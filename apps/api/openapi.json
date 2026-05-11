@@ -1445,79 +1445,613 @@
     "schemas": {
       "LoginDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "hannah.roth@openclockwork.test"
+          },
+          "password": {
+            "type": "string",
+            "example": "openclockwork"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
       },
       "CreateEmployeeDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "personalNo": {
+            "type": "string",
+            "example": "1001",
+            "maxLength": 40
+          },
+          "firstName": {
+            "type": "string",
+            "example": "Anna",
+            "maxLength": 120
+          },
+          "lastName": {
+            "type": "string",
+            "example": "Mueller",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "example": "anna.mueller@openclockwork.test",
+            "maxLength": 200
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 120,
+            "description": "Initial password — bcrypt-hashed on the server."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Employee",
+              "Manager",
+              "HRAdmin"
+            ],
+            "example": "Employee"
+          },
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ],
+            "example": "Vollzeit"
+          },
+          "weeklyHours": {
+            "type": "number",
+            "example": 40,
+            "minimum": 0
+          },
+          "annualLeaveDays": {
+            "type": "number",
+            "example": 30,
+            "minimum": 0
+          },
+          "startDate": {
+            "type": "string",
+            "example": "2026-04-01",
+            "description": "ISO date when the employee starts; Soll-Stunden are counted from here."
+          },
+          "overtimeOpeningBalanceMinutes": {
+            "type": "number",
+            "example": 0,
+            "description": "One-time overtime carry-over in minutes (signed)."
+          },
+          "managerId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "workScheduleId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "personalNo",
+          "firstName",
+          "lastName",
+          "email",
+          "password",
+          "role",
+          "timeModel",
+          "weeklyHours",
+          "annualLeaveDays",
+          "startDate"
+        ]
       },
       "UpdateEmployeeDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "personalNo": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Employee",
+              "Manager",
+              "HRAdmin"
+            ]
+          },
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ]
+          },
+          "weeklyHours": {
+            "type": "number",
+            "minimum": 0
+          },
+          "annualLeaveDays": {
+            "type": "number",
+            "minimum": 0
+          },
+          "startDate": {
+            "type": "string",
+            "example": "2026-04-01"
+          },
+          "overtimeOpeningBalanceMinutes": {
+            "type": "number"
+          },
+          "managerId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "workScheduleId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
       },
       "SetPasswordDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
+      "CoreTimeWindowDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 120,
+            "example": "Vormittag"
+          },
+          "start": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "10:00"
+          },
+          "end": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "11:00"
+          },
+          "weekdays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 127,
+            "description": "Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Mo–Fr = 31."
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "weekdays"
+        ]
       },
       "UpsertWorkScheduleDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "description": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "frameStart": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "07:00"
+          },
+          "frameEnd": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "23:00"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "default": false
+          },
+          "coreTimes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CoreTimeWindowDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "frameStart",
+          "frameEnd",
+          "coreTimes"
+        ]
       },
       "AssignToEmployeeDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "employeeId"
+        ]
       },
       "BulkAssignDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ]
+          },
+          "overrideExisting": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "timeModel"
+        ]
       },
       "ClockInDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "latitude": {
+            "type": "object",
+            "nullable": true,
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "object",
+            "nullable": true,
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyMeters": {
+            "type": "object",
+            "nullable": true,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "employeeId"
+        ]
       },
       "ClockOutDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "employeeId"
+        ]
       },
       "UpsertLeaveAllowanceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "baseDays": {
+            "type": "number",
+            "minimum": 0,
+            "example": 30
+          },
+          "carryOverDays": {
+            "type": "number",
+            "minimum": 0,
+            "example": 0
+          },
+          "carryOverExpiresOn": {
+            "type": "object",
+            "nullable": true,
+            "format": "date"
+          },
+          "adjustmentDays": {
+            "type": "number",
+            "example": 0,
+            "description": "Signed adjustment days (e.g. half-year entry pro-rata)."
+          },
+          "adjustmentReason": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "baseDays",
+          "carryOverDays",
+          "adjustmentDays"
+        ]
       },
       "CreateRequestDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Vacation",
+              "HomeOffice",
+              "SpecialLeave",
+              "TimeAdjustment"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-03T00:00:00.000Z"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-07T00:00:00.000Z"
+          },
+          "reason": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "employeeId",
+          "type",
+          "from",
+          "to"
+        ]
       },
       "CreateVacationDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "substituteId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "employeeId",
+          "from",
+          "to"
+        ]
       },
       "TransitionDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "actorId"
+        ]
       },
       "ManagerApproveDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "requiresHrConfirmation": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "actorId"
+        ]
       },
       "TransitionWithRequiredNoteDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "actorId",
+          "note"
+        ]
       },
       "BulkApproveDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "requiresHrConfirmation": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "actorId",
+          "ids"
+        ]
       },
       "BulkRejectDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "actorId",
+          "ids",
+          "note"
+        ]
       },
       "CreateAbsenceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Sickness",
+              "Training",
+              "Flextime"
+            ],
+            "default": "Sickness"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "certified": {
+            "type": "boolean",
+            "default": false,
+            "description": "Sickness only: ärztliches Attest vorgelegt."
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "employeeId",
+          "from",
+          "to"
+        ]
       },
       "UpdateAbsenceDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "certified": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        }
       }
     }
   }
