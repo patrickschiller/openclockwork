@@ -75,6 +75,47 @@ async function ensureLeaveAllowance(employeeId: string, year: number, baseDays: 
   });
 }
 
+const WEEKDAYS_MON_TO_FRI = 31;
+
+interface CoreSeed {
+  label: string;
+  start: string;
+  end: string;
+  weekdays: number;
+}
+
+interface ScheduleSeed {
+  name: string;
+  description: string;
+  frameStart: string;
+  frameEnd: string;
+  isDefault?: boolean;
+  cores: CoreSeed[];
+}
+
+async function ensureWorkSchedule(seed: ScheduleSeed) {
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.workSchedule.findUnique({ where: { name: seed.name } });
+    const data = {
+      description: seed.description,
+      frameStart: seed.frameStart,
+      frameEnd: seed.frameEnd,
+      isDefault: !!seed.isDefault,
+    };
+    const schedule = existing
+      ? await tx.workSchedule.update({ where: { id: existing.id }, data })
+      : await tx.workSchedule.create({ data: { name: seed.name, ...data } });
+    // Replace cores idempotently.
+    await tx.workScheduleCoreTime.deleteMany({ where: { scheduleId: schedule.id } });
+    if (seed.cores.length > 0) {
+      await tx.workScheduleCoreTime.createMany({
+        data: seed.cores.map((c) => ({ ...c, scheduleId: schedule.id })),
+      });
+    }
+    return schedule;
+  });
+}
+
 async function ensureTimeEntry(employeeId: string, clockIn: Date, clockOut: Date) {
   const existing = await prisma.timeEntry.findFirst({
     where: { employeeId, clockIn },
@@ -93,6 +134,33 @@ async function ensureTimeEntry(employeeId: string, clockIn: Date, clockOut: Date
 }
 
 async function main() {
+  // Work schedules (must exist before employees are assigned to them).
+  const standard = await ensureWorkSchedule({
+    name: 'Standard 09–17 mit Doppel-Kernzeit',
+    description: 'Rahmen 07:00–23:00, Kernzeit 10:00–11:00 und 14:00–15:00 (Mo–Fr).',
+    frameStart: '07:00',
+    frameEnd: '23:00',
+    isDefault: true,
+    cores: [
+      { label: 'Vormittag', start: '10:00', end: '11:00', weekdays: WEEKDAYS_MON_TO_FRI },
+      { label: 'Nachmittag', start: '14:00', end: '15:00', weekdays: WEEKDAYS_MON_TO_FRI },
+    ],
+  });
+  await ensureWorkSchedule({
+    name: 'Vertrauensarbeitszeit',
+    description: 'Voller Rahmen 00:00–24:00, keine Kernzeiten.',
+    frameStart: '00:00',
+    frameEnd: '23:59',
+    cores: [],
+  });
+  await ensureWorkSchedule({
+    name: 'Teilzeit Vormittag',
+    description: 'Rahmen 07:00–14:00, Kernzeit 09:00–12:00 (Mo–Fr).',
+    frameStart: '07:00',
+    frameEnd: '14:00',
+    cores: [{ label: 'Kernzeit', start: '09:00', end: '12:00', weekdays: WEEKDAYS_MON_TO_FRI }],
+  });
+
   // HR-Admin
   const hr = await ensureEmployee({
     personalNo: '0001',
@@ -159,6 +227,31 @@ async function main() {
   const year = new Date().getUTCFullYear();
   for (const c of created) {
     await ensureLeaveAllowance(c.id, year, Number(c.annualLeaveDays));
+  }
+
+  // Auto-assign schedules per TimeModel (only if employee has none yet, so HR
+  // can override later without the seeder reverting their decision).
+  const trustSchedule = await prisma.workSchedule.findUnique({
+    where: { name: 'Vertrauensarbeitszeit' },
+  });
+  const partTimeSchedule = await prisma.workSchedule.findUnique({
+    where: { name: 'Teilzeit Vormittag' },
+  });
+  await prisma.employee.updateMany({
+    where: { workScheduleId: null, timeModel: { in: ['Vollzeit', 'Gleitzeit'] } },
+    data: { workScheduleId: standard.id },
+  });
+  if (trustSchedule) {
+    await prisma.employee.updateMany({
+      where: { workScheduleId: null, timeModel: 'Vertrauensarbeitszeit' },
+      data: { workScheduleId: trustSchedule.id },
+    });
+  }
+  if (partTimeSchedule) {
+    await prisma.employee.updateMany({
+      where: { workScheduleId: null, timeModel: 'Teilzeit' },
+      data: { workScheduleId: partTimeSchedule.id },
+    });
   }
 
   // A handful of plausible time entries for the first employee, last 5 weekdays.

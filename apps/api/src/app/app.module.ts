@@ -12,6 +12,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RequestsModule } from './requests/requests.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { ViolationsModule } from './violations/violations.module';
+import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ViolationsModule } from './violations/violations.module';
     AuthModule,
     HealthModule,
     EmployeesModule,
+    WorkSchedulesModule,
     TimeEntriesModule,
     LeaveAllowancesModule,
     AccountsModule,

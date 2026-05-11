@@ -5,6 +5,7 @@ import {
   Inbox,
   LayoutDashboard,
   ListChecks,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 import type { EmployeeRole } from '../api/client';
@@ -60,6 +61,13 @@ export const navItems: NavItem[] = [
     label: 'Genehmigungen',
     icon: Inbox,
     roles: ['Manager', 'HRAdmin'],
+    showInBottomNav: false,
+  },
+  {
+    to: '/admin/schedules',
+    label: 'Arbeitszeitpläne',
+    icon: Settings,
+    roles: ['HRAdmin'],
     showInBottomNav: false,
   },
 ];
