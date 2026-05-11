@@ -37,13 +37,24 @@ export const DEFAULT_FRAME: FrameTimeRule = {
   endMinute: 0,
 };
 
-export type ViolationKind = 'LateArrival' | 'EarlyDeparture';
+/**
+ * A core-time violation describes a gap *inside* a core-time window that the
+ * employee did not cover with a time entry on a day when they were present
+ * (= had at least one closed entry that day).
+ *
+ * - `LateArrival`    — the gap touches the window's start.
+ * - `EarlyDeparture` — the gap touches the window's end.
+ * - `MidDayGap`      — the gap is fully inside the window (e.g. unexpected break).
+ */
+export type ViolationKind = 'LateArrival' | 'EarlyDeparture' | 'MidDayGap';
 
 export interface CoreTimeViolation {
   kind: ViolationKind;
+  /** The core-time window the gap is within, formatted as "HH:mm–HH:mm". */
   boundary: string;
+  /** Length of the uncovered gap in minutes. */
   deltaMinutes: number;
-  /** Which window (label or index) was violated. */
+  /** Optional label of the core-time window (e.g. "Vormittag"). */
   windowLabel?: string;
 }
 
@@ -54,77 +65,119 @@ function formatHm(h: number, m: number): string {
 /** Convert JS Date.getDay() (Sun=0..Sat=6) to the Mon=1..Sun=64 bitmask bit. */
 function getWeekdayBit(date: Date): number {
   const dow = date.getDay();
-  // Sun=0 → 64, Mon=1 → 1, Tue=2 → 2, ..., Sat=6 → 32
   if (dow === 0) return WEEKDAY_BITS.Sun;
   return 1 << (dow - 1);
 }
 
-/**
- * Detect core-time violations across all windows that apply to the day on which
- * the time entry started. Returns at most one LateArrival and one
- * EarlyDeparture per matching window.
- */
-export function detectCoreTimeViolations(
-  clockIn: Date,
-  clockOut: Date | null | undefined,
-  windows: CoreTimeWindow[],
-): CoreTimeViolation[] {
-  const out: CoreTimeViolation[] = [];
-  if (windows.length === 0) return out;
+interface ClosedEntry {
+  clockIn: Date;
+  clockOut: Date | null | undefined;
+}
 
-  const dowBit = getWeekdayBit(clockIn);
-
-  for (const w of windows) {
-    if ((w.weekdays & dowBit) === 0) continue;
-
-    const winStart = new Date(clockIn);
-    winStart.setHours(w.startHour, w.startMinute, 0, 0);
-
-    if (clockIn.getTime() > winStart.getTime()) {
-      out.push({
-        kind: 'LateArrival',
-        boundary: formatHm(w.startHour, w.startMinute),
-        deltaMinutes: Math.floor((clockIn.getTime() - winStart.getTime()) / 60_000),
-        windowLabel: w.label,
-      });
+function mergeIntervals(entries: ClosedEntry[]): Array<[number, number]> {
+  const closed: Array<[number, number]> = [];
+  for (const e of entries) {
+    if (!e.clockOut) continue;
+    if (e.clockOut.getTime() <= e.clockIn.getTime()) continue;
+    closed.push([e.clockIn.getTime(), e.clockOut.getTime()]);
+  }
+  if (closed.length === 0) return [];
+  closed.sort((a, b) => a[0] - b[0]);
+  const merged: Array<[number, number]> = [closed[0]];
+  for (let i = 1; i < closed.length; i += 1) {
+    const last = merged[merged.length - 1];
+    const cur = closed[i];
+    if (cur[0] <= last[1]) {
+      last[1] = Math.max(last[1], cur[1]);
+    } else {
+      merged.push(cur);
     }
+  }
+  return merged;
+}
 
-    if (clockOut) {
-      const winEnd = new Date(clockOut);
-      winEnd.setHours(w.endHour, w.endMinute, 0, 0);
-      if (clockOut.getTime() < winEnd.getTime()) {
+function windowBounds(day: Date, w: CoreTimeWindow): { start: number; end: number; boundary: string } {
+  const s = new Date(day);
+  s.setHours(w.startHour, w.startMinute, 0, 0);
+  const e = new Date(day);
+  e.setHours(w.endHour, w.endMinute, 0, 0);
+  return {
+    start: s.getTime(),
+    end: e.getTime(),
+    boundary: `${formatHm(w.startHour, w.startMinute)}–${formatHm(w.endHour, w.endMinute)}`,
+  };
+}
+
+function classify(
+  gapStart: number,
+  gapEnd: number,
+  windowStart: number,
+  windowEnd: number,
+): ViolationKind {
+  const touchesStart = gapStart <= windowStart;
+  const touchesEnd = gapEnd >= windowEnd;
+  if (touchesStart && !touchesEnd) return 'LateArrival';
+  if (!touchesStart && touchesEnd) return 'EarlyDeparture';
+  if (touchesStart && touchesEnd) {
+    // The whole window is uncovered — flag it as LateArrival (the most
+    // prominent marker); deltaMinutes already say it's the full window.
+    return 'LateArrival';
+  }
+  return 'MidDayGap';
+}
+
+/**
+ * Detect core-time violations for one day.
+ *
+ * Domain rule: a violation is a gap inside a core-time window that is NOT
+ * covered by any time entry of that day. If the employee has no closed entry
+ * at all on the day, there is no violation — the employee was off (sick,
+ * vacation, weekend, etc.) and the day is simply not worked.
+ *
+ * `day` is any timestamp on the day in question — only its date (in the
+ * server's local timezone) and weekday matter.
+ */
+export function detectCoreTimeViolationsForDay(
+  entries: ClosedEntry[],
+  windows: CoreTimeWindow[],
+  day: Date,
+): CoreTimeViolation[] {
+  if (entries.length === 0) return [];
+  const intervals = mergeIntervals(entries);
+  if (intervals.length === 0) return [];
+
+  const dowBit = getWeekdayBit(day);
+  const applicable = windows.filter((w) => (w.weekdays & dowBit) !== 0);
+  if (applicable.length === 0) return [];
+
+  const out: CoreTimeViolation[] = [];
+  for (const w of applicable) {
+    const { start: ws, end: we, boundary } = windowBounds(day, w);
+
+    let cursor = ws;
+    for (const [s, e] of intervals) {
+      if (e <= cursor) continue;
+      if (s >= we) break;
+      if (s > cursor) {
+        const gapEnd = Math.min(s, we);
         out.push({
-          kind: 'EarlyDeparture',
-          boundary: formatHm(w.endHour, w.endMinute),
-          deltaMinutes: Math.floor((winEnd.getTime() - clockOut.getTime()) / 60_000),
+          kind: classify(cursor, gapEnd, ws, we),
+          boundary,
+          deltaMinutes: Math.floor((gapEnd - cursor) / 60_000),
           windowLabel: w.label,
         });
       }
+      cursor = Math.max(cursor, e);
+      if (cursor >= we) break;
+    }
+    if (cursor < we) {
+      out.push({
+        kind: classify(cursor, we, ws, we),
+        boundary,
+        deltaMinutes: Math.floor((we - cursor) / 60_000),
+        windowLabel: w.label,
+      });
     }
   }
-
   return out;
-}
-
-// ---- Backwards-compatible single-window API (used by older callers/tests) ----
-
-/** @deprecated use {@link CoreTimeWindow}. */
-export type CoreTimeRule = Omit<CoreTimeWindow, 'weekdays' | 'label'>;
-
-export const DEFAULT_CORE_TIME: CoreTimeRule = {
-  startHour: 9,
-  startMinute: 0,
-  endHour: 15,
-  endMinute: 0,
-};
-
-/** @deprecated use {@link detectCoreTimeViolations} with explicit windows. */
-export function detectViolations(
-  clockIn: Date,
-  clockOut: Date | null | undefined,
-  rule: CoreTimeRule = DEFAULT_CORE_TIME,
-): CoreTimeViolation[] {
-  return detectCoreTimeViolations(clockIn, clockOut, [
-    { ...rule, weekdays: WEEKDAYS_MON_TO_FRI | WEEKDAY_BITS.Sat | WEEKDAY_BITS.Sun },
-  ]);
 }
