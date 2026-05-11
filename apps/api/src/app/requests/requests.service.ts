@@ -101,12 +101,15 @@ export class RequestsService {
     if (to.getTime() < from.getTime()) {
       throw new BadRequestException('"to" must be on/after "from"');
     }
+    const schedule = await this.schedules.resolveForEmployee(employee.id);
     let requires = false;
     if (dto.type === 'TimeAdjustment') {
-      const schedule = await this.schedules.resolveForEmployee(employee.id);
       requires = requiresSpecialApproval(from, to, schedule.frame);
     }
-    const calculatedDays = calculateWorkingDays(from, to);
+    const calculatedDays = calculateWorkingDays(from, to, {
+      workingDays: schedule.workingDays,
+      holidayProvider: schedule.holidayProvider,
+    });
     const created = await this.prisma.$transaction(async (tx) => {
       const request = await tx.request.create({
         data: {
@@ -146,7 +149,11 @@ export class RequestsService {
     if (dto.substituteId && dto.substituteId === employee.id) {
       throw new BadRequestException('Substitute must be a different employee');
     }
-    const calculatedDays = calculateWorkingDays(from, to);
+    const schedule = await this.schedules.resolveForEmployee(employee.id);
+    const calculatedDays = calculateWorkingDays(from, to, {
+      workingDays: schedule.workingDays,
+      holidayProvider: schedule.holidayProvider,
+    });
     if (calculatedDays === 0) {
       throw new BadRequestException('Vacation range covers no working days');
     }

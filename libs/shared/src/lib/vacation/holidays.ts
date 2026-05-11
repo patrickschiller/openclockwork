@@ -30,22 +30,121 @@ export interface Holiday {
   name: string;
 }
 
-/** Public holidays in North Rhine-Westphalia (Germany) for the given year. */
+/**
+ * ISO-3166-2 codes for the 16 German states.
+ */
+export const BUNDESLAENDER = [
+  'BW',
+  'BY',
+  'BE',
+  'BB',
+  'HB',
+  'HH',
+  'HE',
+  'MV',
+  'NI',
+  'NW',
+  'RP',
+  'SL',
+  'SN',
+  'ST',
+  'SH',
+  'TH',
+] as const;
+export type Bundesland = (typeof BUNDESLAENDER)[number];
+
+export const BUNDESLAND_LABEL: Record<Bundesland, string> = {
+  BW: 'Baden-Württemberg',
+  BY: 'Bayern',
+  BE: 'Berlin',
+  BB: 'Brandenburg',
+  HB: 'Bremen',
+  HH: 'Hamburg',
+  HE: 'Hessen',
+  MV: 'Mecklenburg-Vorpommern',
+  NI: 'Niedersachsen',
+  NW: 'Nordrhein-Westfalen',
+  RP: 'Rheinland-Pfalz',
+  SL: 'Saarland',
+  SN: 'Sachsen',
+  ST: 'Sachsen-Anhalt',
+  SH: 'Schleswig-Holstein',
+  TH: 'Thüringen',
+};
+
+interface HolidaySpec {
+  name: string;
+  /** All states celebrate this (federal). */
+  federal?: true;
+  /** Set of state codes that observe this holiday in addition to federal. */
+  states?: Bundesland[];
+  /** Returns the Date for the given year. */
+  date: (year: number) => Date;
+}
+
+const SPECS: HolidaySpec[] = [
+  { name: 'Neujahr', federal: true, date: (y) => new Date(Date.UTC(y, 0, 1)) },
+  { name: 'Heilige Drei Könige', states: ['BW', 'BY', 'ST'], date: (y) => new Date(Date.UTC(y, 0, 6)) },
+  { name: 'Internationaler Frauentag', states: ['BE', 'MV'], date: (y) => new Date(Date.UTC(y, 2, 8)) },
+  { name: 'Karfreitag', federal: true, date: (y) => addDays(gregorianEaster(y), -2) },
+  { name: 'Ostermontag', federal: true, date: (y) => addDays(gregorianEaster(y), 1) },
+  { name: 'Tag der Arbeit', federal: true, date: (y) => new Date(Date.UTC(y, 4, 1)) },
+  { name: 'Christi Himmelfahrt', federal: true, date: (y) => addDays(gregorianEaster(y), 39) },
+  { name: 'Pfingstmontag', federal: true, date: (y) => addDays(gregorianEaster(y), 50) },
+  {
+    name: 'Fronleichnam',
+    states: ['BW', 'BY', 'HE', 'NW', 'RP', 'SL'],
+    date: (y) => addDays(gregorianEaster(y), 60),
+  },
+  { name: 'Mariä Himmelfahrt', states: ['BY', 'SL'], date: (y) => new Date(Date.UTC(y, 7, 15)) },
+  { name: 'Weltkindertag', states: ['TH'], date: (y) => new Date(Date.UTC(y, 8, 20)) },
+  {
+    name: 'Tag der Deutschen Einheit',
+    federal: true,
+    date: (y) => new Date(Date.UTC(y, 9, 3)),
+  },
+  {
+    name: 'Reformationstag',
+    states: ['BB', 'HB', 'HH', 'MV', 'NI', 'SH', 'SN', 'ST', 'TH'],
+    date: (y) => new Date(Date.UTC(y, 9, 31)),
+  },
+  {
+    name: 'Allerheiligen',
+    states: ['BW', 'BY', 'NW', 'RP', 'SL'],
+    date: (y) => new Date(Date.UTC(y, 10, 1)),
+  },
+  {
+    name: 'Buß- und Bettag',
+    states: ['SN'],
+    // Wednesday before November 23.
+    date: (y) => {
+      const ref = new Date(Date.UTC(y, 10, 23));
+      const dow = ref.getUTCDay(); // Sun=0..Sat=6
+      // step back to previous Wednesday (Wed=3)
+      const offset = ((dow + 4) % 7) + 1; // days to subtract to reach previous Wed
+      return addDays(ref, -offset);
+    },
+  },
+  { name: '1. Weihnachtstag', federal: true, date: (y) => new Date(Date.UTC(y, 11, 25)) },
+  { name: '2. Weihnachtstag', federal: true, date: (y) => new Date(Date.UTC(y, 11, 26)) },
+];
+
+/** Public holidays in the given Bundesland for the given year. */
+export function holidaysFor(state: Bundesland, year: number): Holiday[] {
+  const out: Holiday[] = [];
+  for (const s of SPECS) {
+    if (s.federal || s.states?.includes(state)) {
+      out.push({ name: s.name, date: s.date(year) });
+    }
+  }
+  // Sort by date so the result is stable for callers/snapshots.
+  out.sort((a, b) => a.date.getTime() - b.date.getTime());
+  return out;
+}
+
+/** @deprecated retained for backwards compatibility — equivalent to `holidaysFor('NW', year)`. */
 export function nrwHolidays(year: number): Holiday[] {
-  const easter = gregorianEaster(year);
-  return [
-    { date: new Date(Date.UTC(year, 0, 1)), name: 'Neujahr' },
-    { date: addDays(easter, -2), name: 'Karfreitag' },
-    { date: addDays(easter, 1), name: 'Ostermontag' },
-    { date: new Date(Date.UTC(year, 4, 1)), name: 'Tag der Arbeit' },
-    { date: addDays(easter, 39), name: 'Christi Himmelfahrt' },
-    { date: addDays(easter, 50), name: 'Pfingstmontag' },
-    { date: addDays(easter, 60), name: 'Fronleichnam' },
-    { date: new Date(Date.UTC(year, 9, 3)), name: 'Tag der Deutschen Einheit' },
-    { date: new Date(Date.UTC(year, 10, 1)), name: 'Allerheiligen' },
-    { date: new Date(Date.UTC(year, 11, 25)), name: '1. Weihnachtstag' },
-    { date: new Date(Date.UTC(year, 11, 26)), name: '2. Weihnachtstag' },
-  ];
+  return holidaysFor('NW', year);
 }
 
 export interface HolidayProvider {
@@ -61,11 +160,17 @@ function sameUtcDay(a: Date, b: Date): boolean {
   );
 }
 
-export const NrwHolidayProvider: HolidayProvider = {
-  isHoliday(date: Date): boolean {
-    return nrwHolidays(date.getUTCFullYear()).some((h) => sameUtcDay(h.date, date));
-  },
-  list(year: number): Holiday[] {
-    return nrwHolidays(year);
-  },
-};
+/** Build a HolidayProvider for a specific Bundesland. */
+export function holidayProviderFor(state: Bundesland): HolidayProvider {
+  return {
+    isHoliday(date: Date): boolean {
+      return holidaysFor(state, date.getUTCFullYear()).some((h) => sameUtcDay(h.date, date));
+    },
+    list(year: number): Holiday[] {
+      return holidaysFor(state, year);
+    },
+  };
+}
+
+/** Default provider — NRW. */
+export const NrwHolidayProvider: HolidayProvider = holidayProviderFor('NW');

@@ -1,9 +1,14 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { TimeModel, WorkSchedule, WorkScheduleCoreTime } from '@prisma/client';
 import {
+  BUNDESLAENDER,
   DEFAULT_FRAME,
+  WEEKDAYS_MON_TO_FRI,
+  holidayProviderFor,
+  type Bundesland,
   type CoreTimeWindow,
   type FrameTimeRule,
+  type HolidayProvider,
 } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -18,6 +23,12 @@ export interface ResolvedSchedule {
   scheduleName: string;
   frame: FrameTimeRule;
   coreWindows: CoreTimeWindow[];
+  /** Working-day weekday bitmask resolved from the schedule (default Mo–Fr). */
+  workingDays: number;
+  /** Holiday provider for the employee's Bundesland. */
+  holidayProvider: HolidayProvider;
+  /** Resolved Bundesland code. */
+  bundesland: Bundesland;
 }
 
 function parseHm(value: string): { hour: number; minute: number } {
@@ -81,6 +92,7 @@ export class WorkSchedulesService {
             frameStart: dto.frameStart,
             frameEnd: dto.frameEnd,
             isDefault: !!dto.isDefault,
+            workingDays: dto.workingDays ?? 31,
             coreTimes: {
               create: dto.coreTimes.map((c) => ({
                 label: c.label ?? null,
@@ -121,6 +133,7 @@ export class WorkSchedulesService {
             frameStart: dto.frameStart,
             frameEnd: dto.frameEnd,
             isDefault: !!dto.isDefault,
+            workingDays: dto.workingDays ?? 31,
             coreTimes: {
               create: dto.coreTimes.map((c) => ({
                 label: c.label ?? null,
@@ -204,6 +217,13 @@ export class WorkSchedulesService {
       },
     });
     if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
+    const bundesland: Bundesland = (BUNDESLAENDER as readonly string[]).includes(
+      employee.bundesland,
+    )
+      ? (employee.bundesland as Bundesland)
+      : 'NW';
+    const holidayProvider = holidayProviderFor(bundesland);
+
     const schedule = employee.workSchedule
       ? employee.workSchedule
       : await this.prisma.workSchedule.findFirst({
@@ -216,6 +236,9 @@ export class WorkSchedulesService {
         scheduleName: 'Built-in default',
         frame: DEFAULT_FRAME,
         coreWindows: [],
+        workingDays: WEEKDAYS_MON_TO_FRI,
+        holidayProvider,
+        bundesland,
       };
     }
     return {
@@ -223,6 +246,9 @@ export class WorkSchedulesService {
       scheduleName: schedule.name,
       frame: toFrameRule(schedule.frameStart, schedule.frameEnd),
       coreWindows: schedule.coreTimes.map(toCoreWindow),
+      workingDays: schedule.workingDays,
+      holidayProvider,
+      bundesland,
     };
   }
 

@@ -108,6 +108,8 @@ model Employee {
   annualLeaveDays               Decimal                  @db.Decimal(5, 2)
   startDate                     DateTime                 @db.Date
   overtimeOpeningBalanceMinutes Int                      @default(0)
+  /// ISO-3166-2 code of the German state ("NW", "BY", …). Drives the holiday calendar.
+  bundesland                    String                   @default("NW") @db.VarChar(2)
   isActive                      Boolean                  @default(true)
   managerId                     String?                  @db.Uuid
   manager                       Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
@@ -140,6 +142,9 @@ model WorkSchedule {
   frameStart  String // "HH:mm" — start of permitted booking window
   frameEnd    String // "HH:mm" — end of permitted booking window
   isDefault   Boolean                @default(false)
+  /// Working-days bitmask (Mon=1, Tue=2, ..., Sun=64). Default 31 = Mo–Fr.
+  /// Days outside the mask are non-working for Soll/Vacation accounting.
+  workingDays Int                    @default(31)
   coreTimes   WorkScheduleCoreTime[]
   employees   Employee[]
   createdAt   DateTime               @default(now())

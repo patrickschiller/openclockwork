@@ -1528,6 +1528,29 @@
             "example": 0,
             "description": "One-time overtime carry-over in minutes (signed)."
           },
+          "bundesland": {
+            "type": "string",
+            "enum": [
+              "BW",
+              "BY",
+              "BE",
+              "BB",
+              "HB",
+              "HH",
+              "HE",
+              "MV",
+              "NI",
+              "NW",
+              "RP",
+              "SL",
+              "SN",
+              "ST",
+              "SH",
+              "TH"
+            ],
+            "default": "NW",
+            "description": "ISO-3166-2 code of the German state — drives the holiday calendar."
+          },
           "managerId": {
             "type": "object",
             "nullable": true,
@@ -1602,6 +1625,27 @@
           },
           "overtimeOpeningBalanceMinutes": {
             "type": "number"
+          },
+          "bundesland": {
+            "type": "string",
+            "enum": [
+              "BW",
+              "BY",
+              "BE",
+              "BB",
+              "HB",
+              "HH",
+              "HE",
+              "MV",
+              "NI",
+              "NW",
+              "RP",
+              "SL",
+              "SN",
+              "ST",
+              "SH",
+              "TH"
+            ]
           },
           "managerId": {
             "type": "object",
@@ -1688,6 +1732,13 @@
           "isDefault": {
             "type": "boolean",
             "default": false
+          },
+          "workingDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 127,
+            "default": 31,
+            "description": "Working-day bitmask. Mon=1, Tue=2, …, Sun=64. Mo–Fr = 31, Mo–Sa = 63."
           },
           "coreTimes": {
             "type": "array",

@@ -657,6 +657,12 @@ export interface components {
              * @example 0
              */
             overtimeOpeningBalanceMinutes?: number;
+            /**
+             * @description ISO-3166-2 code of the German state — drives the holiday calendar.
+             * @default NW
+             * @enum {string}
+             */
+            bundesland: "BW" | "BY" | "BE" | "BB" | "HB" | "HH" | "HE" | "MV" | "NI" | "NW" | "RP" | "SL" | "SN" | "ST" | "SH" | "TH";
             /** Format: uuid */
             managerId?: Record<string, never> | null;
             /** Format: uuid */
@@ -676,6 +682,8 @@ export interface components {
             /** @example 2026-04-01 */
             startDate?: string;
             overtimeOpeningBalanceMinutes?: number;
+            /** @enum {string} */
+            bundesland?: "BW" | "BY" | "BE" | "BB" | "HB" | "HH" | "HE" | "MV" | "NI" | "NW" | "RP" | "SL" | "SN" | "ST" | "SH" | "TH";
             /** Format: uuid */
             managerId?: Record<string, never> | null;
             /** Format: uuid */
@@ -704,6 +712,11 @@ export interface components {
             frameEnd: string;
             /** @default false */
             isDefault: boolean;
+            /**
+             * @description Working-day bitmask. Mon=1, Tue=2, …, Sun=64. Mo–Fr = 31, Mo–Sa = 63.
+             * @default 31
+             */
+            workingDays: number;
             coreTimes: components["schemas"]["CoreTimeWindowDto"][];
         };
         AssignToEmployeeDto: {

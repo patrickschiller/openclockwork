@@ -16,6 +16,11 @@ export interface OvertimeInput {
   openingBalanceMinutes: number;
   /** Holiday provider for excluding non-working days from the Soll calculation. */
   holidayProvider?: HolidayProvider;
+  /**
+   * Working-day weekday bitmask (Mon=1..Sun=64). Default is Mon–Fri (= 31).
+   * Days outside this mask contribute zero Soll regardless of holiday status.
+   */
+  workingDays?: number;
 }
 
 export interface OvertimeResult {
@@ -58,7 +63,10 @@ export function calculateOvertimeMinutes(input: OvertimeInput): OvertimeResult {
     };
   }
 
-  const workingDays = calculateWorkingDays(sollFromCandidate, sollEnd, input.holidayProvider);
+  const workingDays = calculateWorkingDays(sollFromCandidate, sollEnd, {
+    holidayProvider: input.holidayProvider,
+    workingDays: input.workingDays,
+  });
   const dailyMinutes = (input.weeklyHours / 5) * 60;
   const sollMinutes = Math.round(workingDays * dailyMinutes);
 

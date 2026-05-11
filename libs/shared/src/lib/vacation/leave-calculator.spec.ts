@@ -1,26 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import { calculateWorkingDays, isWeekend } from './leave-calculator.js';
-import { nrwHolidays, NrwHolidayProvider } from './holidays.js';
+import {
+  BUNDESLAENDER,
+  holidayProviderFor,
+  holidaysFor,
+  nrwHolidays,
+  NrwHolidayProvider,
+} from './holidays.js';
+import { WEEKDAY_BITS } from '../work-time/core-time.js';
 
 describe('isWeekend', () => {
   it('Saturday and Sunday', () => {
-    expect(isWeekend(new Date('2026-05-02T00:00:00Z'))).toBe(true); // Sat
-    expect(isWeekend(new Date('2026-05-03T00:00:00Z'))).toBe(true); // Sun
+    expect(isWeekend(new Date('2026-05-02T00:00:00Z'))).toBe(true);
+    expect(isWeekend(new Date('2026-05-03T00:00:00Z'))).toBe(true);
   });
   it('Weekday', () => {
-    expect(isWeekend(new Date('2026-05-04T00:00:00Z'))).toBe(false); // Mon
+    expect(isWeekend(new Date('2026-05-04T00:00:00Z'))).toBe(false);
   });
 });
 
-describe('calculateWorkingDays', () => {
+describe('calculateWorkingDays — defaults (NRW + Mo–Fr)', () => {
   it('5 weekdays in a normal week', () => {
-    const from = new Date(Date.UTC(2026, 4, 4)); // Mon
-    const to = new Date(Date.UTC(2026, 4, 10)); // Sun
+    const from = new Date(Date.UTC(2026, 4, 4));
+    const to = new Date(Date.UTC(2026, 4, 10));
     expect(calculateWorkingDays(from, to)).toBe(5);
   });
-  it('skips a holiday (Tag der Arbeit 2026-05-01 is a Friday)', () => {
-    const from = new Date(Date.UTC(2026, 3, 27)); // Mon
-    const to = new Date(Date.UTC(2026, 4, 1));    // Fri (holiday)
+  it('skips Tag der Arbeit 2026-05-01 (Friday)', () => {
+    const from = new Date(Date.UTC(2026, 3, 27));
+    const to = new Date(Date.UTC(2026, 4, 1));
     expect(calculateWorkingDays(from, to)).toBe(4);
   });
   it('returns 0 when range is inverted', () => {
@@ -32,14 +39,73 @@ describe('calculateWorkingDays', () => {
   });
 });
 
-describe('NRW holiday provider', () => {
-  it('lists 11 holidays for 2026', () => {
+describe('calculateWorkingDays — custom workingDays bitmask', () => {
+  const SAT = new Date(Date.UTC(2026, 4, 2));
+  const SUN = new Date(Date.UTC(2026, 4, 3));
+
+  it('Saturday counted when schedule includes it', () => {
+    expect(calculateWorkingDays(SAT, SAT, { workingDays: 31 })).toBe(0);
+    expect(calculateWorkingDays(SAT, SAT, { workingDays: 31 | WEEKDAY_BITS.Sat })).toBe(1);
+  });
+  it('Sunday remains a non-working day for a Mo–Sat schedule', () => {
+    expect(
+      calculateWorkingDays(SUN, SUN, { workingDays: 31 | WEEKDAY_BITS.Sat }),
+    ).toBe(0);
+  });
+  it('Tue+Thu-only schedule yields 2 working days per Mo–Sun span', () => {
+    const monToSun = [
+      new Date(Date.UTC(2026, 4, 4)),
+      new Date(Date.UTC(2026, 4, 10)),
+    ];
+    const mask = WEEKDAY_BITS.Tue | WEEKDAY_BITS.Thu;
+    expect(calculateWorkingDays(monToSun[0], monToSun[1], { workingDays: mask })).toBe(2);
+  });
+});
+
+describe('per-state holiday providers', () => {
+  it('NRW provider lists 11 holidays for 2026', () => {
     expect(nrwHolidays(2026)).toHaveLength(11);
   });
-  it('recognises Karfreitag 2026 (April 3)', () => {
-    expect(NrwHolidayProvider.isHoliday(new Date(Date.UTC(2026, 3, 3)))).toBe(true);
+  it('Karfreitag 2026 (April 3) is everywhere', () => {
+    for (const code of BUNDESLAENDER) {
+      expect(holidayProviderFor(code).isHoliday(new Date(Date.UTC(2026, 3, 3)))).toBe(true);
+    }
   });
-  it('does not flag a normal weekday', () => {
-    expect(NrwHolidayProvider.isHoliday(new Date(Date.UTC(2026, 4, 4)))).toBe(false);
+  it('Fronleichnam 2026 (June 4) is observed in BY but not in NI', () => {
+    const fronleichnam = new Date(Date.UTC(2026, 5, 4));
+    expect(holidayProviderFor('BY').isHoliday(fronleichnam)).toBe(true);
+    expect(holidayProviderFor('NI').isHoliday(fronleichnam)).toBe(false);
+  });
+  it('Heilige Drei Könige (Jan 6) is observed in BW, BY, ST only', () => {
+    const epiphany = new Date(Date.UTC(2026, 0, 6));
+    expect(holidayProviderFor('BW').isHoliday(epiphany)).toBe(true);
+    expect(holidayProviderFor('BY').isHoliday(epiphany)).toBe(true);
+    expect(holidayProviderFor('ST').isHoliday(epiphany)).toBe(true);
+    expect(holidayProviderFor('NW').isHoliday(epiphany)).toBe(false);
+    expect(holidayProviderFor('BE').isHoliday(epiphany)).toBe(false);
+  });
+  it('Reformationstag (Oct 31) is observed in 9 states', () => {
+    const ref = new Date(Date.UTC(2026, 9, 31));
+    expect(holidayProviderFor('SN').isHoliday(ref)).toBe(true);
+    expect(holidayProviderFor('NI').isHoliday(ref)).toBe(true);
+    expect(holidayProviderFor('HE').isHoliday(ref)).toBe(false);
+    expect(holidayProviderFor('NW').isHoliday(ref)).toBe(false);
+  });
+  it('Bayern has more public holidays than Niedersachsen', () => {
+    expect(holidaysFor('BY', 2026).length).toBeGreaterThan(holidaysFor('NI', 2026).length);
+  });
+  it('default NrwHolidayProvider is equivalent to NW', () => {
+    const sample = new Date(Date.UTC(2026, 5, 4));
+    expect(NrwHolidayProvider.isHoliday(sample)).toBe(holidayProviderFor('NW').isHoliday(sample));
+  });
+});
+
+describe('calculateWorkingDays — per-state', () => {
+  it('Fronleichnam reduces NW working days vs NI for that week', () => {
+    const from = new Date(Date.UTC(2026, 5, 1));
+    const to = new Date(Date.UTC(2026, 5, 5));
+    const nw = calculateWorkingDays(from, to, { holidayProvider: holidayProviderFor('NW') });
+    const ni = calculateWorkingDays(from, to, { holidayProvider: holidayProviderFor('NI') });
+    expect(ni - nw).toBe(1);
   });
 });

@@ -17,6 +17,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   api,
+  BUNDESLAND_LABEL,
+  type Bundesland,
   type CreateEmployeePayload,
   type EmployeeDto,
   type EmployeeRole,
@@ -137,6 +139,7 @@ export function AdminEmployeesPage() {
                   <th className="px-4 py-2 text-right">Urlaub</th>
                   <th className="px-4 py-2">Eintritt</th>
                   <th className="px-4 py-2 text-right">Übertrag</th>
+                  <th className="px-4 py-2">Land</th>
                   <th className="px-4 py-2">Manager</th>
                   <th className="px-4 py-2">Arbeitszeitplan</th>
                   <th className="px-4 py-2">Status</th>
@@ -167,6 +170,12 @@ export function AdminEmployeesPage() {
                         title={`${e.overtimeOpeningBalanceMinutes} min Übertrag`}
                       >
                         {formatHm(e.overtimeOpeningBalanceMinutes)}
+                      </td>
+                      <td
+                        className="px-4 py-2 font-mono text-xs"
+                        title={BUNDESLAND_LABEL[e.bundesland]}
+                      >
+                        {e.bundesland}
                       </td>
                       <td className="px-4 py-2 text-xs text-muted-foreground">
                         {manager ? `${manager.firstName} ${manager.lastName}` : '—'}
@@ -251,7 +260,7 @@ export function AdminEmployeesPage() {
                 })}
                 {employees.data && employees.data.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    <td colSpan={14} className="px-4 py-8 text-center text-sm text-muted-foreground">
                       Keine Mitarbeiter:innen.
                     </td>
                   </tr>
@@ -308,6 +317,7 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
     annualLeaveDays: seed?.annualLeaveDays ?? 30,
     startDate: seed?.startDate ?? todayIsoDate(),
     overtimeOpeningBalanceMinutes: seed?.overtimeOpeningBalanceMinutes ?? 0,
+    bundesland: (seed?.bundesland ?? 'NW') as Bundesland,
     managerId: seed?.managerId ?? '',
     workScheduleId: seed?.workScheduleId ?? '',
     isActive: seed?.isActive ?? true,
@@ -329,6 +339,7 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
           annualLeaveDays: Number(draft.annualLeaveDays),
           startDate: draft.startDate,
           overtimeOpeningBalanceMinutes: Number(draft.overtimeOpeningBalanceMinutes) || 0,
+          bundesland: draft.bundesland,
           managerId: draft.managerId || null,
           workScheduleId: draft.workScheduleId || null,
         };
@@ -423,6 +434,15 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
             value={String(draft.overtimeOpeningBalanceMinutes)}
             onChange={(v) => setDraft({ ...draft, overtimeOpeningBalanceMinutes: Number(v) })}
             type="number"
+          />
+          <Select
+            label="Bundesland (Feiertage)"
+            value={draft.bundesland}
+            onChange={(v) => setDraft({ ...draft, bundesland: v as Bundesland })}
+            options={(Object.keys(BUNDESLAND_LABEL) as Bundesland[]).map((c) => ({
+              value: c,
+              label: `${c} — ${BUNDESLAND_LABEL[c]}`,
+            }))}
           />
           <Select
             label="Manager"
