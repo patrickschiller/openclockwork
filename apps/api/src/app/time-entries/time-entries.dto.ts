@@ -1,23 +1,28 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import type { TimeEntry } from '@prisma/client';
 import { summarize, type TimeSummary } from 'shared';
 
 export class ClockInDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
 
+  @ApiPropertyOptional({ nullable: true, minimum: -90, maximum: 90 })
   @IsOptional()
   @IsNumber()
   @Min(-90)
   @Max(90)
   latitude?: number | null;
 
+  @ApiPropertyOptional({ nullable: true, minimum: -180, maximum: 180 })
   @IsOptional()
   @IsNumber()
   @Min(-180)
   @Max(180)
   longitude?: number | null;
 
+  @ApiPropertyOptional({ nullable: true, minimum: 0 })
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -25,6 +30,7 @@ export class ClockInDto {
 }
 
 export class ClockOutDto {
+  @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
 }

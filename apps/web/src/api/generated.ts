@@ -616,25 +616,217 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        LoginDto: Record<string, never>;
-        CreateEmployeeDto: Record<string, never>;
-        UpdateEmployeeDto: Record<string, never>;
-        SetPasswordDto: Record<string, never>;
-        UpsertWorkScheduleDto: Record<string, never>;
-        AssignToEmployeeDto: Record<string, never>;
-        BulkAssignDto: Record<string, never>;
-        ClockInDto: Record<string, never>;
-        ClockOutDto: Record<string, never>;
-        UpsertLeaveAllowanceDto: Record<string, never>;
-        CreateRequestDto: Record<string, never>;
-        CreateVacationDto: Record<string, never>;
-        TransitionDto: Record<string, never>;
-        ManagerApproveDto: Record<string, never>;
-        TransitionWithRequiredNoteDto: Record<string, never>;
-        BulkApproveDto: Record<string, never>;
-        BulkRejectDto: Record<string, never>;
-        CreateAbsenceDto: Record<string, never>;
-        UpdateAbsenceDto: Record<string, never>;
+        LoginDto: {
+            /** @example hannah.roth@openclockwork.test */
+            email: string;
+            /** @example openclockwork */
+            password: string;
+        };
+        CreateEmployeeDto: {
+            /** @example 1001 */
+            personalNo: string;
+            /** @example Anna */
+            firstName: string;
+            /** @example Mueller */
+            lastName: string;
+            /** @example anna.mueller@openclockwork.test */
+            email: string;
+            /** @description Initial password — bcrypt-hashed on the server. */
+            password: string;
+            /**
+             * @example Employee
+             * @enum {string}
+             */
+            role: "Employee" | "Manager" | "HRAdmin";
+            /**
+             * @example Vollzeit
+             * @enum {string}
+             */
+            timeModel: "Teilzeit" | "Vollzeit" | "Vertrauensarbeitszeit" | "Gleitzeit";
+            /** @example 40 */
+            weeklyHours: number;
+            /** @example 30 */
+            annualLeaveDays: number;
+            /**
+             * @description ISO date when the employee starts; Soll-Stunden are counted from here.
+             * @example 2026-04-01
+             */
+            startDate: string;
+            /**
+             * @description One-time overtime carry-over in minutes (signed).
+             * @example 0
+             */
+            overtimeOpeningBalanceMinutes?: number;
+            /** Format: uuid */
+            managerId?: Record<string, never> | null;
+            /** Format: uuid */
+            workScheduleId?: Record<string, never> | null;
+        };
+        UpdateEmployeeDto: {
+            personalNo?: string;
+            firstName?: string;
+            lastName?: string;
+            email?: string;
+            /** @enum {string} */
+            role?: "Employee" | "Manager" | "HRAdmin";
+            /** @enum {string} */
+            timeModel?: "Teilzeit" | "Vollzeit" | "Vertrauensarbeitszeit" | "Gleitzeit";
+            weeklyHours?: number;
+            annualLeaveDays?: number;
+            /** @example 2026-04-01 */
+            startDate?: string;
+            overtimeOpeningBalanceMinutes?: number;
+            /** Format: uuid */
+            managerId?: Record<string, never> | null;
+            /** Format: uuid */
+            workScheduleId?: Record<string, never> | null;
+            isActive?: boolean;
+        };
+        SetPasswordDto: {
+            password: string;
+        };
+        CoreTimeWindowDto: {
+            /** @example Vormittag */
+            label?: Record<string, never> | null;
+            /** @example 10:00 */
+            start: string;
+            /** @example 11:00 */
+            end: string;
+            /** @description Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Mo–Fr = 31. */
+            weekdays: number;
+        };
+        UpsertWorkScheduleDto: {
+            name: string;
+            description?: Record<string, never> | null;
+            /** @example 07:00 */
+            frameStart: string;
+            /** @example 23:00 */
+            frameEnd: string;
+            /** @default false */
+            isDefault: boolean;
+            coreTimes: components["schemas"]["CoreTimeWindowDto"][];
+        };
+        AssignToEmployeeDto: {
+            /** Format: uuid */
+            employeeId: string;
+        };
+        BulkAssignDto: {
+            /** @enum {string} */
+            timeModel: "Teilzeit" | "Vollzeit" | "Vertrauensarbeitszeit" | "Gleitzeit";
+            /** @default false */
+            overrideExisting: boolean;
+        };
+        ClockInDto: {
+            /** Format: uuid */
+            employeeId: string;
+            latitude?: Record<string, never> | null;
+            longitude?: Record<string, never> | null;
+            accuracyMeters?: Record<string, never> | null;
+        };
+        ClockOutDto: {
+            /** Format: uuid */
+            employeeId: string;
+        };
+        UpsertLeaveAllowanceDto: {
+            /** @example 30 */
+            baseDays: number;
+            /** @example 0 */
+            carryOverDays: number;
+            /** Format: date */
+            carryOverExpiresOn?: Record<string, never> | null;
+            /**
+             * @description Signed adjustment days (e.g. half-year entry pro-rata).
+             * @example 0
+             */
+            adjustmentDays: number;
+            adjustmentReason?: Record<string, never> | null;
+        };
+        CreateRequestDto: {
+            /** Format: uuid */
+            employeeId: string;
+            /** @enum {string} */
+            type: "Vacation" | "HomeOffice" | "SpecialLeave" | "TimeAdjustment";
+            /**
+             * Format: date-time
+             * @example 2026-08-03T00:00:00.000Z
+             */
+            from: string;
+            /**
+             * Format: date-time
+             * @example 2026-08-07T00:00:00.000Z
+             */
+            to: string;
+            reason?: Record<string, never> | null;
+        };
+        CreateVacationDto: {
+            /** Format: uuid */
+            employeeId: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: uuid */
+            substituteId?: Record<string, never> | null;
+            reason?: Record<string, never> | null;
+        };
+        TransitionDto: {
+            /** Format: uuid */
+            actorId: string;
+            note?: Record<string, never> | null;
+        };
+        ManagerApproveDto: {
+            /** Format: uuid */
+            actorId: string;
+            note?: Record<string, never> | null;
+            /** @default false */
+            requiresHrConfirmation: boolean;
+        };
+        TransitionWithRequiredNoteDto: {
+            /** Format: uuid */
+            actorId: string;
+            note: string;
+        };
+        BulkApproveDto: {
+            /** Format: uuid */
+            actorId: string;
+            ids: string[];
+            note?: Record<string, never> | null;
+            /** @default false */
+            requiresHrConfirmation: boolean;
+        };
+        BulkRejectDto: {
+            /** Format: uuid */
+            actorId: string;
+            ids: string[];
+            note: string;
+        };
+        CreateAbsenceDto: {
+            /** Format: uuid */
+            employeeId: string;
+            /**
+             * @default Sickness
+             * @enum {string}
+             */
+            kind: "Sickness" | "Training" | "Flextime";
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /**
+             * @description Sickness only: ärztliches Attest vorgelegt.
+             * @default false
+             */
+            certified: boolean;
+            note?: Record<string, never> | null;
+        };
+        UpdateAbsenceDto: {
+            /** Format: date-time */
+            from?: string;
+            /** Format: date-time */
+            to?: string;
+            certified?: boolean;
+            note?: Record<string, never> | null;
+        };
     };
     responses: never;
     parameters: never;
