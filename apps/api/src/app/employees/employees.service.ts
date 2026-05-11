@@ -62,6 +62,8 @@ export class EmployeesService {
           timeModel: dto.timeModel,
           weeklyHours: dto.weeklyHours,
           annualLeaveDays: dto.annualLeaveDays,
+          startDate: new Date(dto.startDate),
+          overtimeOpeningBalanceMinutes: dto.overtimeOpeningBalanceMinutes ?? 0,
           isActive: true,
           managerId: dto.managerId ?? null,
           workScheduleId: dto.workScheduleId ?? null,
@@ -97,6 +99,10 @@ export class EmployeesService {
     if (dto.timeModel !== undefined) data.timeModel = dto.timeModel;
     if (dto.weeklyHours !== undefined) data.weeklyHours = dto.weeklyHours;
     if (dto.annualLeaveDays !== undefined) data.annualLeaveDays = dto.annualLeaveDays;
+    if (dto.startDate !== undefined) data.startDate = new Date(dto.startDate);
+    if (dto.overtimeOpeningBalanceMinutes !== undefined) {
+      data.overtimeOpeningBalanceMinutes = dto.overtimeOpeningBalanceMinutes;
+    }
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
     if (dto.managerId !== undefined) {
       data.manager = dto.managerId ? { connect: { id: dto.managerId } } : { disconnect: true };

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { calculateNetMinutes, calculateWorkingDays } from 'shared';
+import { calculateNetMinutes, calculateOvertimeMinutes } from 'shared';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { VacationBalanceService } from './vacation-balance.service';
@@ -31,18 +31,21 @@ export class AccountsService {
       netMinutesYtd += calculateNetMinutes(gross);
     }
 
-    // Soll YTD: working days * (weeklyHours / 5) * 60.
-    const workingDaysYtd = calculateWorkingDays(yearStart, now);
-    const dailyMinutes = (Number(employee.weeklyHours) / 5) * 60;
-    const sollMinutesYtd = Math.round(workingDaysYtd * dailyMinutes);
-
-    const overtimeMinutes = netMinutesYtd - sollMinutesYtd;
+    // Soll only counts from the employee's startDate; opening balance is added on top.
+    const overtime = calculateOvertimeMinutes({
+      startDate: employee.startDate,
+      year,
+      now,
+      weeklyHours: Number(employee.weeklyHours),
+      netMinutesYtd,
+      openingBalanceMinutes: employee.overtimeOpeningBalanceMinutes,
+    });
 
     const balance = await this.vacationBalance.compute(employeeId, year);
 
     return {
       employeeId,
-      overtimeMinutes,
+      overtimeMinutes: overtime.overtimeMinutes,
       vacationDaysTotal: balance.totalEntitlement,
       vacationDaysUsed: balance.approvedDays,
       vacationDaysRemaining: balance.remainingDays,

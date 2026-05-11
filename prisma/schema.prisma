@@ -94,31 +94,33 @@ enum AbsenceKind {
 // -------------------------------------------------------------
 
 model Employee {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  personalNo         String                   @unique
-  firstName          String
-  lastName           String
-  email              String                   @unique
-  passwordHash       String
-  role               Role                     @default(Employee)
-  timeModel          TimeModel
-  weeklyHours        Decimal                  @db.Decimal(5, 2)
-  annualLeaveDays    Decimal                  @db.Decimal(5, 2)
-  isActive           Boolean                  @default(true)
-  managerId          String?                  @db.Uuid
-  manager            Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
-  reports            Employee[]               @relation("ManagerToReports")
-  workScheduleId     String?                  @db.Uuid
-  workSchedule       WorkSchedule?            @relation(fields: [workScheduleId], references: [id], onDelete: SetNull)
-  timeEntries        TimeEntry[]
-  requests           Request[]                @relation("RequestEmployee")
-  approverRequests   Request[]                @relation("RequestApprover")
-  substituteRequests Request[]                @relation("RequestSubstitute")
-  leaveAllowances    EmployeeLeaveAllowance[]
-  events             RequestEvent[]           @relation("EventActor")
-  absences           Absence[]
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
+  id                            String                   @id @default(uuid()) @db.Uuid
+  personalNo                    String                   @unique
+  firstName                     String
+  lastName                      String
+  email                         String                   @unique
+  passwordHash                  String
+  role                          Role                     @default(Employee)
+  timeModel                     TimeModel
+  weeklyHours                   Decimal                  @db.Decimal(5, 2)
+  annualLeaveDays               Decimal                  @db.Decimal(5, 2)
+  startDate                     DateTime                 @db.Date
+  overtimeOpeningBalanceMinutes Int                      @default(0)
+  isActive                      Boolean                  @default(true)
+  managerId                     String?                  @db.Uuid
+  manager                       Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports                       Employee[]               @relation("ManagerToReports")
+  workScheduleId                String?                  @db.Uuid
+  workSchedule                  WorkSchedule?            @relation(fields: [workScheduleId], references: [id], onDelete: SetNull)
+  timeEntries                   TimeEntry[]
+  requests                      Request[]                @relation("RequestEmployee")
+  approverRequests              Request[]                @relation("RequestApprover")
+  substituteRequests            Request[]                @relation("RequestSubstitute")
+  leaveAllowances               EmployeeLeaveAllowance[]
+  events                        RequestEvent[]           @relation("EventActor")
+  absences                      Absence[]
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
 
   @@index([role])
   @@index([managerId])

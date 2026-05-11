@@ -42,6 +42,8 @@ export interface EmployeeDto {
   timeModel: TimeModel;
   weeklyHours: number;
   annualLeaveDays: number;
+  startDate: string; // YYYY-MM-DD
+  overtimeOpeningBalanceMinutes: number;
   managerId: string | null;
   workScheduleId: string | null;
   workScheduleName: string | null;
@@ -58,6 +60,8 @@ export interface CreateEmployeePayload {
   timeModel: TimeModel;
   weeklyHours: number;
   annualLeaveDays: number;
+  startDate: string; // YYYY-MM-DD
+  overtimeOpeningBalanceMinutes?: number;
   managerId: string | null;
   workScheduleId: string | null;
 }
@@ -71,6 +75,8 @@ export interface UpdateEmployeePayload {
   timeModel?: TimeModel;
   weeklyHours?: number;
   annualLeaveDays?: number;
+  startDate?: string;
+  overtimeOpeningBalanceMinutes?: number;
   managerId?: string | null;
   workScheduleId?: string | null;
   isActive?: boolean;
