@@ -72,7 +72,16 @@ export function DashboardPage() {
           value={violationsQuery.data ? String(violationsQuery.data.length) : '—'}
           hint={
             violationsQuery.data && violationsQuery.data.length > 0
-              ? `${violationsQuery.data.filter((v) => v.kind === 'LateArrival').length} verspätet · ${violationsQuery.data.filter((v) => v.kind === 'EarlyDeparture').length} zu früh`
+              ? (() => {
+                  const late = violationsQuery.data.filter((v) => v.kind === 'LateArrival').length;
+                  const early = violationsQuery.data.filter((v) => v.kind === 'EarlyDeparture').length;
+                  const mid = violationsQuery.data.filter((v) => v.kind === 'MidDayGap').length;
+                  const parts: string[] = [];
+                  if (late) parts.push(`${late} verspätet`);
+                  if (early) parts.push(`${early} zu früh`);
+                  if (mid) parts.push(`${mid} Pause in Kernzeit`);
+                  return parts.join(' · ');
+                })()
               : 'Keine Verstöße erkannt'
           }
         />

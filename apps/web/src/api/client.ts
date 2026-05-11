@@ -177,11 +177,16 @@ export interface BulkResult {
   error?: string;
 }
 
+export type ViolationKind = 'LateArrival' | 'EarlyDeparture' | 'MidDayGap';
+
 export interface ViolationDto {
-  timeEntryId: string;
   employeeId: string;
-  kind: string;
+  /** Day on which the violation occurred, YYYY-MM-DD. */
+  date: string;
+  kind: ViolationKind;
+  /** Core-time window, formatted as "HH:mm–HH:mm". */
   boundary: string;
+  /** Length of the uncovered gap, in minutes. */
   deltaMinutes: number;
   windowLabel?: string;
 }

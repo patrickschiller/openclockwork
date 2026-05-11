@@ -1,16 +1,23 @@
 import { Injectable } from '@nestjs/common';
-import { detectCoreTimeViolations } from 'shared';
+import { detectCoreTimeViolationsForDay } from 'shared';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
 
 export interface ViolationDto {
-  timeEntryId: string;
   employeeId: string;
-  kind: string;
+  /** Day on which the violation occurred (YYYY-MM-DD, local). */
+  date: string;
+  kind: 'LateArrival' | 'EarlyDeparture' | 'MidDayGap';
+  /** The core-time window, formatted as "HH:mm–HH:mm". */
   boundary: string;
+  /** Length of the uncovered gap in minutes. */
   deltaMinutes: number;
   windowLabel?: string;
+}
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 @Injectable()
@@ -43,13 +50,25 @@ export class ViolationsService {
       orderBy: { clockIn: 'asc' },
     });
 
-    const out: ViolationDto[] = [];
+    // Group entries by their local-time date.
+    const byDay = new Map<string, { day: Date; entries: typeof entries }>();
     for (const e of entries) {
-      const violations = detectCoreTimeViolations(e.clockIn, e.clockOut, schedule.coreWindows);
+      const key = dateKey(e.clockIn);
+      if (!byDay.has(key)) byDay.set(key, { day: e.clockIn, entries: [] });
+      byDay.get(key)!.entries.push(e);
+    }
+
+    const out: ViolationDto[] = [];
+    for (const [key, group] of byDay) {
+      const violations = detectCoreTimeViolationsForDay(
+        group.entries,
+        schedule.coreWindows,
+        group.day,
+      );
       for (const v of violations) {
         out.push({
-          timeEntryId: e.id,
           employeeId,
+          date: key,
           kind: v.kind,
           boundary: v.boundary,
           deltaMinutes: v.deltaMinutes,
@@ -57,6 +76,8 @@ export class ViolationsService {
         });
       }
     }
+    // Stable ordering: newest day first, then by window start.
+    out.sort((a, b) => b.date.localeCompare(a.date) || a.boundary.localeCompare(b.boundary));
     return out;
   }
 }

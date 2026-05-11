@@ -1,0 +1,186 @@
+import { createTestApp, login, seedEmployee, type TestContext } from '../support/test-app';
+
+// Build a calendar-style Date in the *server's* local timezone, which is what
+// `detectCoreTimeViolationsForDay` consumes via `Date#getHours()`.
+function local(year: number, month: number, day: number, hour = 0, minute = 0): Date {
+  return new Date(year, month - 1, day, hour, minute, 0);
+}
+
+describe('Violations — gap-based core-time detection', () => {
+  let ctx: TestContext;
+
+  beforeAll(async () => {
+    ctx = await createTestApp();
+  });
+  afterAll(async () => {
+    await ctx.close();
+  });
+  beforeEach(async () => {
+    await ctx.reset();
+  });
+
+  async function setupSchedule(employeeId: string) {
+    const schedule = await ctx.prisma.workSchedule.create({
+      data: {
+        name: 'Test Standard',
+        frameStart: '07:00',
+        frameEnd: '23:00',
+        isDefault: true,
+        coreTimes: {
+          create: [
+            { label: 'Vormittag', start: '10:00', end: '11:00', weekdays: 31 },
+            { label: 'Nachmittag', start: '14:00', end: '15:00', weekdays: 31 },
+          ],
+        },
+      },
+    });
+    await ctx.prisma.employee.update({
+      where: { id: employeeId },
+      data: { workScheduleId: schedule.id },
+    });
+  }
+
+  async function seedHrAndAnna() {
+    const hr = await seedEmployee(ctx.prisma, {
+      personalNo: '0001',
+      firstName: 'Hannah',
+      lastName: 'Roth',
+      email: 'hannah@test.local',
+      role: 'HRAdmin',
+    });
+    const anna = await seedEmployee(ctx.prisma, {
+      personalNo: '1001',
+      firstName: 'Anna',
+      lastName: 'Mueller',
+      email: 'anna@test.local',
+    });
+    await setupSchedule(anna.id);
+    const token = await login(ctx.http, 'hannah@test.local');
+    return { hr, anna, token };
+  }
+
+  it('no entries on a day ⇒ no violation (employee was off)', async () => {
+    const { anna, token } = await seedHrAndAnna();
+    // Nothing booked at all.
+    const res = await ctx.http
+      .get(`/api/violations?employeeId=${anna.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('attended only outside both core windows ⇒ both windows violated', async () => {
+    const { anna, token } = await seedHrAndAnna();
+    // Monday 2026-05-04: 07:00–09:30 and 15:30–18:00 (no overlap with cores).
+    await ctx.prisma.timeEntry.createMany({
+      data: [
+        {
+          employeeId: anna.id,
+          clockIn: local(2026, 5, 4, 7, 0),
+          clockOut: local(2026, 5, 4, 9, 30),
+          status: 'Approved',
+        },
+        {
+          employeeId: anna.id,
+          clockIn: local(2026, 5, 4, 15, 30),
+          clockOut: local(2026, 5, 4, 18, 0),
+          status: 'Approved',
+        },
+      ],
+    });
+
+    const res = await ctx.http
+      .get(`/api/violations?employeeId=${anna.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body).toHaveLength(2);
+    expect(
+      (res.body as Array<{ windowLabel: string }>).map((v) => v.windowLabel).sort(),
+    ).toEqual(['Nachmittag', 'Vormittag']);
+  });
+
+  it('attended through both core windows ⇒ no violation', async () => {
+    const { anna, token } = await seedHrAndAnna();
+    await ctx.prisma.timeEntry.create({
+      data: {
+        employeeId: anna.id,
+        clockIn: local(2026, 5, 4, 9, 0),
+        clockOut: local(2026, 5, 4, 17, 0),
+        status: 'Approved',
+      },
+    });
+
+    const res = await ctx.http
+      .get(`/api/violations?employeeId=${anna.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('mid-day break inside a core window ⇒ MidDayGap', async () => {
+    const { anna, token } = await seedHrAndAnna();
+    // Single core 09–15 hypothetical → use the existing fixtures; here, take
+    // morning + early afternoon with a gap straddling the Nachmittag core.
+    await ctx.prisma.timeEntry.createMany({
+      data: [
+        {
+          employeeId: anna.id,
+          clockIn: local(2026, 5, 4, 8, 0),
+          clockOut: local(2026, 5, 4, 14, 30),
+          status: 'Approved',
+        },
+        {
+          employeeId: anna.id,
+          clockIn: local(2026, 5, 4, 14, 45),
+          clockOut: local(2026, 5, 4, 17, 0),
+          status: 'Approved',
+        },
+      ],
+    });
+
+    const res = await ctx.http
+      .get(`/api/violations?employeeId=${anna.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      windowLabel: 'Nachmittag',
+      kind: 'MidDayGap',
+      deltaMinutes: 15,
+    });
+  });
+
+  it('Vertrauensarbeitszeit employees never have core-time violations', async () => {
+    const hr = await seedEmployee(ctx.prisma, {
+      personalNo: '0001',
+      firstName: 'Hannah',
+      lastName: 'Roth',
+      email: 'hannah@test.local',
+      role: 'HRAdmin',
+    });
+    const erik = await seedEmployee(ctx.prisma, {
+      personalNo: '1005',
+      firstName: 'Erik',
+      lastName: 'Lindgren',
+      email: 'erik@test.local',
+      timeModel: 'Vertrauensarbeitszeit',
+    });
+    await setupSchedule(erik.id);
+    await ctx.prisma.timeEntry.create({
+      data: {
+        employeeId: erik.id,
+        clockIn: local(2026, 5, 4, 7, 0),
+        clockOut: local(2026, 5, 4, 9, 30),
+        status: 'Approved',
+      },
+    });
+    const token = await login(ctx.http, 'hannah@test.local');
+
+    const res = await ctx.http
+      .get(`/api/violations?employeeId=${erik.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(res.body).toEqual([]);
+    expect(hr).toBeDefined();
+  });
+});

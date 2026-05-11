@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  detectCoreTimeViolations,
-  detectViolations,
+  detectCoreTimeViolationsForDay,
   WEEKDAY_BITS,
   WEEKDAYS_MON_TO_FRI,
   type CoreTimeWindow,
@@ -13,79 +12,158 @@ function at(year: number, month: number, day: number, h: number, m = 0): Date {
   return d;
 }
 
-const MON_2026_05_04 = (h: number, m = 0) => at(2026, 5, 4, h, m);
-const SAT_2026_05_02 = (h: number, m = 0) => at(2026, 5, 2, h, m);
+const MON = (h: number, m = 0) => at(2026, 5, 4, h, m); // Monday
+const SAT = (h: number, m = 0) => at(2026, 5, 2, h, m); // Saturday
 
-describe('detectCoreTimeViolations — single window', () => {
-  const window: CoreTimeWindow = {
-    startHour: 9,
+const SINGLE: CoreTimeWindow = {
+  startHour: 9,
+  startMinute: 0,
+  endHour: 15,
+  endMinute: 0,
+  weekdays: WEEKDAYS_MON_TO_FRI,
+  label: 'Kernzeit',
+};
+
+const DOUBLE: CoreTimeWindow[] = [
+  {
+    startHour: 10,
+    startMinute: 0,
+    endHour: 11,
+    endMinute: 0,
+    weekdays: WEEKDAYS_MON_TO_FRI,
+    label: 'Vormittag',
+  },
+  {
+    startHour: 14,
     startMinute: 0,
     endHour: 15,
     endMinute: 0,
     weekdays: WEEKDAYS_MON_TO_FRI,
-    label: 'Kernzeit',
-  };
+    label: 'Nachmittag',
+  },
+];
 
-  it('no violations when fully inside the window', () => {
-    expect(detectCoreTimeViolations(MON_2026_05_04(8, 30), MON_2026_05_04(15, 30), [window])).toEqual([]);
+describe('detectCoreTimeViolationsForDay — single window', () => {
+  it('no entries → no violation (employee was off)', () => {
+    expect(detectCoreTimeViolationsForDay([], [SINGLE], MON(0))).toEqual([]);
   });
-  it('LateArrival when clock-in after window-start', () => {
-    const v = detectCoreTimeViolations(MON_2026_05_04(9, 30), MON_2026_05_04(17), [window]);
+
+  it('fully inside the window → no violation', () => {
+    const entries = [{ clockIn: MON(8, 30), clockOut: MON(15, 30) }];
+    expect(detectCoreTimeViolationsForDay(entries, [SINGLE], MON(0))).toEqual([]);
+  });
+
+  it('late arrival → LateArrival of the leading gap', () => {
+    const entries = [{ clockIn: MON(9, 30), clockOut: MON(17) }];
+    const v = detectCoreTimeViolationsForDay(entries, [SINGLE], MON(0));
     expect(v).toEqual([
-      { kind: 'LateArrival', boundary: '09:00', deltaMinutes: 30, windowLabel: 'Kernzeit' },
+      {
+        kind: 'LateArrival',
+        boundary: '09:00–15:00',
+        deltaMinutes: 30,
+        windowLabel: 'Kernzeit',
+      },
     ]);
   });
-  it('EarlyDeparture when clock-out before window-end', () => {
-    const v = detectCoreTimeViolations(MON_2026_05_04(8), MON_2026_05_04(14, 45), [window]);
+
+  it('early departure → EarlyDeparture of the trailing gap', () => {
+    const entries = [{ clockIn: MON(8), clockOut: MON(14, 45) }];
+    const v = detectCoreTimeViolationsForDay(entries, [SINGLE], MON(0));
     expect(v).toEqual([
-      { kind: 'EarlyDeparture', boundary: '15:00', deltaMinutes: 15, windowLabel: 'Kernzeit' },
+      {
+        kind: 'EarlyDeparture',
+        boundary: '09:00–15:00',
+        deltaMinutes: 15,
+        windowLabel: 'Kernzeit',
+      },
     ]);
   });
+
+  it('mid-day break splits the window → MidDayGap', () => {
+    const entries = [
+      { clockIn: MON(8), clockOut: MON(11, 30) },
+      { clockIn: MON(13), clockOut: MON(17) },
+    ];
+    const v = detectCoreTimeViolationsForDay(entries, [SINGLE], MON(0));
+    expect(v).toEqual([
+      {
+        kind: 'MidDayGap',
+        boundary: '09:00–15:00',
+        deltaMinutes: 90, // 11:30 → 13:00
+        windowLabel: 'Kernzeit',
+      },
+    ]);
+  });
+
   it('skips windows for non-matching weekdays', () => {
-    expect(detectCoreTimeViolations(SAT_2026_05_02(11), SAT_2026_05_02(12), [window])).toEqual([]);
+    const entries = [{ clockIn: SAT(10), clockOut: SAT(16) }];
+    expect(detectCoreTimeViolationsForDay(entries, [SINGLE], SAT(0))).toEqual([]);
+  });
+
+  it('open entry (no clock-out) is ignored — violation surfaces once stamped out', () => {
+    const entries = [{ clockIn: MON(8), clockOut: null }];
+    expect(detectCoreTimeViolationsForDay(entries, [SINGLE], MON(0))).toEqual([]);
+  });
+
+  it('multiple entries fully covering the window → no violation', () => {
+    const entries = [
+      { clockIn: MON(8, 30), clockOut: MON(12) },
+      { clockIn: MON(12), clockOut: MON(15, 30) },
+    ];
+    expect(detectCoreTimeViolationsForDay(entries, [SINGLE], MON(0))).toEqual([]);
   });
 });
 
-describe('detectCoreTimeViolations — multi window (10–11 + 14–15)', () => {
-  const windows: CoreTimeWindow[] = [
-    {
-      startHour: 10,
-      startMinute: 0,
-      endHour: 11,
-      endMinute: 0,
-      weekdays: WEEKDAYS_MON_TO_FRI,
-      label: 'Vormittag',
-    },
-    {
-      startHour: 14,
-      startMinute: 0,
-      endHour: 15,
-      endMinute: 0,
-      weekdays: WEEKDAYS_MON_TO_FRI,
-      label: 'Nachmittag',
-    },
-  ];
-
-  it('no violations when both windows fully covered', () => {
-    expect(detectCoreTimeViolations(MON_2026_05_04(9), MON_2026_05_04(17), windows)).toEqual([]);
+describe('detectCoreTimeViolationsForDay — double window (10–11 + 14–15)', () => {
+  it('present 09:00–17:00 → both windows covered, no violation', () => {
+    const entries = [{ clockIn: MON(9), clockOut: MON(17) }];
+    expect(detectCoreTimeViolationsForDay(entries, DOUBLE, MON(0))).toEqual([]);
   });
-  it('one LateArrival when arriving 10:30 (only morning window violated)', () => {
-    const v = detectCoreTimeViolations(MON_2026_05_04(10, 30), MON_2026_05_04(17), windows);
+
+  it('late by 30 min → only the morning window is violated', () => {
+    const entries = [{ clockIn: MON(10, 30), clockOut: MON(17) }];
+    const v = detectCoreTimeViolationsForDay(entries, DOUBLE, MON(0));
     expect(v).toHaveLength(1);
-    expect(v[0]).toMatchObject({ kind: 'LateArrival', windowLabel: 'Vormittag', deltaMinutes: 30 });
+    expect(v[0]).toMatchObject({
+      kind: 'LateArrival',
+      windowLabel: 'Vormittag',
+      deltaMinutes: 30,
+    });
   });
-  it('two violations when leaving early during the afternoon window', () => {
-    const v = detectCoreTimeViolations(MON_2026_05_04(10, 15), MON_2026_05_04(14, 30), windows);
-    expect(v).toHaveLength(2);
-    expect(v.find((x) => x.windowLabel === 'Vormittag')?.kind).toBe('LateArrival');
-    expect(v.find((x) => x.windowLabel === 'Nachmittag')?.kind).toBe('EarlyDeparture');
-  });
-});
 
-describe('detectViolations (legacy single-rule wrapper)', () => {
-  it('still works for the old default 09–15 window', () => {
-    const v = detectViolations(MON_2026_05_04(9, 30), MON_2026_05_04(17));
-    expect(v[0]).toMatchObject({ kind: 'LateArrival', boundary: '09:00', deltaMinutes: 30 });
+  it('two-entry day with afternoon gap → only the afternoon window is violated', () => {
+    const entries = [
+      { clockIn: MON(9, 30), clockOut: MON(12) },
+      { clockIn: MON(14, 30), clockOut: MON(17) },
+    ];
+    const v = detectCoreTimeViolationsForDay(entries, DOUBLE, MON(0));
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({
+      kind: 'LateArrival',
+      windowLabel: 'Nachmittag',
+      deltaMinutes: 30,
+    });
+  });
+
+  it('only morning attendance → afternoon window completely uncovered', () => {
+    const entries = [{ clockIn: MON(9), clockOut: MON(12) }];
+    const v = detectCoreTimeViolationsForDay(entries, DOUBLE, MON(0));
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({
+      kind: 'LateArrival',
+      windowLabel: 'Nachmittag',
+      deltaMinutes: 60,
+    });
+  });
+
+  it('present only outside both windows → both windows violated', () => {
+    const entries = [
+      { clockIn: MON(7), clockOut: MON(9, 30) },
+      { clockIn: MON(15, 30), clockOut: MON(18) },
+    ];
+    const v = detectCoreTimeViolationsForDay(entries, DOUBLE, MON(0));
+    expect(v).toHaveLength(2);
+    expect(v.map((x) => x.windowLabel).sort()).toEqual(['Nachmittag', 'Vormittag']);
   });
 });
 
