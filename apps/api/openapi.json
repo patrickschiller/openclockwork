@@ -25,6 +25,30 @@
         ]
       }
     },
+    "/api/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/me": {
       "get": {
         "operationId": "AuthController_me",
@@ -1458,6 +1482,18 @@
         "required": [
           "email",
           "password"
+        ]
+      },
+      "RefreshDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "A refresh token previously returned from /auth/login or /auth/refresh."
+          }
+        },
+        "required": [
+          "refreshToken"
         ]
       },
       "CreateEmployeeDto": {

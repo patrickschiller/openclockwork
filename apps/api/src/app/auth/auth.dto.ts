@@ -12,8 +12,18 @@ export class LoginDto {
   password!: string;
 }
 
+export class RefreshDto {
+  @ApiProperty({ description: 'A refresh token previously returned from /auth/login or /auth/refresh.' })
+  @IsString()
+  @MinLength(1)
+  refreshToken!: string;
+}
+
 export interface LoginResponse {
   accessToken: string;
+  refreshToken: string;
+  /** Seconds until the access token expires. */
+  expiresIn: number;
   employee: {
     id: string;
     email: string;
@@ -21,4 +31,10 @@ export interface LoginResponse {
     lastName: string;
     role: string;
   };
+}
+
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
 }

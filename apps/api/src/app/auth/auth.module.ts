@@ -15,10 +15,9 @@ import { JwtStrategy } from './jwt.strategy';
       useFactory: (config: ConfigService) => {
         const secret = config.get<string>('JWT_SECRET');
         if (!secret) throw new Error('JWT_SECRET is not configured');
-        return {
-          secret,
-          signOptions: { expiresIn: '12h' },
-        };
+        // No default `expiresIn` here — AuthService picks the lifetime per
+        // token kind (access = 15m, refresh = 7d).
+        return { secret };
       },
     }),
   ],
