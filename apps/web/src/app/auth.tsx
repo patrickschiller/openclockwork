@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api, TOKEN_STORAGE_KEY, type EmployeeRole } from '../api/client';
+import { api, REFRESH_STORAGE_KEY, TOKEN_STORAGE_KEY, type EmployeeRole } from '../api/client';
 
 const USER_STORAGE_KEY = 'openclockwork.user';
 
@@ -63,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const result = await api.login({ email, password });
         writeStored(TOKEN_STORAGE_KEY, result.accessToken);
+        writeStored(REFRESH_STORAGE_KEY, result.refreshToken);
         setUser(result.employee);
         queryClient.invalidateQueries();
       } finally {
@@ -74,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     writeStored(TOKEN_STORAGE_KEY, null);
+    writeStored(REFRESH_STORAGE_KEY, null);
     setUser(null);
     queryClient.clear();
   }, [queryClient]);

@@ -329,6 +329,9 @@ export interface LoginPayload {
 
 export interface LoginResponse {
   accessToken: string;
+  refreshToken: string;
+  /** Seconds until the access token expires. */
+  expiresIn: number;
   employee: {
     id: string;
     email: string;
@@ -338,14 +341,74 @@ export interface LoginResponse {
   };
 }
 
-export const TOKEN_STORAGE_KEY = 'openclockwork.accessToken';
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
 
-function readToken(): string | null {
+export const TOKEN_STORAGE_KEY = 'openclockwork.accessToken';
+export const REFRESH_STORAGE_KEY = 'openclockwork.refreshToken';
+
+function safeLocalStorage(): Storage | null {
   try {
-    return typeof window !== 'undefined' ? window.localStorage.getItem(TOKEN_STORAGE_KEY) : null;
+    return typeof window !== 'undefined' ? window.localStorage : null;
   } catch {
     return null;
   }
+}
+
+function readToken(): string | null {
+  return safeLocalStorage()?.getItem(TOKEN_STORAGE_KEY) ?? null;
+}
+
+function readRefreshToken(): string | null {
+  return safeLocalStorage()?.getItem(REFRESH_STORAGE_KEY) ?? null;
+}
+
+function storeTokens(access: string | null, refresh: string | null): void {
+  const ls = safeLocalStorage();
+  if (!ls) return;
+  if (access) ls.setItem(TOKEN_STORAGE_KEY, access);
+  else ls.removeItem(TOKEN_STORAGE_KEY);
+  if (refresh) ls.setItem(REFRESH_STORAGE_KEY, refresh);
+  else ls.removeItem(REFRESH_STORAGE_KEY);
+}
+
+/**
+ * Coalesce concurrent refreshes: every 401 that lands while a refresh is
+ * already in flight reuses the same promise instead of firing a parallel
+ * /auth/refresh.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function tryRefreshOnce(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
+  const refreshToken = readRefreshToken();
+  if (!refreshToken) return null;
+  refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${baseUrl}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) {
+        // Refresh itself failed — clear the slate so the user is forced to log in.
+        storeTokens(null, null);
+        return null;
+      }
+      const body = (await res.json()) as RefreshResponse;
+      storeTokens(body.accessToken, body.refreshToken);
+      return body.accessToken;
+    } catch {
+      storeTokens(null, null);
+      return null;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
 }
 
 export class ApiError extends Error {
@@ -357,16 +420,30 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = readToken();
+async function attempt(path: string, init: RequestInit | undefined, token: string | null): Promise<Response> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
     'Content-Type': 'application/json',
     ...((init?.headers as Record<string, string> | undefined) ?? {}),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
+  return fetch(`${baseUrl}${path}`, { ...init, headers });
+}
 
-  const response = await fetch(`${baseUrl}${path}`, { ...init, headers });
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let response = await attempt(path, init, readToken());
+
+  // 401 → try to refresh once, then retry the original request.
+  // /auth/refresh and /auth/login are excluded — they can't refresh themselves.
+  if (
+    response.status === 401 &&
+    !path.startsWith('/api/auth/refresh') &&
+    !path.startsWith('/api/auth/login')
+  ) {
+    const fresh = await tryRefreshOnce();
+    if (fresh) response = await attempt(path, init, fresh);
+  }
+
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     try {
