@@ -801,6 +801,16 @@ export interface components {
             /** Format: uuid */
             substituteId?: Record<string, never> | null;
             reason?: Record<string, never> | null;
+            /**
+             * @description Take the first day as a half-day
+             * @default false
+             */
+            halfDayStart: boolean;
+            /**
+             * @description Take the last day as a half-day
+             * @default false
+             */
+            halfDayEnd: boolean;
         };
         TransitionDto: {
             /** Format: uuid */

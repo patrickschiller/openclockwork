@@ -53,3 +53,39 @@ export function calculateWorkingDays(
   }
   return count;
 }
+
+export interface HalfDayOptions extends WorkingDaysOptions {
+  /** First day of the range is taken as a half-day. */
+  halfDayStart?: boolean;
+  /** Last day of the range is taken as a half-day. */
+  halfDayEnd?: boolean;
+}
+
+/**
+ * Working days like `calculateWorkingDays`, but lets the caller mark the
+ * first and/or the last day as a half-day. Returns a decimal value (e.g.
+ * 4.5). When `from === to` and either flag is true, the result is 0.5.
+ *
+ * The function never subtracts more than the day itself contributes — i.e.
+ * a half-day on a holiday or weekend has no effect because that day did
+ * not count to begin with.
+ */
+export function calculateVacationDays(from: Date, to: Date, options: HalfDayOptions = {}): number {
+  const baseline = calculateWorkingDays(from, to, options);
+  if (baseline === 0) return 0;
+  const holidayProvider = options.holidayProvider ?? NrwHolidayProvider;
+  const workingDays = options.workingDays ?? WEEKDAYS_MON_TO_FRI;
+  const start = utcMidnight(from);
+  const end = utcMidnight(to);
+  const isWorkday = (d: Date) =>
+    (weekdayBit(d) & workingDays) !== 0 && !holidayProvider.isHoliday(d);
+
+  // Single-day range: a half-day flag (either one) means 0.5; both = 0.5.
+  if (start.getTime() === end.getTime()) {
+    return options.halfDayStart || options.halfDayEnd ? 0.5 : baseline;
+  }
+  let adjusted = baseline;
+  if (options.halfDayStart && isWorkday(start)) adjusted -= 0.5;
+  if (options.halfDayEnd && isWorkday(end)) adjusted -= 0.5;
+  return adjusted;
+}

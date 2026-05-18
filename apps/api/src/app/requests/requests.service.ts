@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Prisma, Request, RequestEventKind, RequestType, WorkflowState } from '@prisma/client';
 import {
+  calculateVacationDays,
   calculateWorkingDays,
   deriveStatus,
   nextState,
@@ -150,11 +151,15 @@ export class RequestsService {
       throw new BadRequestException('Substitute must be a different employee');
     }
     const schedule = await this.schedules.resolveForEmployee(employee.id);
-    const calculatedDays = calculateWorkingDays(from, to, {
+    const halfDayStart = !!dto.halfDayStart;
+    const halfDayEnd = !!dto.halfDayEnd;
+    const calculatedDays = calculateVacationDays(from, to, {
       workingDays: schedule.workingDays,
       holidayProvider: schedule.holidayProvider,
+      halfDayStart,
+      halfDayEnd,
     });
-    if (calculatedDays === 0) {
+    if (calculatedDays <= 0) {
       throw new BadRequestException('Vacation range covers no working days');
     }
 
@@ -179,6 +184,8 @@ export class RequestsService {
           to,
           reason: dto.reason ?? null,
           calculatedDays,
+          halfDayStart,
+          halfDayEnd,
           substituteId: dto.substituteId ?? null,
           currentApproverId: hasSubstitute ? null : employee.managerId,
         },

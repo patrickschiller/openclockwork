@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { calculateNetMinutes, calculateOvertimeMinutes, calculateWorkingDays } from 'shared';
+import {
+  calculateNetMinutes,
+  calculateOvertimeMinutes,
+  calculateVacationDays,
+  calculateWorkingDays,
+} from 'shared';
 import type { HolidayProvider } from 'shared';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -111,14 +116,28 @@ export class AccountsService {
           from: { lte: to },
           to: { gte: from },
         },
-        select: { from: true, to: true },
+        select: { from: true, to: true, halfDayStart: true, halfDayEnd: true },
       }),
     ]);
     let total = 0;
-    for (const a of [...absences, ...vacationRequests]) {
+    for (const a of absences) {
       const start = a.from.getTime() < from.getTime() ? from : a.from;
       const end = a.to.getTime() > to.getTime() ? to : a.to;
       total += calculateWorkingDays(start, end, { holidayProvider, workingDays });
+    }
+    for (const v of vacationRequests) {
+      // Only credit half a day when the half-day boundary falls inside our
+      // window — if we clipped that end off, it would otherwise be lost.
+      const clippedStart = v.from.getTime() < from.getTime() ? from : v.from;
+      const clippedEnd = v.to.getTime() > to.getTime() ? to : v.to;
+      const halfDayStart = v.halfDayStart && clippedStart.getTime() === v.from.getTime();
+      const halfDayEnd = v.halfDayEnd && clippedEnd.getTime() === v.to.getTime();
+      total += calculateVacationDays(clippedStart, clippedEnd, {
+        holidayProvider,
+        workingDays,
+        halfDayStart,
+        halfDayEnd,
+      });
     }
     return total;
   }
