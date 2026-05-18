@@ -6,7 +6,7 @@
 # Required env (see .env.example):
 #   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 #   DATABASE_URL  (must match the postgres credentials above)
-#   JWT_SECRET, ERP_API_KEY, API_CORS_ORIGINS
+#   JWT_SECRET, ERP_API_KEY, CRON_API_KEY, API_CORS_ORIGINS
 
 services:
   db:
@@ -38,6 +38,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       ERP_API_KEY: ${ERP_API_KEY}
+      CRON_API_KEY: ${CRON_API_KEY}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS}
     # Apply pending migrations on container start, then hand off to the API.
     # Idempotent: prisma skips already-applied migrations.
