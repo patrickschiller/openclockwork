@@ -54,6 +54,7 @@ var storageName = take(toLower(replace('${namePrefix}${environment}${substring(h
 var acaEnvName = '${namePrefix}-${environment}-env'
 var apiAppName = '${namePrefix}-${environment}-api'
 var webAppName = '${namePrefix}-${environment}-web'
+var uamiName = '${namePrefix}-${environment}-mi'
 
 resource rg 'Microsoft.Resources/resourceGroups@2024-11-01' = {
   name: rgName
@@ -107,6 +108,20 @@ module acaEnv 'modules/container-app-env.bicep' = {
   }
 }
 
+// Shared UAMI for every Container App + Job. Created before the role
+// assignments so the apps can start cleanly on first deploy.
+module uami 'modules/user-assigned-identity.bicep' = {
+  name: 'uami'
+  scope: rg
+  params: { name: uamiName, location: location }
+}
+
+module roles 'modules/role-assignments.bicep' = {
+  name: 'roles'
+  scope: rg
+  params: { uamiPrincipalId: uami.outputs.principalId }
+}
+
 var databaseUrl = 'postgresql://${postgresAdminLogin}:${postgresAdminPassword}@${pg.outputs.fqdn}:5432/${pg.outputs.databaseName}?schema=public&sslmode=require'
 
 module kvSecrets 'modules/keyvault-secrets.bicep' = {
@@ -124,6 +139,7 @@ module kvSecrets 'modules/keyvault-secrets.bicep' = {
 module apiApp 'modules/container-app.bicep' = {
   name: 'apiApp'
   scope: rg
+  dependsOn: [ roles, kvSecrets ]
   params: {
     name: apiAppName
     location: location
@@ -133,6 +149,7 @@ module apiApp 'modules/container-app.bicep' = {
     // Internal only — the web app proxies /api and /socket.io to it.
     external: false
     acrLoginServer: acr.outputs.loginServer
+    userAssignedIdentityId: uami.outputs.id
     envVars: [
       { name: 'NODE_ENV', value: 'production' }
       { name: 'API_PORT', value: '3000' }
@@ -140,6 +157,8 @@ module apiApp 'modules/container-app.bicep' = {
       { name: 'STORAGE_BACKEND', value: 'azure-blob' }
       { name: 'AZURE_BLOB_ACCOUNT', value: storage.outputs.accountName }
       { name: 'AZURE_BLOB_CONTAINER', value: storage.outputs.containerName }
+      // Forces the Azure SDK's DefaultAzureCredential to pick the UAMI.
+      { name: 'AZURE_CLIENT_ID', value: uami.outputs.clientId }
     ]
     secretRefs: [
       { name: 'database-url', envVarName: 'DATABASE_URL', keyVaultUrl: '${kv.outputs.uri}secrets/DATABASE-URL' }
@@ -153,6 +172,7 @@ module apiApp 'modules/container-app.bicep' = {
 module webApp 'modules/container-app.bicep' = {
   name: 'webApp'
   scope: rg
+  dependsOn: [ roles ]
   params: {
     name: webAppName
     location: location
@@ -161,6 +181,7 @@ module webApp 'modules/container-app.bicep' = {
     targetPort: 8080
     external: true
     acrLoginServer: acr.outputs.loginServer
+    userAssignedIdentityId: uami.outputs.id
     envVars: [
       // nginx upstream — the internal-only api over the ACA env's HTTPS hop.
       { name: 'API_UPSTREAM', value: 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDomain}' }
@@ -177,6 +198,7 @@ var migrateJobName = '${namePrefix}-${environment}-migrate'
 module migrateJob 'modules/container-app-job.bicep' = {
   name: 'migrateJob'
   scope: rg
+  dependsOn: [ roles, kvSecrets ]
   params: {
     name: migrateJobName
     location: location
@@ -186,6 +208,7 @@ module migrateJob 'modules/container-app-job.bicep' = {
     args: ['npx prisma migrate deploy']
     triggerType: 'Manual'
     acrLoginServer: acr.outputs.loginServer
+    userAssignedIdentityId: uami.outputs.id
     envVars: [
       { name: 'NODE_ENV', value: 'production' }
     ]
@@ -204,6 +227,7 @@ var apiInternalUrl = 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDom
 module cronJob 'modules/container-app-job.bicep' = {
   name: 'cronJob'
   scope: rg
+  dependsOn: [ roles, kvSecrets ]
   params: {
     name: cronJobName
     location: location
@@ -220,23 +244,13 @@ module cronJob 'modules/container-app-job.bicep' = {
     replicaTimeoutSeconds: 120
     cpu: '0.25'
     memory: '0.5Gi'
+    userAssignedIdentityId: uami.outputs.id
     envVars: [
       { name: 'API_URL', value: apiInternalUrl }
     ]
     secretRefs: [
       { name: 'cron-api-key', envVarName: 'CRON_API_KEY', keyVaultUrl: '${kv.outputs.uri}secrets/CRON-API-KEY' }
     ]
-  }
-}
-
-module roles 'modules/role-assignments.bicep' = {
-  name: 'roles'
-  scope: rg
-  params: {
-    apiPrincipalId: apiApp.outputs.principalId
-    webPrincipalId: webApp.outputs.principalId
-    migrateJobPrincipalId: migrateJob.outputs.principalId
-    cronJobPrincipalId: cronJob.outputs.principalId
   }
 }
 

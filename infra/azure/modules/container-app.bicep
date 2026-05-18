@@ -1,6 +1,8 @@
 // Single Container App. Parameterised enough to host either api or web.
-// Secrets are referenced from Key Vault by URI using the app's
-// system-assigned managed identity.
+// Uses a shared user-assigned managed identity (UAMI) for ACR pull + KV
+// secret resolution — the UAMI is granted its roles BEFORE this module
+// runs (see modules/role-assignments.bicep), so the first revision can
+// start cleanly.
 
 param name string
 param location string
@@ -13,8 +15,10 @@ param memory string = '0.5Gi'
 param minReplicas int = 0
 param maxReplicas int = 3
 param acrLoginServer string
+@description('Resource ID of the shared UAMI used for ACR pull + KV secret resolution.')
+param userAssignedIdentityId string
 param envVars array = []
-@description('Each entry: { name, keyVaultUrl } — Key Vault secret URIs. The app fetches them via its managed identity.')
+@description('Each entry: { name, envVarName, keyVaultUrl } — Key Vault secret URIs.')
 param secretRefs array = []
 
 var secretEnvVars = [for s in secretRefs: {
@@ -25,13 +29,18 @@ var allEnvVars = concat(envVars, secretEnvVars)
 var secretConfig = [for s in secretRefs: {
   name: s.name
   keyVaultUrl: s.keyVaultUrl
-  identity: 'system'
+  identity: userAssignedIdentityId
 }]
 
 resource app 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
   location: location
-  identity: { type: 'SystemAssigned' }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${userAssignedIdentityId}': {}
+    }
+  }
   properties: {
     managedEnvironmentId: environmentId
     configuration: {
@@ -47,7 +56,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
       registries: [
         {
           server: acrLoginServer
-          identity: 'system'
+          identity: userAssignedIdentityId
         }
       ]
       secrets: secretConfig
@@ -68,4 +77,3 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
 
 output name string = app.name
 output fqdn string = app.properties.configuration.ingress.fqdn
-output principalId string = app.identity.principalId
