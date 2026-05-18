@@ -241,6 +241,7 @@ function VacationProgress({ balance }: { balance: VacationBalanceDto }) {
       <div
         className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
         role="progressbar"
+        aria-label={`Urlaubsverbrauch: ${(approved + pending).toFixed(1)} von ${total.toFixed(1)} Tagen`}
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={approved + pending}

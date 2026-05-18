@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 /**
  * Smoke test that proves the full stack hangs together:
@@ -42,4 +43,33 @@ test('the login form refuses bogus credentials with a visible error', async ({ p
   await page.getByLabel('Passwort').fill('definitely-wrong');
   await page.getByRole('button', { name: 'Anmelden' }).click();
   await expect(page.getByText(/Invalid credentials/i)).toBeVisible();
+});
+
+test('login page has no critical or serious WCAG-2.1-AA accessibility violations', async ({ page }) => {
+  await page.goto('/');
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  const blocking = results.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+  if (blocking.length > 0) {
+    // Surface a readable summary in the test failure.
+    console.log(JSON.stringify(blocking.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })), null, 2));
+  }
+  expect(blocking).toEqual([]);
+});
+
+test('dashboard has no critical or serious WCAG-2.1-AA accessibility violations', async ({ page }) => {
+  await page.goto('/');
+  await page.getByLabel('E-Mail').fill(EMAIL);
+  await page.getByLabel('Passwort').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Anmelden' }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  const blocking = results.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+  if (blocking.length > 0) {
+    console.log(JSON.stringify(blocking.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length })), null, 2));
+  }
+  expect(blocking).toEqual([]);
 });
