@@ -13,25 +13,12 @@ concurrency:
 jobs:
   build-test-lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: openclockwork
-          POSTGRES_PASSWORD: openclockwork
-          POSTGRES_DB: openclockwork
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U openclockwork -d openclockwork"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
+    timeout-minutes: 20
 
     env:
       DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5432/openclockwork?schema=public
+      JWT_SECRET: ci-jwt-secret-do-not-use-in-prod
+      ERP_API_KEY: ci-erp-key
 
     steps:
       - name: Checkout
@@ -56,14 +43,105 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma generate
 
-      - name: Lint
-        run: pnpm nx run-many -t lint
+      # Caches the local Nx task cache between runs so unchanged projects
+      # don't re-execute. The run_id in the primary key forces a fresh write
+      # every build; the restore-keys fall back to the most recent good
+      # cache, which keeps lookups fast.
+      - name: Cache Nx
+        uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: ${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-nx-${{ hashFiles('pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nx-
 
-      - name: Typecheck
-        run: pnpm nx run-many -t typecheck
+      # Sets NX_BASE / NX_HEAD so `nx affected` knows what changed since the
+      # last successful main run (PR) or the previous commit (push to main).
+      - name: Derive Nx affected SHAs
+        uses: nrwl/nx-set-shas@v4
 
-      - name: Test
-        run: pnpm nx run-many -t test --configuration=ci
+      - name: Lint (affected on PR, all on main)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            pnpm nx affected -t lint
+          else
+            pnpm nx run-many -t lint
+          fi
 
-      - name: Build
-        run: pnpm nx run-many -t build
+      - name: Typecheck (affected on PR, all on main)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            pnpm nx affected -t typecheck
+          else
+            pnpm nx run-many -t typecheck
+          fi
+
+      - name: Unit + integration tests (affected on PR, all on main)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            pnpm nx affected -t test --configuration=ci
+          else
+            pnpm nx run-many -t test --configuration=ci
+          fi
+
+      - name: Build (affected on PR, all on main)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            pnpm nx affected -t build
+          else
+            pnpm nx run-many -t build
+          fi
+
+  api-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: openclockwork
+          POSTGRES_PASSWORD: openclockwork
+          POSTGRES_DB: openclockwork_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U openclockwork -d openclockwork_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5433/openclockwork_test?schema=public
+      JWT_SECRET: ci-jwt-secret-do-not-use-in-prod
+      ERP_API_KEY: ci-erp-key
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm prisma generate
+
+      - name: Apply migrations to test DB
+        run: pnpm prisma migrate deploy
+
+      - name: API end-to-end tests
+        run: pnpm nx e2e api-e2e
