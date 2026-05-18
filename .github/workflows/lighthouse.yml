@@ -1,0 +1,96 @@
+name: lighthouse
+
+# Runs a Lighthouse audit against the deployed Azure environment.
+# Triggers after deploy-azure succeeds; also runnable manually for
+# checking the current state without redeploying.
+#
+# Required:
+#   - Repo variable AZURE_WEB_FQDN  (e.g. oclock-dev-web.<env>.<region>.azurecontainerapps.io)
+#     Set this after the first deploy from the Bicep webFqdn output:
+#       az deployment sub show --name <name> --query 'properties.outputs.webFqdn.value' -o tsv
+#
+# Budgets + assertions live in .lighthouserc.json — change them there, not
+# in this workflow.
+
+on:
+  workflow_run:
+    workflows: [deploy-azure]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Override the URL to audit (default: https://${{ vars.AZURE_WEB_FQDN }}/).'
+        required: false
+        type: string
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Skip when the upstream deploy failed — there's nothing fresh to audit.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target URL
+        id: target
+        env:
+          INPUT_URL: ${{ inputs.target_url }}
+          FQDN: ${{ vars.AZURE_WEB_FQDN }}
+        run: |
+          if [ -n "$INPUT_URL" ]; then
+            URL="$INPUT_URL"
+          elif [ -n "$FQDN" ]; then
+            URL="https://$FQDN/"
+          else
+            echo "::error::Neither inputs.target_url nor vars.AZURE_WEB_FQDN is set"
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Auditing: $URL"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Lighthouse CI
+        id: lhci
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: ${{ steps.target.outputs.url }}
+          configPath: .lighthouserc.json
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+      - name: Write report links to summary
+        if: always()
+        env:
+          LINKS: ${{ steps.lhci.outputs.links }}
+          MANIFEST: ${{ steps.lhci.outputs.manifest }}
+        run: |
+          {
+            echo "### Lighthouse audit"
+            echo "- Target: \`${{ steps.target.outputs.url }}\`"
+            if [ -n "$LINKS" ]; then
+              echo "- Public report(s):"
+              echo "$LINKS" | python3 -c "
+          import json, sys
+          try:
+              data = json.loads(sys.stdin.read())
+              for url, link in data.items():
+                  print(f'  - [{url}]({link})')
+          except Exception as e:
+              print(f'  (could not parse links: {e})')
+          "
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
