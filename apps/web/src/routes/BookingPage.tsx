@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { api, type ClockInPayload, type TimeEntryDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
+import { useOnline } from '../app/use-online';
 
 function captureGps(): Promise<{ latitude: number; longitude: number; accuracy: number } | null> {
   if (!('geolocation' in navigator)) return Promise.resolve(null);
@@ -39,16 +40,18 @@ export function BookingPage() {
   const user = useCurrentUser();
   const employeeId = user.id;
   const qc = useQueryClient();
+  const online = useOnline();
   const [useGps, setUseGps] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const entriesKey = ['time-entries', employeeId];
   const entriesQuery = useQuery({
-    queryKey: ['time-entries', employeeId],
+    queryKey: entriesKey,
     queryFn: () => api.timeEntries(employeeId),
   });
   const open = entriesQuery.data?.find((e) => !e.clockOut) ?? null;
 
-  const clockInMutation = useMutation({
+  const clockInMutation = useMutation<TimeEntryDto, Error, void, { previous?: TimeEntryDto[] }>({
     mutationFn: async () => {
       const gps = useGps ? await captureGps() : null;
       const payload: ClockInPayload = {
@@ -59,14 +62,48 @@ export function BookingPage() {
       };
       return api.clockIn(payload);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['time-entries', employeeId] }),
-    onError: (e) => setError(e instanceof Error ? e.message : 'Buchung fehlgeschlagen'),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: entriesKey });
+      const previous = qc.getQueryData<TimeEntryDto[]>(entriesKey);
+      const optimistic: TimeEntryDto = {
+        id: `optimistic-${Date.now()}`,
+        employeeId,
+        clockIn: new Date().toISOString(),
+        clockOut: null,
+        source: 'web',
+        status: 'Open',
+        requiresApproval: false,
+        latitude: null,
+        longitude: null,
+        accuracyMeters: null,
+        summary: null,
+      };
+      qc.setQueryData<TimeEntryDto[]>(entriesKey, (old) => [optimistic, ...(old ?? [])]);
+      return { previous };
+    },
+    onError: (e, _v, context) => {
+      if (context?.previous) qc.setQueryData(entriesKey, context.previous);
+      setError(e instanceof Error ? e.message : 'Buchung fehlgeschlagen');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: entriesKey }),
   });
 
-  const clockOutMutation = useMutation({
+  const clockOutMutation = useMutation<TimeEntryDto, Error, void, { previous?: TimeEntryDto[] }>({
     mutationFn: () => api.clockOut(employeeId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['time-entries', employeeId] }),
-    onError: (e) => setError(e instanceof Error ? e.message : 'Ausstempeln fehlgeschlagen'),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: entriesKey });
+      const previous = qc.getQueryData<TimeEntryDto[]>(entriesKey);
+      const now = new Date().toISOString();
+      qc.setQueryData<TimeEntryDto[]>(entriesKey, (old) =>
+        (old ?? []).map((e) => (!e.clockOut ? { ...e, clockOut: now } : e)),
+      );
+      return { previous };
+    },
+    onError: (e, _v, context) => {
+      if (context?.previous) qc.setQueryData(entriesKey, context.previous);
+      setError(e instanceof Error ? e.message : 'Ausstempeln fehlgeschlagen');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: entriesKey }),
   });
 
   const now = new Date();
@@ -78,6 +115,16 @@ export function BookingPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Buchung</h1>
         <p className="text-sm text-muted-foreground">Kommen / Gehen mit optionalem GPS.</p>
       </div>
+
+      {!online && (
+        <Alert variant="destructive">
+          <AlertTitle>Offline</AlertTitle>
+          <AlertDescription>
+            Keine Verbindung zum Server. Buchungen sind aktuell deaktiviert — sobald wieder online,
+            ist die Schaltfläche freigegeben.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {offHours && (
         <Alert>
@@ -119,7 +166,7 @@ export function BookingPage() {
           <div className="flex flex-wrap gap-3">
             <Button
               size="lg"
-              disabled={!!open || clockInMutation.isPending}
+              disabled={!!open || clockInMutation.isPending || !online}
               onClick={() => {
                 setError(null);
                 clockInMutation.mutate();
@@ -130,7 +177,7 @@ export function BookingPage() {
             <Button
               size="lg"
               variant="secondary"
-              disabled={!open || clockOutMutation.isPending}
+              disabled={!open || clockOutMutation.isPending || !online}
               onClick={() => {
                 setError(null);
                 clockOutMutation.mutate();
