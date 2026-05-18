@@ -106,6 +106,71 @@ describe('calculateOvertimeMinutes', () => {
     expect(r.overtimeMinutes).toBe(250);
   });
 
+  it('excusedDays reduces Soll one-for-one — vacation/sickness should not penalise overtime', () => {
+    const noAbsence = calculateOvertimeMinutes({
+      startDate: utc(2026, 1, 1),
+      year: 2026,
+      now: utc(2026, 5, 4),
+      weeklyHours: 40,
+      netMinutesYtd: 0,
+      openingBalanceMinutes: 0,
+    });
+    const fiveDayVacation = calculateOvertimeMinutes({
+      startDate: utc(2026, 1, 1),
+      year: 2026,
+      now: utc(2026, 5, 4),
+      weeklyHours: 40,
+      netMinutesYtd: 0,
+      openingBalanceMinutes: 0,
+      excusedDays: 5,
+    });
+    expect(noAbsence.sollMinutes - fiveDayVacation.sollMinutes).toBe(5 * VOLLZEIT_DAILY_MIN);
+    // No Ist means overtime mirrors -Soll; with five excused days the
+    // employee is 5 * 480 = 2400 min "less negative".
+    expect(fiveDayVacation.overtimeMinutes - noAbsence.overtimeMinutes).toBe(5 * VOLLZEIT_DAILY_MIN);
+    expect(fiveDayVacation.excusedDays).toBe(5);
+  });
+
+  it('Gleittag is NOT excused — it drains the overtime account by the daily Soll', () => {
+    // A Gleittag is "I use overtime to take a day off". The employee
+    // doesn't book a TimeEntry that day (netMinutesYtd unchanged) and the
+    // Soll is NOT reduced (excusedDays does not include Flextime). So the
+    // result is overtimeMinutes -= dailyMinutes, which is what we want.
+    const baseline = calculateOvertimeMinutes({
+      startDate: utc(2026, 1, 1),
+      year: 2026,
+      now: utc(2026, 5, 4),
+      weeklyHours: 40,
+      netMinutesYtd: 1000,
+      openingBalanceMinutes: 5000,
+      excusedDays: 0,
+    });
+    const afterGleittag = calculateOvertimeMinutes({
+      startDate: utc(2026, 1, 1),
+      year: 2026,
+      now: utc(2026, 5, 4),
+      weeklyHours: 40,
+      netMinutesYtd: 1000, // same — no booking on the Gleittag
+      openingBalanceMinutes: 5000,
+      excusedDays: 0, // explicitly: not excused
+    });
+    expect(afterGleittag.overtimeMinutes).toBe(baseline.overtimeMinutes);
+  });
+
+  it('excusedDays is capped at the working-day count — never makes Soll go negative', () => {
+    const r = calculateOvertimeMinutes({
+      startDate: utc(2026, 1, 1),
+      year: 2026,
+      now: utc(2026, 1, 9), // ~5-6 working days
+      weeklyHours: 40,
+      netMinutesYtd: 0,
+      openingBalanceMinutes: 0,
+      excusedDays: 9999,
+    });
+    expect(r.sollMinutes).toBe(0);
+    expect(r.overtimeMinutes).toBe(0);
+  });
+
   it('Teilzeit (20h/week) gets half the daily Soll', () => {
     const full = calculateOvertimeMinutes({
       startDate: utc(2026, 1, 1),

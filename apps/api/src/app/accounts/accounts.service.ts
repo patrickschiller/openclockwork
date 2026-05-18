@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { calculateNetMinutes, calculateOvertimeMinutes } from 'shared';
+import { calculateNetMinutes, calculateOvertimeMinutes, calculateWorkingDays } from 'shared';
+import type { HolidayProvider } from 'shared';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
@@ -34,6 +35,25 @@ export class AccountsService {
       netMinutesYtd += calculateNetMinutes(gross);
     }
 
+    // Soll-Befreiung: Vacation (approved) + Sickness + Training count as
+    // excused working days — their absence on a workday is not a deficit.
+    // Flextime/Gleittage are intentionally NOT excused: that's what makes
+    // them drain the overtime account.
+    const sollFrom = employee.startDate.getTime() > yearStart.getTime()
+      ? new Date(Date.UTC(
+          employee.startDate.getUTCFullYear(),
+          employee.startDate.getUTCMonth(),
+          employee.startDate.getUTCDate(),
+        ))
+      : yearStart;
+    const excusedDays = await this.excusedWorkingDays(
+      employeeId,
+      sollFrom,
+      now,
+      schedule.workingDays,
+      schedule.holidayProvider,
+    );
+
     // Soll counts from the employee's startDate using their working-day mask
     // and Bundesland-specific holiday calendar.
     const overtime = calculateOvertimeMinutes({
@@ -45,6 +65,7 @@ export class AccountsService {
       openingBalanceMinutes: employee.overtimeOpeningBalanceMinutes,
       workingDays: schedule.workingDays,
       holidayProvider: schedule.holidayProvider,
+      excusedDays,
     });
 
     const balance = await this.vacationBalance.compute(employeeId, year);
@@ -57,5 +78,48 @@ export class AccountsService {
       vacationDaysRemaining: balance.remainingDays,
       asOf: now.toISOString(),
     };
+  }
+
+  /**
+   * Working days within [from, to] that should be excused from Soll because
+   * the employee is on approved vacation, sick, or in training. Gleittage are
+   * intentionally excluded — they must drain the overtime account.
+   */
+  private async excusedWorkingDays(
+    employeeId: string,
+    from: Date,
+    to: Date,
+    workingDays: number,
+    holidayProvider: HolidayProvider,
+  ): Promise<number> {
+    if (from.getTime() > to.getTime()) return 0;
+    const [absences, vacationRequests] = await Promise.all([
+      this.prisma.absence.findMany({
+        where: {
+          employeeId,
+          kind: { in: ['Sickness', 'Training'] },
+          from: { lte: to },
+          to: { gte: from },
+        },
+        select: { from: true, to: true },
+      }),
+      this.prisma.request.findMany({
+        where: {
+          employeeId,
+          type: 'Vacation',
+          workflowState: 'Approved',
+          from: { lte: to },
+          to: { gte: from },
+        },
+        select: { from: true, to: true },
+      }),
+    ]);
+    let total = 0;
+    for (const a of [...absences, ...vacationRequests]) {
+      const start = a.from.getTime() < from.getTime() ? from : a.from;
+      const end = a.to.getTime() > to.getTime() ? to : a.to;
+      total += calculateWorkingDays(start, end, { holidayProvider, workingDays });
+    }
+    return total;
   }
 }
