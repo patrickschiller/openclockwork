@@ -21,6 +21,12 @@ export interface OvertimeInput {
    * Days outside this mask contribute zero Soll regardless of holiday status.
    */
   workingDays?: number;
+  /**
+   * Working days within `[sollFrom, now]` that are excused from Soll —
+   * approved vacation, sickness, training. Flextime/Gleittage are NOT excused
+   * because their whole point is to drain the overtime account.
+   */
+  excusedDays?: number;
 }
 
 export interface OvertimeResult {
@@ -30,6 +36,8 @@ export interface OvertimeResult {
   openingBalanceMinutes: number;
   /** Effective lower bound of the Soll calculation (max of year-start and startDate). */
   sollFrom: Date;
+  /** Working days excused from Soll (vacation + sickness + training). */
+  excusedDays: number;
 }
 
 function utcMidnight(d: Date): Date {
@@ -60,6 +68,7 @@ export function calculateOvertimeMinutes(input: OvertimeInput): OvertimeResult {
       netMinutes: input.netMinutesYtd,
       openingBalanceMinutes: input.openingBalanceMinutes,
       sollFrom: sollFromCandidate,
+      excusedDays: 0,
     };
   }
 
@@ -67,8 +76,10 @@ export function calculateOvertimeMinutes(input: OvertimeInput): OvertimeResult {
     holidayProvider: input.holidayProvider,
     workingDays: input.workingDays,
   });
+  const excusedDays = Math.max(0, Math.min(workingDays, input.excusedDays ?? 0));
+  const sollDays = workingDays - excusedDays;
   const dailyMinutes = (input.weeklyHours / 5) * 60;
-  const sollMinutes = Math.round(workingDays * dailyMinutes);
+  const sollMinutes = Math.round(sollDays * dailyMinutes);
 
   return {
     overtimeMinutes: input.openingBalanceMinutes + input.netMinutesYtd - sollMinutes,
@@ -76,5 +87,6 @@ export function calculateOvertimeMinutes(input: OvertimeInput): OvertimeResult {
     netMinutes: input.netMinutesYtd,
     openingBalanceMinutes: input.openingBalanceMinutes,
     sollFrom: sollFromCandidate,
+    excusedDays,
   };
 }
