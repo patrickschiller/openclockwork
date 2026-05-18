@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -26,5 +38,25 @@ export class LeaveAllowancesController {
     @Body() dto: UpsertLeaveAllowanceDto,
   ): Promise<LeaveAllowanceDto> {
     return this.service.upsert(employeeId, year, dto);
+  }
+}
+
+@ApiTags('admin')
+@Controller('admin/leave-allowances')
+export class LeaveAllowancesAdminController {
+  constructor(private readonly service: LeaveAllowancesService) {}
+
+  /**
+   * Idempotent cron-friendly endpoint. Recommended invocation: once per day
+   * shortly after midnight UTC by an external scheduler (k8s CronJob, host
+   * cron, GitHub Actions cron) with `Authorization: Bearer <HR token>`.
+   */
+  @Post('expire-carryovers')
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('HRAdmin')
+  expireCarryOvers(): Promise<{ scanned: number; expired: number }> {
+    return this.service.expireCarryOvers();
   }
 }

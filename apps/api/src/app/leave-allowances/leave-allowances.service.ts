@@ -62,6 +62,37 @@ export class LeaveAllowancesService {
     return toLeaveAllowanceDto(row);
   }
 
+  /**
+   * Zero out carry-over days for every allowance whose `carryOverExpiresOn`
+   * is in the past. Idempotent — re-running has no effect after the first
+   * pass. Designed to be called from an external scheduler (k8s CronJob,
+   * GitHub Actions cron, host cron) so OpenClockwork doesn't ship its own.
+   *
+   * The reason — including the amount and the original expiry date — is
+   * appended to `adjustmentReason` so the audit trail survives the write.
+   */
+  async expireCarryOvers(asOf: Date = new Date()): Promise<{ scanned: number; expired: number }> {
+    const candidates = await this.prisma.employeeLeaveAllowance.findMany({
+      where: {
+        carryOverExpiresOn: { not: null, lt: asOf },
+        carryOverDays: { gt: 0 },
+      },
+    });
+    let expired = 0;
+    for (const row of candidates) {
+      const lost = Number(row.carryOverDays);
+      const dateStr = row.carryOverExpiresOn?.toISOString().slice(0, 10) ?? 'unknown';
+      const note = `Carry-over of ${lost.toFixed(2)} days expired on ${dateStr}`;
+      const reason = row.adjustmentReason ? `${row.adjustmentReason}; ${note}` : note;
+      await this.prisma.employeeLeaveAllowance.update({
+        where: { id: row.id },
+        data: { carryOverDays: 0, adjustmentReason: reason },
+      });
+      expired += 1;
+    }
+    return { scanned: candidates.length, expired };
+  }
+
   private async assertEmployee(employeeId: string) {
     const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
     if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
