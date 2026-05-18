@@ -8,6 +8,7 @@ process.env.DATABASE_URL =
   'postgresql://openclockwork:openclockwork@localhost:5433/openclockwork_test?schema=public';
 process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'e2e-test-secret-change-me';
 process.env.ERP_API_KEY = 'e2e-erp-key'; // force — the e2e suite hard-codes this
+process.env.CRON_API_KEY = 'e2e-cron-key'; // force — the e2e suite hard-codes this
 process.env.API_CORS_ORIGINS = process.env.API_CORS_ORIGINS ?? 'http://localhost:4200';
 process.env.API_PORT = process.env.API_PORT ?? '0';
 // Each Jest worker gets its own attachment dir so concurrent test files

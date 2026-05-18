@@ -136,6 +136,37 @@ describe('Leave-allowance carry-over expiry', () => {
     expect(second.body.expired).toBe(0);
   });
 
+  it('cron endpoint accepts a valid X-Cron-Key and rejects everything else', async () => {
+    const e = await seedEmployee(ctx.prisma, {
+      personalNo: '1001',
+      firstName: 'Cron',
+      lastName: 'Target',
+      email: 'cron@test.local',
+    });
+    await seedLeaveAllowance(ctx.prisma, e.id, THIS_YEAR, 30);
+    const yesterday = new Date();
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    await ctx.prisma.employeeLeaveAllowance.update({
+      where: { employeeId_year: { employeeId: e.id, year: THIS_YEAR } },
+      data: { carryOverDays: 3, carryOverExpiresOn: yesterday },
+    });
+
+    await ctx.http.post('/api/cron/expire-carryovers').expect(401);
+    await ctx.http
+      .post('/api/cron/expire-carryovers')
+      .set('X-Cron-Key', 'definitely-not-the-key')
+      .expect(401);
+    const ok = await ctx.http
+      .post('/api/cron/expire-carryovers')
+      .set('X-Cron-Key', 'e2e-cron-key')
+      .expect(200);
+    expect(ok.body.expired).toBe(1);
+    const row = await ctx.prisma.employeeLeaveAllowance.findFirstOrThrow({
+      where: { employeeId: e.id, year: THIS_YEAR },
+    });
+    expect(Number(row.carryOverDays)).toBe(0);
+  });
+
   it('non-HR caller is rejected with 403', async () => {
     const employee = await seedEmployee(ctx.prisma, {
       personalNo: '1001',

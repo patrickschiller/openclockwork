@@ -31,6 +31,10 @@ param jwtSecret string
 @description('Static API key for the ERP export endpoint. Rotate by redeploying.')
 param erpApiKey string
 
+@secure()
+@description('Static API key for the unattended carry-over expiry cron job. Rotate by redeploying.')
+param cronApiKey string
+
 @description('Initial api image. The deploy workflow updates this on every push to main.')
 param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
@@ -113,6 +117,7 @@ module kvSecrets 'modules/keyvault-secrets.bicep' = {
     databaseUrl: databaseUrl
     jwtSecret: jwtSecret
     erpApiKey: erpApiKey
+    cronApiKey: cronApiKey
   }
 }
 
@@ -140,6 +145,7 @@ module apiApp 'modules/container-app.bicep' = {
       { name: 'database-url', envVarName: 'DATABASE_URL', keyVaultUrl: '${kv.outputs.uri}secrets/DATABASE-URL' }
       { name: 'jwt-secret', envVarName: 'JWT_SECRET', keyVaultUrl: '${kv.outputs.uri}secrets/JWT-SECRET' }
       { name: 'erp-api-key', envVarName: 'ERP_API_KEY', keyVaultUrl: '${kv.outputs.uri}secrets/ERP-API-KEY' }
+      { name: 'cron-api-key', envVarName: 'CRON_API_KEY', keyVaultUrl: '${kv.outputs.uri}secrets/CRON-API-KEY' }
     ]
   }
 }
@@ -186,6 +192,40 @@ module migrateJob 'modules/container-app-job.bicep' = {
   }
 }
 
+// Scheduled job: nightly carry-over expiry. Uses a public curl image so
+// no ACR pull is required; talks to the api over the ACA env's internal
+// DNS and authenticates with X-Cron-Key.
+var cronJobName = '${namePrefix}-${environment}-cron-expire-carryover'
+var apiInternalUrl = 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDomain}'
+
+module cronJob 'modules/container-app-job.bicep' = {
+  name: 'cronJob'
+  scope: rg
+  params: {
+    name: cronJobName
+    location: location
+    environmentId: acaEnv.outputs.id
+    // Public curl image — small (~7 MB) and pulled directly, no ACR.
+    image: 'curlimages/curl:8.10.1'
+    command: ['/bin/sh', '-c']
+    args: [
+      'curl -fsS --max-time 30 -X POST -H "X-Cron-Key: $CRON_API_KEY" "$API_URL/api/cron/expire-carryovers"'
+    ]
+    triggerType: 'Schedule'
+    // Daily at 02:00 UTC — well past most German workday cut-offs.
+    cronExpression: '0 2 * * *'
+    replicaTimeoutSeconds: 120
+    cpu: '0.25'
+    memory: '0.5Gi'
+    envVars: [
+      { name: 'API_URL', value: apiInternalUrl }
+    ]
+    secretRefs: [
+      { name: 'cron-api-key', envVarName: 'CRON_API_KEY', keyVaultUrl: '${kv.outputs.uri}secrets/CRON-API-KEY' }
+    ]
+  }
+}
+
 module roles 'modules/role-assignments.bicep' = {
   name: 'roles'
   scope: rg
@@ -193,6 +233,7 @@ module roles 'modules/role-assignments.bicep' = {
     apiPrincipalId: apiApp.outputs.principalId
     webPrincipalId: webApp.outputs.principalId
     migrateJobPrincipalId: migrateJob.outputs.principalId
+    cronJobPrincipalId: cronJob.outputs.principalId
   }
 }
 

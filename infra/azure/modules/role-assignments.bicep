@@ -5,6 +5,7 @@
 param apiPrincipalId string
 param webPrincipalId string
 param migrateJobPrincipalId string
+param cronJobPrincipalId string
 
 // Well-known Azure built-in role definition IDs.
 var roleAcrPull = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
@@ -61,6 +62,17 @@ resource kvSecretsMigrate 'Microsoft.Authorization/roleAssignments@2022-04-01' =
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleKvSecretsUser)
     principalId: migrateJobPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Cron job only needs Key Vault Secrets User (for CRON-API-KEY); no ACR
+// pull since it uses a public image.
+resource kvSecretsCron 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, cronJobPrincipalId, 'kvsecrets')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleKvSecretsUser)
+    principalId: cronJobPrincipalId
     principalType: 'ServicePrincipal'
   }
 }

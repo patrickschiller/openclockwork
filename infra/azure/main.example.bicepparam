@@ -24,6 +24,9 @@ param jwtSecret = 'CHANGE-ME-jwt'
 // REPLACE: openssl rand -hex 32
 param erpApiKey = 'CHANGE-ME-erp'
 
+// REPLACE: openssl rand -hex 32
+param cronApiKey = 'CHANGE-ME-cron'
+
 // Leave these on the placeholders for the FIRST deploy; the workflow
 // updates them with real images once you've pushed them.
 // param apiImage = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
