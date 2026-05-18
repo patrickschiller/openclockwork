@@ -9,15 +9,17 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, LogOut } from 'lucide-react';
+import { ChevronDown, Download, LogOut, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from './auth';
 import { useRealtimeInvalidation } from './realtime';
+import { useInstallPrompt } from './use-install-prompt';
 import { visibleNavItems, type NavItem } from './navigation';
 
 export function AppShell() {
   const { user, logout } = useAuth();
   useRealtimeInvalidation();
+  const install = useInstallPrompt();
   const role = user?.role ?? 'Employee';
   const items = useMemo(() => visibleNavItems(role), [role]);
   const bottomItems = useMemo(() => items.filter((i) => i.showInBottomNav), [items]);
@@ -71,6 +73,26 @@ export function AppShell() {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
+
+        {install.available && (
+          <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-2 text-sm md:px-6">
+            <Download className="h-4 w-4 text-primary" aria-hidden="true" />
+            <span className="flex-1">
+              OpenClockwork als App installieren — schneller Zugriff und Offline-Hinweis.
+            </span>
+            <Button size="sm" onClick={() => install.prompt()}>
+              Installieren
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={install.dismiss}
+              aria-label="Installations-Hinweis schließen"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-8 md:pt-8">
           <div className="mx-auto w-full max-w-6xl">
