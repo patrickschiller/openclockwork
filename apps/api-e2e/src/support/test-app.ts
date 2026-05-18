@@ -18,6 +18,7 @@ export interface TestContext {
 const RESET_SQL = `
   TRUNCATE TABLE
     "Absence",
+    "RequestAttachment",
     "RequestEvent",
     "Request",
     "EmployeeLeaveAllowance",

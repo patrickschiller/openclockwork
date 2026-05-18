@@ -122,6 +122,7 @@ model Employee {
   substituteRequests            Request[]                @relation("RequestSubstitute")
   leaveAllowances               EmployeeLeaveAllowance[]
   events                        RequestEvent[]           @relation("EventActor")
+  uploadedAttachments           RequestAttachment[]
   absences                      Absence[]
   createdAt                     DateTime                 @default(now())
   updatedAt                     DateTime                 @updatedAt
@@ -208,12 +209,32 @@ model Request {
   decidedAt            DateTime?
   decisionNote         String?
   events               RequestEvent[]
+  attachments          RequestAttachment[]
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
 
   @@index([employeeId, workflowState])
   @@index([currentApproverId])
   @@index([substituteId])
+}
+
+// Files attached to a request — currently only used for Sonderurlaub
+// (SpecialLeave) where a Beleg is often required. Bytes live in the
+// configured StorageAdapter (local FS in dev, Blob in Azure); the DB
+// row carries metadata and the opaque storage key.
+model RequestAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  requestId    String   @db.Uuid
+  request      Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String   @unique
+  uploadedById String   @db.Uuid
+  uploadedBy   Employee @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt    DateTime @default(now())
+
+  @@index([requestId])
 }
 
 model RequestEvent {
