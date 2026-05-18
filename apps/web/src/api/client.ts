@@ -175,6 +175,16 @@ export interface RequestDto {
   createdAt: string;
 }
 
+export interface AttachmentDto {
+  id: string;
+  requestId: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedById: string;
+  createdAt: string;
+}
+
 export interface VacationBalanceDto {
   employeeId: string;
   year: number;
@@ -425,9 +435,11 @@ export class ApiError extends Error {
 }
 
 async function attempt(path: string, init: RequestInit | undefined, token: string | null): Promise<Response> {
+  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'Content-Type': 'application/json',
+    // FormData sets its own multipart boundary — don't fight it.
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...((init?.headers as Record<string, string> | undefined) ?? {}),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -648,6 +660,47 @@ export const api = {
         body: JSON.stringify({ timeModel, overrideExisting }),
       },
     ),
+
+  listAttachments: (requestId: string) =>
+    request<AttachmentDto[]>(`/api/requests/${requestId}/attachments`),
+  uploadAttachment: (requestId: string, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return request<AttachmentDto>(`/api/requests/${requestId}/attachments`, {
+      method: 'POST',
+      body: fd,
+    });
+  },
+  deleteAttachment: (attachmentId: string) =>
+    request<void>(`/api/attachments/${attachmentId}`, { method: 'DELETE' }),
+  /**
+   * Downloads the attachment as a Blob and triggers a browser save dialog.
+   * Returns nothing — the side effect is the save. Uses `request`'s auth
+   * + refresh handling implicitly by going through a custom raw fetch path
+   * because we need binary, not JSON.
+   */
+  downloadAttachment: async (attachmentId: string, fileName: string): Promise<void> => {
+    const token = readToken();
+    const fetchOnce = async (t: string | null) =>
+      fetch(`${baseUrl}/api/attachments/${attachmentId}`, {
+        headers: t ? { Authorization: `Bearer ${t}` } : undefined,
+      });
+    let res = await fetchOnce(token);
+    if (res.status === 401) {
+      const fresh = await tryRefreshOnce();
+      if (fresh) res = await fetchOnce(fresh);
+    }
+    if (!res.ok) throw new ApiError(res.status, `Download failed (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };
 
 export async function fetchHealth(): Promise<HealthResponse> {

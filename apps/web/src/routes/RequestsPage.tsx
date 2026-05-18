@@ -104,6 +104,7 @@ export function RequestsPage() {
                     {r.requiresApproval && <Badge variant="destructive">Sondergenehmigung</Badge>}
                     <Badge variant="secondary">{r.workflowState}</Badge>
                   </div>
+                  {r.type === 'SpecialLeave' && <AttachmentsList requestId={r.id} />}
                 </li>
               ))}
             </ul>
@@ -140,6 +141,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   const [substituteId, setSubstituteId] = useState<string>('');
   const [halfDayStart, setHalfDayStart] = useState(false);
   const [halfDayEnd, setHalfDayEnd] = useState(false);
+  const [attachment, setAttachment] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const employees = useQuery({ queryKey: ['employees'], queryFn: () => api.employees() });
@@ -178,7 +180,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   }, [isTimeAdjustment, from, to, fromDt, toDt]);
 
   const create = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (type === 'Vacation') {
         return api.createVacationRequest({
           employeeId,
@@ -196,13 +198,19 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
       const toIso = isTimeAdjustment
         ? new Date(toDt).toISOString()
         : new Date(`${to}T00:00:00.000Z`).toISOString();
-      return api.createRequest({
+      const created = await api.createRequest({
         employeeId,
         type,
         from: fromIso,
         to: toIso,
         reason: reason || null,
       });
+      // Belege are scoped to Sonderurlaub server-side — only attempt the
+      // upload when the user actually picked one and the type matches.
+      if (type === 'SpecialLeave' && attachment) {
+        await api.uploadAttachment(created.id, attachment);
+      }
+      return created;
     },
     onSuccess: () => onClose(),
     onError: (e) => setError(e instanceof Error ? e.message : 'Antrag fehlgeschlagen'),
@@ -311,6 +319,23 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
           </div>
         )}
 
+        {type === 'SpecialLeave' && (
+          <div className="space-y-2">
+            <Label htmlFor="attachment">Beleg (optional, max 10 MB)</Label>
+            <Input
+              id="attachment"
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.docx,.odt"
+              onChange={(e) => setAttachment(e.target.files?.[0] ?? null)}
+            />
+            {attachment && (
+              <p className="text-xs text-muted-foreground">
+                {attachment.name} · {Math.round(attachment.size / 1024)} KB
+              </p>
+            )}
+          </div>
+        )}
+
         {type === 'Vacation' && balance.data && (
           <Alert>
             <AlertDescription>
@@ -363,5 +388,42 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
         </Button>
       </DialogFooter>
     </>
+  );
+}
+
+function AttachmentsList({ requestId }: { requestId: string }) {
+  const qc = useQueryClient();
+  const attachments = useQuery({
+    queryKey: ['attachments', requestId],
+    queryFn: () => api.listAttachments(requestId),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deleteAttachment(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['attachments', requestId] }),
+  });
+  if (!attachments.data || attachments.data.length === 0) return null;
+  return (
+    <ul className="mt-2 flex w-full flex-col gap-1 text-xs text-muted-foreground">
+      {attachments.data.map((a) => (
+        <li key={a.id} className="flex items-center gap-2">
+          <button
+            type="button"
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+            onClick={() => api.downloadAttachment(a.id, a.fileName)}
+          >
+            {a.fileName}
+          </button>
+          <span>· {Math.round(a.sizeBytes / 1024)} KB</span>
+          <button
+            type="button"
+            className="ml-auto text-destructive hover:underline"
+            onClick={() => remove.mutate(a.id)}
+            disabled={remove.isPending}
+          >
+            Entfernen
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
