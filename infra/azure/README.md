@@ -96,9 +96,14 @@ az deployment sub show --name <deployment-name> \
     AZURE_ACR_LOGIN_SERVER: acrLoginServer.value,
     AZURE_API_APP_NAME: apiAppName.value,
     AZURE_WEB_APP_NAME: webAppName.value,
-    AZURE_MIGRATE_JOB_NAME: migrateJobName.value
+    AZURE_MIGRATE_JOB_NAME: migrateJobName.value,
+    AZURE_WEB_FQDN: webFqdn.value
   }' -o jsonc
 ```
+
+`AZURE_WEB_FQDN` is read by `.github/workflows/lighthouse.yml`, which
+runs a Lighthouse audit after each successful `deploy-azure` run.
+Budgets live in `.lighthouserc.json` at the repo root.
 
 ## First deployment (manual)
 
