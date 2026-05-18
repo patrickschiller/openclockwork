@@ -10,6 +10,8 @@ param databaseUrl string
 param jwtSecret string
 @secure()
 param erpApiKey string
+@secure()
+param cronApiKey string
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
   name: keyVaultName
@@ -31,4 +33,10 @@ resource secretErp 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kv
   name: 'ERP-API-KEY'
   properties: { value: erpApiKey }
+}
+
+resource secretCron 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'CRON-API-KEY'
+  properties: { value: cronApiKey }
 }

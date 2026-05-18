@@ -16,7 +16,8 @@ param triggerType string = 'Manual'
 @description('Cron expression — only used when triggerType = "Schedule".')
 param cronExpression string = '0 2 * * *'
 param replicaTimeoutSeconds int = 600
-param acrLoginServer string
+@description('ACR login server. Pass an empty string to pull from a public registry (no managed-identity pull configured).')
+param acrLoginServer string = ''
 param envVars array = []
 @description('Each entry: { name, envVarName, keyVaultUrl } — Key Vault secret URIs.')
 param secretRefs array = []
@@ -51,7 +52,7 @@ resource job 'Microsoft.App/jobs@2024-03-01' = {
         parallelism: 1
         replicaCompletionCount: 1
       } : null
-      registries: [
+      registries: empty(acrLoginServer) ? [] : [
         {
           server: acrLoginServer
           identity: 'system'
