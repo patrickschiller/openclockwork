@@ -34,11 +34,15 @@ server {
         expires off;
     }
 
-    # API proxy.
+    # API proxy. proxy_ssl_server_name is required when the upstream is
+    # HTTPS and routed through ACA's internal envoy — the envoy demands
+    # an SNI hostname to pick the right backend, and nginx omits it by
+    # default. Harmless when API_UPSTREAM is plain http://.
     location /api/ {
         proxy_pass ${API_UPSTREAM};
+        proxy_ssl_server_name on;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
+        proxy_set_header Host $proxy_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
@@ -48,10 +52,11 @@ server {
     # Socket.IO upgrades.
     location /socket.io/ {
         proxy_pass ${API_UPSTREAM};
+        proxy_ssl_server_name on;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
+        proxy_set_header Host $proxy_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
