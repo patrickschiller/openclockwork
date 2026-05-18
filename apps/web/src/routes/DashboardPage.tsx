@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, type RequestDto, type VacationBalanceDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +37,11 @@ export function DashboardPage() {
     queryKey: ['requests', { employeeId, status: 'Submitted' }],
     queryFn: () => api.listRequests({ employeeId, status: 'Submitted' }),
   });
+  const allRequestsQuery = useQuery({
+    queryKey: ['requests', { employeeId }],
+    queryFn: () => api.listRequests({ employeeId }),
+  });
+  const vacationRequests = (allRequestsQuery.data ?? []).filter((r) => r.type === 'Vacation');
   const openEntryQuery = useQuery({
     queryKey: ['time-entries', employeeId, 'open'],
     queryFn: () => api.timeEntries(employeeId),
@@ -96,6 +101,13 @@ export function DashboardPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      <VacationWidget
+        year={year}
+        balance={vacationQuery.data}
+        vacationRequests={vacationRequests}
+        loading={vacationQuery.isLoading}
+      />
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -169,5 +181,223 @@ function KpiCard({ label, value, hint }: KpiProps) {
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+interface VacationWidgetProps {
+  year: number;
+  balance: VacationBalanceDto | undefined;
+  vacationRequests: RequestDto[];
+  loading: boolean;
+}
+
+function VacationWidget({ year, balance, vacationRequests, loading }: VacationWidgetProps) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-baseline justify-between gap-2 space-y-0">
+        <CardTitle>Urlaub {year}</CardTitle>
+        <Button variant="ghost" size="sm" asChild>
+          <Link to="/requests">Antrag stellen</Link>
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-6 text-sm">
+        {loading || !balance ? (
+          <p className="text-muted-foreground">Lade…</p>
+        ) : (
+          <>
+            <VacationProgress balance={balance} />
+            <div className="grid gap-6 sm:grid-cols-2">
+              <EntitlementBreakdown balance={balance} />
+              <UsageBreakdown balance={balance} />
+            </div>
+            {balance.carryOverDays > 0 && balance.carryOverExpiresOn && (
+              <CarryOverNotice
+                days={balance.carryOverDays}
+                expiresOn={balance.carryOverExpiresOn}
+              />
+            )}
+            <UpcomingVacations requests={vacationRequests} year={year} />
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function VacationProgress({ balance }: { balance: VacationBalanceDto }) {
+  const total = balance.totalEntitlement;
+  const approved = Math.min(balance.approvedDays, total);
+  const pending = Math.max(0, Math.min(total - approved, balance.pendingDays));
+  const approvedPct = total > 0 ? (approved / total) * 100 : 0;
+  const pendingPct = total > 0 ? (pending / total) * 100 : 0;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {(approved + pending).toFixed(1)} von {total.toFixed(1)} Tagen verplant
+        </span>
+        <span>{balance.remainingDays.toFixed(1)} verbleibend</span>
+      </div>
+      <div
+        className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={approved + pending}
+      >
+        <div
+          className="bg-primary transition-[width]"
+          style={{ width: `${approvedPct}%` }}
+          title={`${approved.toFixed(1)} Tage genehmigt`}
+        />
+        <div
+          className="bg-primary/40 transition-[width]"
+          style={{ width: `${pendingPct}%` }}
+          title={`${pending.toFixed(1)} Tage offen`}
+        />
+      </div>
+    </div>
+  );
+}
+
+function EntitlementBreakdown({ balance }: { balance: VacationBalanceDto }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">Anspruch</p>
+      <DetailRow label="Grundanspruch" value={`${balance.baseDays.toFixed(1)} Tage`} />
+      <DetailRow
+        label="Übertrag"
+        value={`${balance.carryOverDays >= 0 ? '+' : ''}${balance.carryOverDays.toFixed(1)} Tage`}
+        muted={balance.carryOverDays === 0}
+      />
+      <DetailRow
+        label={balance.adjustmentReason ? `Korrektur (${balance.adjustmentReason})` : 'Korrektur'}
+        value={`${balance.adjustmentDays >= 0 ? '+' : ''}${balance.adjustmentDays.toFixed(1)} Tage`}
+        muted={balance.adjustmentDays === 0}
+      />
+      <div className="border-t pt-2">
+        <DetailRow
+          label="Gesamt"
+          value={`${balance.totalEntitlement.toFixed(1)} Tage`}
+          emphasized
+        />
+      </div>
+    </div>
+  );
+}
+
+function UsageBreakdown({ balance }: { balance: VacationBalanceDto }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">Nutzung</p>
+      <DetailRow label="Genehmigt" value={`${balance.approvedDays.toFixed(1)} Tage`} />
+      <DetailRow label="Offen" value={`${balance.pendingDays.toFixed(1)} Tage`} />
+      <div className="border-t pt-2">
+        <DetailRow
+          label="Verbleibend"
+          value={`${balance.remainingDays.toFixed(1)} Tage`}
+          emphasized
+        />
+      </div>
+    </div>
+  );
+}
+
+function CarryOverNotice({ days, expiresOn }: { days: number; expiresOn: string }) {
+  return (
+    <Alert>
+      <AlertTitle>Übertrag verfällt bald</AlertTitle>
+      <AlertDescription>
+        {days.toFixed(1)} Tage Resturlaub aus dem Vorjahr müssen bis zum{' '}
+        <strong>{new Date(expiresOn).toLocaleDateString('de-DE')}</strong> genommen werden.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function UpcomingVacations({ requests, year }: { requests: RequestDto[]; year: number }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const upcoming = requests
+    .filter((r) => {
+      if (r.workflowState === 'Rejected' || r.workflowState === 'Cancelled') return false;
+      const to = new Date(r.to);
+      const from = new Date(r.from);
+      // Show anything that hasn't fully ended yet AND falls in the displayed year window.
+      return to >= today && from.getFullYear() <= year + 1;
+    })
+    .sort((a, b) => new Date(a.from).getTime() - new Date(b.from).getTime())
+    .slice(0, 4);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">Geplante Urlaube</p>
+      {upcoming.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Aktuell keine bevorstehenden oder eingereichten Urlaube.
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {upcoming.map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-2">
+              <span>
+                {new Date(r.from).toLocaleDateString('de-DE')} –{' '}
+                {new Date(r.to).toLocaleDateString('de-DE')} ·{' '}
+                <span className="text-muted-foreground">
+                  {r.calculatedDays.toFixed(1)} Arbeitstage
+                </span>
+              </span>
+              <Badge variant={r.workflowState === 'Approved' ? 'default' : 'secondary'}>
+                {workflowLabel(r.workflowState)}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function workflowLabel(state: RequestDto['workflowState']): string {
+  switch (state) {
+    case 'Approved':
+      return 'Genehmigt';
+    case 'Submitted':
+      return 'Eingereicht';
+    case 'PendingSubstitute':
+      return 'Wartet auf Vertretung';
+    case 'PendingManager':
+      return 'Wartet auf Manager';
+    case 'PendingHr':
+      return 'Wartet auf HR';
+    case 'Rejected':
+      return 'Abgelehnt';
+    case 'Cancelled':
+      return 'Storniert';
+    case 'Draft':
+      return 'Entwurf';
+    default:
+      return state;
+  }
+}
+
+function DetailRow({
+  label,
+  value,
+  emphasized,
+  muted,
+}: {
+  label: string;
+  value: string;
+  emphasized?: boolean;
+  muted?: boolean;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className={muted ? 'text-muted-foreground' : ''}>{label}</span>
+      <span className={emphasized ? 'font-semibold' : muted ? 'text-muted-foreground' : ''}>
+        {value}
+      </span>
+    </div>
   );
 }
