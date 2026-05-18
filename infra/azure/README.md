@@ -75,10 +75,29 @@ az role assignment create \
   --scope "/subscriptions/$SUB_ID"
 
 # 4. Print the three values to paste into GitHub repo Settings → Secrets
-#    and variables → Actions → New repository secret:
+#    and variables → Actions → New repository **secret**:
 echo "AZURE_CLIENT_ID=$APP_ID"
 echo "AZURE_TENANT_ID=$TENANT_ID"
 echo "AZURE_SUBSCRIPTION_ID=$SUB_ID"
+```
+
+## GitHub repository variables (after the first deploy)
+
+The deploy workflow (`.github/workflows/deploy-azure.yml`) reads the
+resource names from repo **variables** so they don't have to be
+hard-coded. After running the first manual deploy, take the outputs and
+set them under Settings → Secrets and variables → Actions → Variables:
+
+```bash
+az deployment sub show --name <deployment-name> \
+  --query 'properties.outputs.{
+    AZURE_RESOURCE_GROUP: resourceGroupName.value,
+    AZURE_ACR_NAME: acrName.value,
+    AZURE_ACR_LOGIN_SERVER: acrLoginServer.value,
+    AZURE_API_APP_NAME: apiAppName.value,
+    AZURE_WEB_APP_NAME: webAppName.value,
+    AZURE_MIGRATE_JOB_NAME: migrateJobName.value
+  }' -o jsonc
 ```
 
 ## First deployment (manual)

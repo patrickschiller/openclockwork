@@ -1,0 +1,169 @@
+name: deploy-azure
+
+# Production deploy to the Azure Container Apps reference environment
+# defined in infra/azure/. Triggers on push to main; also runnable
+# manually for hotfixes / re-runs.
+#
+# Prereqs (one-time, see infra/azure/README.md):
+#   - GitHub OIDC federated credential bound to repo:main
+#   - Repo secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   - Repo variables:
+#       AZURE_RESOURCE_GROUP        e.g. oclock-dev-rg
+#       AZURE_ACR_NAME              e.g. oclockdevab12cd
+#       AZURE_ACR_LOGIN_SERVER      e.g. oclockdevab12cd.azurecr.io
+#       AZURE_API_APP_NAME          e.g. oclock-dev-api
+#       AZURE_WEB_APP_NAME          e.g. oclock-dev-web
+#       AZURE_MIGRATE_JOB_NAME      e.g. oclock-dev-migrate
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-azure-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # OIDC token for azure/login
+  contents: read    # checkout
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.tags.outputs.sha }}
+      api_image: ${{ steps.tags.outputs.api_image }}
+      web_image: ${{ steps.tags.outputs.web_image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name "${{ vars.AZURE_ACR_NAME }}"
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          SHA="${GITHUB_SHA::7}"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "api_image=${{ vars.AZURE_ACR_LOGIN_SERVER }}/openclockwork-api:$SHA" >> "$GITHUB_OUTPUT"
+          echo "web_image=${{ vars.AZURE_ACR_LOGIN_SERVER }}/openclockwork-web:$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build + push api image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.api_image }}
+            ${{ vars.AZURE_ACR_LOGIN_SERVER }}/openclockwork-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build + push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.web
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.web_image }}
+            ${{ vars.AZURE_ACR_LOGIN_SERVER }}/openclockwork-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  migrate:
+    needs: build-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Pin the migration job to the just-built api image so it carries
+      # the new schema, then trigger it and wait for completion. Any
+      # failure here aborts the deploy *before* the app revisions flip.
+      - name: Pin migrate job image
+        run: |
+          az containerapp job update \
+            --name "${{ vars.AZURE_MIGRATE_JOB_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ needs.build-push.outputs.api_image }}"
+
+      - name: Run prisma migrate deploy
+        run: |
+          EXEC_NAME=$(az containerapp job start \
+            --name "${{ vars.AZURE_MIGRATE_JOB_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query name -o tsv)
+          echo "Started execution: $EXEC_NAME"
+          # Poll until the execution leaves Running. ACA reports
+          # Succeeded / Failed / Stopped on completion.
+          for i in $(seq 1 60); do
+            STATUS=$(az containerapp job execution show \
+              --name "${{ vars.AZURE_MIGRATE_JOB_NAME }}" \
+              --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+              --job-execution-name "$EXEC_NAME" \
+              --query properties.status -o tsv)
+            echo "[$i] status: $STATUS"
+            if [ "$STATUS" = "Succeeded" ]; then exit 0; fi
+            if [ "$STATUS" = "Failed" ] || [ "$STATUS" = "Stopped" ]; then
+              echo "Migration job did not succeed"; exit 1
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for migration job"; exit 1
+
+  roll:
+    needs: [build-push, migrate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update api container app
+        run: |
+          az containerapp update \
+            --name "${{ vars.AZURE_API_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ needs.build-push.outputs.api_image }}"
+
+      - name: Update web container app
+        run: |
+          az containerapp update \
+            --name "${{ vars.AZURE_WEB_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ needs.build-push.outputs.web_image }}"
+
+      - name: Surface the public URL
+        run: |
+          FQDN=$(az containerapp show \
+            --name "${{ vars.AZURE_WEB_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "### Deployed to https://$FQDN" >> "$GITHUB_STEP_SUMMARY"
+          echo "- sha: \`${{ needs.build-push.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- api image: \`${{ needs.build-push.outputs.api_image }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- web image: \`${{ needs.build-push.outputs.web_image }}\`" >> "$GITHUB_STEP_SUMMARY"

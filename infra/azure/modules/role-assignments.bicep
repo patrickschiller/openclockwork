@@ -4,6 +4,7 @@
 
 param apiPrincipalId string
 param webPrincipalId string
+param migrateJobPrincipalId string
 
 // Well-known Azure built-in role definition IDs.
 var roleAcrPull = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
@@ -42,6 +43,24 @@ resource blobApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   properties: {
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleStorageBlobDataContributor)
     principalId: apiPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource acrPullMigrate 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, migrateJobPrincipalId, 'acrpull')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleAcrPull)
+    principalId: migrateJobPrincipalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource kvSecretsMigrate 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(resourceGroup().id, migrateJobPrincipalId, 'kvsecrets')
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleKvSecretsUser)
+    principalId: migrateJobPrincipalId
     principalType: 'ServicePrincipal'
   }
 }
