@@ -45,7 +45,15 @@ export class VacationBalanceService {
     }
 
     const baseDays = Number(allowance.baseDays);
-    const carryOverDays = Number(allowance.carryOverDays);
+    // Carry-over from the prior year forfeits once `carryOverExpiresOn`
+    // passes (German default = 31.03. of the following year). We surface
+    // the forfeiture immediately, even if the nightly cleanup job has not
+    // yet written zero back to the row — the displayed balance stays
+    // legally correct.
+    const today = new Date();
+    const carryOverExpired =
+      !!allowance.carryOverExpiresOn && allowance.carryOverExpiresOn < today;
+    const carryOverDays = carryOverExpired ? 0 : Number(allowance.carryOverDays);
     const adjustmentDays = Number(allowance.adjustmentDays);
     const totalEntitlement = baseDays + carryOverDays + adjustmentDays;
 

@@ -641,6 +641,25 @@
         ]
       }
     },
+    "/api/admin/leave-allowances/expire-carryovers": {
+      "post": {
+        "operationId": "LeaveAllowancesAdminController_expireCarryOvers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/accounts/{employeeId}": {
       "get": {
         "operationId": "AccountsController_account",
