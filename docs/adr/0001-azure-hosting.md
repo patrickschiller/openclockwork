@@ -1,7 +1,7 @@
 # ADR-0001: Azure hosting topology for the OpenClockwork reference deployment
 
-- **Status:** Proposed (awaiting maintainer approval before any resource is created)
-- **Date:** 2026-05-18
+- **Status:** Accepted
+- **Date:** 2026-05-18 (proposed) / 2026-05-18 (accepted)
 - **Deciders:** Patrick Schiller (maintainer), Claude Code (paired execution)
 
 ## Context
