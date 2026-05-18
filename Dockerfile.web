@@ -23,10 +23,15 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 # ---------- runtime stage ----------
 FROM nginx:1.27-alpine AS runtime
 
-# Static assets only — nginx serves them and proxies /api + /socket.io to the
-# API service (host "api" is the docker-compose service name).
+# Static assets + envsubst-templated nginx config. The official entrypoint
+# substitutes ${API_UPSTREAM} into default.conf at container start; the
+# NGINX_ENVSUBST_FILTER keeps nginx's own $host / $remote_addr alone.
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
-COPY ops/nginx.conf /etc/nginx/conf.d/default.conf
+COPY ops/nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# Compose default — overridden in ACA to https://<api>.internal.<env-domain>.
+ENV API_UPSTREAM=http://api:3000 \
+    NGINX_ENVSUBST_FILTER=^API_UPSTREAM$
 
 EXPOSE 8080
 

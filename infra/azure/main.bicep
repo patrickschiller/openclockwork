@@ -161,7 +161,10 @@ module webApp 'modules/container-app.bicep' = {
     targetPort: 8080
     external: true
     acrLoginServer: acr.outputs.loginServer
-    envVars: []
+    envVars: [
+      // nginx upstream — the internal-only api over the ACA env's HTTPS hop.
+      { name: 'API_UPSTREAM', value: 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDomain}' }
+    ]
     secretRefs: []
   }
 }

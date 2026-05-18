@@ -1,8 +1,16 @@
-# Production nginx config for the OpenClockwork web container.
+# Production nginx config template for the OpenClockwork web container.
 #
-# Serves the React/Vite/PWA bundle from /usr/share/nginx/html and proxies all
-# API and Socket.IO traffic to the api service. SPA fallback ensures deep
-# links survive a hard refresh.
+# The official nginx image runs envsubst on /etc/nginx/templates/*.template
+# at container start; ${API_UPSTREAM} is the only variable that gets
+# substituted (NGINX_ENVSUBST_FILTER), so nginx's own $host / $remote_addr
+# / $http_upgrade etc. survive verbatim.
+#
+#   docker-compose : API_UPSTREAM=http://api:3000      (compose service DNS)
+#   Azure CA       : API_UPSTREAM=https://<api>.internal.<env-domain>
+#
+# Serves the React/Vite/PWA bundle from /usr/share/nginx/html and proxies
+# /api + /socket.io to the api upstream. SPA fallback ensures deep links
+# survive a hard refresh.
 
 server {
     listen 8080 default_server;
@@ -28,7 +36,7 @@ server {
 
     # API proxy.
     location /api/ {
-        proxy_pass http://api:3000;
+        proxy_pass ${API_UPSTREAM};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -39,7 +47,7 @@ server {
 
     # Socket.IO upgrades.
     location /socket.io/ {
-        proxy_pass http://api:3000;
+        proxy_pass ${API_UPSTREAM};
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
