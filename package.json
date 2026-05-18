@@ -32,6 +32,7 @@
     "verify:api": "pnpm generate:api && git diff --exit-code -- apps/api/openapi.json apps/web/src/api/generated.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@eslint/js": "^9.8.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
