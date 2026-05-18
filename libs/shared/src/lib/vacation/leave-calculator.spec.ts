@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateWorkingDays, isWeekend } from './leave-calculator.js';
+import { calculateVacationDays, calculateWorkingDays, isWeekend } from './leave-calculator.js';
 import {
   BUNDESLAENDER,
   holidayProviderFor,
@@ -107,5 +107,47 @@ describe('calculateWorkingDays — per-state', () => {
     const nw = calculateWorkingDays(from, to, { holidayProvider: holidayProviderFor('NW') });
     const ni = calculateWorkingDays(from, to, { holidayProvider: holidayProviderFor('NI') });
     expect(ni - nw).toBe(1);
+  });
+});
+
+describe('calculateVacationDays — Halbtage', () => {
+  // Mon 2026-05-04 to Fri 2026-05-08 = 5 full workdays in NRW (no holiday).
+  const monday = new Date(Date.UTC(2026, 4, 4));
+  const friday = new Date(Date.UTC(2026, 4, 8));
+
+  it('no flags → identical to calculateWorkingDays', () => {
+    expect(calculateVacationDays(monday, friday)).toBe(5);
+  });
+
+  it('halfDayStart subtracts 0.5 from the first day', () => {
+    expect(calculateVacationDays(monday, friday, { halfDayStart: true })).toBe(4.5);
+  });
+
+  it('halfDayEnd subtracts 0.5 from the last day', () => {
+    expect(calculateVacationDays(monday, friday, { halfDayEnd: true })).toBe(4.5);
+  });
+
+  it('both halves on a multi-day range → -1.0', () => {
+    expect(calculateVacationDays(monday, friday, { halfDayStart: true, halfDayEnd: true })).toBe(4);
+  });
+
+  it('single-day range with halfDayStart → 0.5', () => {
+    expect(calculateVacationDays(monday, monday, { halfDayStart: true })).toBe(0.5);
+  });
+
+  it('single-day range with halfDayEnd → 0.5', () => {
+    expect(calculateVacationDays(monday, monday, { halfDayEnd: true })).toBe(0.5);
+  });
+
+  it('single-day range with both flags → still 0.5 (can\'t take two halves of one day)', () => {
+    expect(calculateVacationDays(monday, monday, { halfDayStart: true, halfDayEnd: true })).toBe(0.5);
+  });
+
+  it('halfDayStart on a holiday/weekend has no effect (day was already 0)', () => {
+    // Sat 2026-05-02 is a weekend; halving doesn't subtract from 0.
+    const sat = new Date(Date.UTC(2026, 4, 2));
+    const fri = new Date(Date.UTC(2026, 4, 8));
+    const noHalf = calculateVacationDays(sat, fri); // 5 workdays Mon–Fri
+    expect(calculateVacationDays(sat, fri, { halfDayStart: true })).toBe(noHalf);
   });
 });

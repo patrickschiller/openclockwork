@@ -138,6 +138,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   const [toDt, setToDt] = useState(isoDateTimeLocalNow);
   const [reason, setReason] = useState('');
   const [substituteId, setSubstituteId] = useState<string>('');
+  const [halfDayStart, setHalfDayStart] = useState(false);
+  const [halfDayEnd, setHalfDayEnd] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const employees = useQuery({ queryKey: ['employees'], queryFn: () => api.employees() });
@@ -184,6 +186,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
           to: new Date(`${to}T00:00:00.000Z`).toISOString(),
           substituteId: substituteId || null,
           reason: reason || null,
+          halfDayStart,
+          halfDayEnd,
         });
       }
       const fromIso = isTimeAdjustment
@@ -281,6 +285,29 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
                   </option>
                 ))}
             </select>
+          </div>
+        )}
+
+        {type === 'Vacation' && (
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={halfDayStart}
+                onChange={(e) => setHalfDayStart(e.target.checked)}
+              />
+              Erster Tag halb
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={halfDayEnd}
+                onChange={(e) => setHalfDayEnd(e.target.checked)}
+              />
+              Letzter Tag halb
+            </label>
           </div>
         )}
 

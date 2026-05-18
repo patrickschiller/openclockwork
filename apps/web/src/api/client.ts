@@ -168,6 +168,8 @@ export interface RequestDto {
   hrConfirmedAt: string | null;
   cancelledAt: string | null;
   calculatedDays: number;
+  halfDayStart: boolean;
+  halfDayEnd: boolean;
   decidedAt: string | null;
   decisionNote: string | null;
   createdAt: string;
@@ -305,6 +307,8 @@ export interface CreateVacationPayload {
   to: string;
   substituteId: string | null;
   reason: string | null;
+  halfDayStart?: boolean;
+  halfDayEnd?: boolean;
 }
 
 export interface UpsertLeaveAllowancePayload {

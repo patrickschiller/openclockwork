@@ -1961,6 +1961,16 @@
             "type": "object",
             "nullable": true,
             "maxLength": 2000
+          },
+          "halfDayStart": {
+            "type": "boolean",
+            "default": false,
+            "description": "Take the first day as a half-day"
+          },
+          "halfDayEnd": {
+            "type": "boolean",
+            "default": false,
+            "description": "Take the last day as a half-day"
           }
         },
         "required": [

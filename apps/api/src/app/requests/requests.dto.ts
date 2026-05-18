@@ -61,6 +61,16 @@ export class CreateVacationDto {
   @IsString()
   @MaxLength(2000)
   reason?: string | null;
+
+  @ApiPropertyOptional({ default: false, description: 'Take the first day as a half-day' })
+  @IsOptional()
+  @IsBoolean()
+  halfDayStart?: boolean;
+
+  @ApiPropertyOptional({ default: false, description: 'Take the last day as a half-day' })
+  @IsOptional()
+  @IsBoolean()
+  halfDayEnd?: boolean;
 }
 
 export class TransitionDto {
@@ -158,6 +168,8 @@ export interface RequestDto {
   hrConfirmedAt: string | null;
   cancelledAt: string | null;
   calculatedDays: number;
+  halfDayStart: boolean;
+  halfDayEnd: boolean;
   decidedAt: string | null;
   decisionNote: string | null;
   createdAt: string;
@@ -181,6 +193,8 @@ export function toRequestDto(r: Request): RequestDto {
     hrConfirmedAt: r.hrConfirmedAt ? r.hrConfirmedAt.toISOString() : null,
     cancelledAt: r.cancelledAt ? r.cancelledAt.toISOString() : null,
     calculatedDays: Number(r.calculatedDays),
+    halfDayStart: r.halfDayStart,
+    halfDayEnd: r.halfDayEnd,
     decidedAt: r.decidedAt ? r.decidedAt.toISOString() : null,
     decisionNote: r.decisionNote,
     createdAt: r.createdAt.toISOString(),
