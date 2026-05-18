@@ -160,12 +160,39 @@ module webApp 'modules/container-app.bicep' = {
   }
 }
 
+// Manual-trigger job that runs `prisma migrate deploy` against the
+// production DB. The deploy workflow starts it after pushing the new
+// api image and waits for it before flipping ACA traffic.
+var migrateJobName = '${namePrefix}-${environment}-migrate'
+
+module migrateJob 'modules/container-app-job.bicep' = {
+  name: 'migrateJob'
+  scope: rg
+  params: {
+    name: migrateJobName
+    location: location
+    environmentId: acaEnv.outputs.id
+    image: apiImage
+    command: ['/bin/sh', '-c']
+    args: ['npx prisma migrate deploy']
+    triggerType: 'Manual'
+    acrLoginServer: acr.outputs.loginServer
+    envVars: [
+      { name: 'NODE_ENV', value: 'production' }
+    ]
+    secretRefs: [
+      { name: 'database-url', envVarName: 'DATABASE_URL', keyVaultUrl: '${kv.outputs.uri}secrets/DATABASE-URL' }
+    ]
+  }
+}
+
 module roles 'modules/role-assignments.bicep' = {
   name: 'roles'
   scope: rg
   params: {
     apiPrincipalId: apiApp.outputs.principalId
     webPrincipalId: webApp.outputs.principalId
+    migrateJobPrincipalId: migrateJob.outputs.principalId
   }
 }
 
@@ -179,3 +206,4 @@ output keyVaultName string = kv.outputs.name
 output postgresFqdn string = pg.outputs.fqdn
 output storageAccount string = storage.outputs.accountName
 output storageContainer string = storage.outputs.containerName
+output migrateJobName string = migrateJob.outputs.name
