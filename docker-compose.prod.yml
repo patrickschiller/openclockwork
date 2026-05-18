@@ -1,0 +1,60 @@
+# Production-flavoured stack for a single-host deployment.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Required env (see .env.example):
+#   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
+#   DATABASE_URL  (must match the postgres credentials above)
+#   JWT_SECRET, ERP_API_KEY, API_CORS_ORIGINS
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - openclockwork-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      ERP_API_KEY: ${ERP_API_KEY}
+      API_CORS_ORIGINS: ${API_CORS_ORIGINS}
+    # Apply pending migrations on container start, then hand off to the API.
+    # Idempotent: prisma skips already-applied migrations.
+    command: ['sh', '-c', 'npx prisma migrate deploy && node dist/main.js']
+    expose:
+      - '3000'
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - '${WEB_PORT:-8080}:8080'
+
+volumes:
+  openclockwork-db-data:
+    name: openclockwork-db-data-prod

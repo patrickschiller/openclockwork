@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1.7
+
+# ---------- build stage ----------
+FROM node:20-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+# Install only what's needed to resolve the lockfile first so cached layers
+# survive code changes.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY nx.json tsconfig.base.json tsconfig.json ./
+COPY vitest.workspace.ts ./
+
+# Bring in source. The .dockerignore strips out node_modules / dist / .nx.
+COPY apps ./apps
+COPY libs ./libs
+COPY prisma ./prisma
+
+# Generate Prisma client + build the API bundle.
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile \
+ && pnpm prisma generate \
+ && pnpm nx build api
+
+# ---------- runtime stage ----------
+FROM node:20-alpine AS runtime
+
+RUN apk add --no-cache tini openssl \
+ && addgroup -S app && adduser -S app -G app
+
+WORKDIR /app
+
+# Only the production-relevant artefacts.
+COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+
+USER app
+EXPOSE 3000
+
+ENV NODE_ENV=production \
+    API_PORT=3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
+
+# tini reaps zombies cleanly under PID 1 (relevant when bcrypt spawns workers).
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "dist/main.js"]
