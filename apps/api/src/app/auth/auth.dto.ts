@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { ThemePreference } from '@prisma/client';
+import { IsEmail, IsEnum, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({ example: 'hannah.roth@openclockwork.test' })
@@ -19,18 +20,31 @@ export class RefreshDto {
   refreshToken!: string;
 }
 
+export class UpdatePreferencesDto {
+  @ApiProperty({
+    enum: ThemePreference,
+    enumName: 'ThemePreference',
+    description: 'Light / Dark / System. System follows the OS color-scheme media query in the browser.',
+  })
+  @IsEnum(ThemePreference)
+  themePreference!: ThemePreference;
+}
+
+export interface EmployeeProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  themePreference: ThemePreference;
+}
+
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   /** Seconds until the access token expires. */
   expiresIn: number;
-  employee: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: string;
-  };
+  employee: EmployeeProfile;
 }
 
 export interface RefreshResponse {

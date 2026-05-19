@@ -1,6 +1,7 @@
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export type EmployeeRole = 'Employee' | 'Manager' | 'HRAdmin';
+export type ThemePreference = 'Light' | 'Dark' | 'System';
 export type TimeModel = 'Teilzeit' | 'Vollzeit' | 'Vertrauensarbeitszeit' | 'Gleitzeit';
 export type RequestType = 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeAdjustment';
 export type RequestStatus = 'Submitted' | 'Approved' | 'Rejected' | 'Cancelled';
@@ -341,18 +342,21 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface EmployeeProfile {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: EmployeeRole;
+  themePreference: ThemePreference;
+}
+
 export interface LoginResponse {
   accessToken: string;
   refreshToken: string;
   /** Seconds until the access token expires. */
   expiresIn: number;
-  employee: {
-    id: string;
-    email: string;
-    firstName: string;
-    lastName: string;
-    role: EmployeeRole;
-  };
+  employee: EmployeeProfile;
 }
 
 export interface RefreshResponse {
@@ -483,7 +487,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  me: () => request<{ id: string; email: string; role: EmployeeRole }>('/api/auth/me'),
+  me: () => request<EmployeeProfile>('/api/auth/me'),
+  updatePreferences: (themePreference: ThemePreference) =>
+    request<EmployeeProfile>('/api/auth/me/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify({ themePreference }),
+    }),
   employees: (includeInactive = false) =>
     request<EmployeeDto[]>(`/api/employees${includeInactive ? '?includeInactive=true' : ''}`),
   createEmployee: (payload: CreateEmployeePayload) =>
