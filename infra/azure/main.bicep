@@ -153,6 +153,9 @@ module apiApp 'modules/container-app.bicep' = {
     envVars: [
       { name: 'NODE_ENV', value: 'production' }
       { name: 'API_PORT', value: '3000' }
+      // Wall-clock timezone — core-time + off-hours logic reasons in
+      // local time, so the server must run in the deployment's zone.
+      { name: 'TZ', value: 'Europe/Berlin' }
       { name: 'API_CORS_ORIGINS', value: 'https://${webAppName}.${acaEnv.outputs.defaultDomain}' }
       { name: 'STORAGE_BACKEND', value: 'azure-blob' }
       { name: 'AZURE_BLOB_ACCOUNT', value: storage.outputs.accountName }

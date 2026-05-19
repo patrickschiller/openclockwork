@@ -122,6 +122,8 @@ jobs:
       DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5433/openclockwork_test?schema=public
       JWT_SECRET: ci-jwt-secret-do-not-use-in-prod
       ERP_API_KEY: ci-erp-key
+      # Match production — core-time + off-hours logic is timezone-sensitive.
+      TZ: Europe/Berlin
 
     steps:
       - name: Checkout

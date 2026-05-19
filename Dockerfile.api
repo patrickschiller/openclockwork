@@ -27,7 +27,11 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 # ---------- runtime stage ----------
 FROM node:20-alpine AS runtime
 
-RUN apk add --no-cache tini openssl \
+# tzdata ships the IANA timezone database. Without it a TZ env var
+# silently falls back to UTC — and the core-time / off-hours logic
+# reasons in wall-clock time, so the server must run in the
+# deployment's timezone.
+RUN apk add --no-cache tini openssl tzdata \
  && addgroup -S app && adduser -S app -G app
 
 WORKDIR /app
@@ -41,8 +45,12 @@ COPY --from=builder /app/package.json ./package.json
 USER app
 EXPOSE 3000
 
+# Default timezone — German Zeiterfassung. Overridable per deployment
+# (docker-compose / Container App env). Drives core-time-window and
+# 07:00/23:00 off-hours reasoning, which is all wall-clock.
 ENV NODE_ENV=production \
-    API_PORT=3000
+    API_PORT=3000 \
+    TZ=Europe/Berlin
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
