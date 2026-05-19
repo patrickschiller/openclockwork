@@ -94,13 +94,13 @@ export function AppShell() {
           </div>
         )}
 
-        <main className="flex-1 px-4 pb-24 pt-6 md:px-8 md:pb-8 md:pt-8">
+        <main className="flex-1 px-4 pb-32 pt-6 md:px-8 md:pb-8 md:pt-8">
           <div className="mx-auto w-full max-w-6xl">
             <Outlet />
           </div>
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-card md:hidden">
+        <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
           <ul className="grid grid-cols-4">
             {bottomItems.map((item) => (
               <li key={item.to}>
@@ -141,11 +141,11 @@ function BottomNavLink({ item, active }: { item: NavItem; active: boolean }) {
       to={item.to}
       end={item.to === '/'}
       className={cn(
-        'flex flex-col items-center gap-1 py-2 text-xs',
+        'flex flex-col items-center gap-1.5 py-2.5 text-sm font-medium',
         active ? 'text-primary' : 'text-muted-foreground',
       )}
     >
-      <Icon className="h-5 w-5" aria-hidden="true" />
+      <Icon className="h-7 w-7" aria-hidden="true" />
       <span>{item.label}</span>
     </NavLink>
   );
