@@ -1,8 +1,12 @@
 import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
-import { AppShell } from './AppShell';
 import { LoginPage } from '../routes/LoginPage';
+
+// AppShell + the realtime hook + lucide icons are deferred until the
+// user is authenticated. An unauthenticated visit to / only loads
+// LoginPage + this router.
+const AppShell = lazy(() => import('./AppShell').then((m) => ({ default: m.AppShell })));
 
 // Route-based code-splitting: each page becomes its own Vite chunk so
 // the initial bundle only carries the AppShell + Login + the lazy
