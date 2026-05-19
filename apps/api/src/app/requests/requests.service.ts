@@ -214,6 +214,7 @@ export class RequestsService {
       return this.transitionVacation(request, 'manager_approve_with_hr', actorId, note);
     }
     await this.assertApproverRole(actorId);
+    const alreadyApproved = request.workflowState === 'Approved';
     const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.request.update({
         where: { id: request.id },
@@ -229,6 +230,9 @@ export class RequestsService {
       await tx.requestEvent.create({
         data: { requestId: id, kind: 'ManagerApproved', actorId, note },
       });
+      if (request.type === 'TimeAdjustment' && !alreadyApproved) {
+        await this.materializeTimeAdjustment(tx, request);
+      }
       return updated;
     });
     this.notifications.notifyTransitioned(updated, 'ManagerApproved', actorId);
@@ -479,10 +483,39 @@ export class RequestsService {
       await tx.requestEvent.create({
         data: { requestId: request.id, kind: eventKind, actorId, note },
       });
+      // Reaching Approved via the multi-stage path (off-hours TimeAdjustment:
+      // manager → HR) must materialise the correction just like the direct
+      // approve() path does.
+      if (target === 'Approved' && request.type === 'TimeAdjustment') {
+        await this.materializeTimeAdjustment(tx, request);
+      }
       return u;
     });
     this.notifications.notifyTransitioned(updated, eventKind, actorId);
     return toRequestDto(updated);
+  }
+
+  /**
+   * Approving a TimeAdjustment is a correction of *booked time*, so it has
+   * to land as a real TimeEntry — otherwise the day stays empty and the
+   * overtime account shows a phantom deficit. For TimeAdjustment requests
+   * `from` / `to` carry the corrected clock-in / clock-out timestamps
+   * (full date-time, not just a date), set by the request form.
+   */
+  private async materializeTimeAdjustment(
+    tx: Prisma.TransactionClient,
+    request: Request,
+  ): Promise<void> {
+    await tx.timeEntry.create({
+      data: {
+        employeeId: request.employeeId,
+        clockIn: request.from,
+        clockOut: request.to,
+        source: 'Manual',
+        status: 'Approved',
+        requiresApproval: false,
+      },
+    });
   }
 
   private async assertRequest(id: string): Promise<Request> {

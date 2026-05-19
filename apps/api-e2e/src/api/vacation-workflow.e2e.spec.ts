@@ -228,4 +228,48 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
       .expect(201);
     expect(approved.body).toMatchObject({ workflowState: 'Approved' });
   });
+
+  it('approving a TimeAdjustment materialises a TimeEntry for the corrected times', async () => {
+    const cast = await setupOrgChart(ctx);
+    const from = `${YEAR}-08-03T09:00:00.000Z`;
+    const to = `${YEAR}-08-03T11:00:00.000Z`;
+
+    // No booked time for that day yet.
+    const before = await ctx.http
+      .get(`/api/timeentries?employeeId=${cast.anna.id}&from=${YEAR}-08-03T00:00:00.000Z&to=${YEAR}-08-03T23:59:59.000Z`)
+      .set('Authorization', `Bearer ${cast.anna.token}`)
+      .expect(200);
+    expect(before.body).toEqual([]);
+
+    const created = await ctx.http
+      .post('/api/requests')
+      .set('Authorization', `Bearer ${cast.anna.token}`)
+      .send({
+        employeeId: cast.anna.id,
+        type: 'TimeAdjustment',
+        from,
+        to,
+        reason: 'Kommen/Gehen vergessen',
+      })
+      .expect(201);
+
+    await ctx.http
+      .post(`/api/requests/${created.body.id}/approve`)
+      .set('Authorization', `Bearer ${cast.marc.token}`)
+      .send({ actorId: cast.marc.id })
+      .expect(201);
+
+    // The approval must have created a closed, Approved TimeEntry that
+    // carries the corrected clock-in / clock-out.
+    const after = await ctx.http
+      .get(`/api/timeentries?employeeId=${cast.anna.id}&from=${YEAR}-08-03T00:00:00.000Z&to=${YEAR}-08-03T23:59:59.000Z`)
+      .set('Authorization', `Bearer ${cast.anna.token}`)
+      .expect(200);
+    expect(after.body).toHaveLength(1);
+    expect(after.body[0]).toMatchObject({
+      clockIn: from,
+      clockOut: to,
+      status: 'Approved',
+    });
+  });
 });

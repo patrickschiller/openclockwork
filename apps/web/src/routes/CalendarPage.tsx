@@ -28,18 +28,20 @@ const MONTHS = [
   'Dezember',
 ];
 
-const TYPE_COLOR: Record<RequestType, string> = {
+// TimeAdjustment is intentionally absent: a Zeitkorrektur is a booking
+// correction, not an absence state, and the spec's year-calendar legend
+// (US 3.3) only covers Krankheit/Urlaub/Home-Office/Schulung/Sonderurlaub/
+// Gleittage. TimeAdjustment requests are filtered out before rendering.
+const TYPE_COLOR: Partial<Record<RequestType, string>> = {
   Vacation: 'bg-emerald-500',
   HomeOffice: 'bg-sky-500',
   SpecialLeave: 'bg-violet-500',
-  TimeAdjustment: 'bg-amber-500',
 };
 
-const TYPE_LABEL: Record<RequestType, string> = {
+const TYPE_LABEL: Partial<Record<RequestType, string>> = {
   Vacation: 'Urlaub',
   HomeOffice: 'Home-Office',
   SpecialLeave: 'Sonderurlaub',
-  TimeAdjustment: 'Zeitkorrektur',
 };
 
 const ABSENCE_COLOR: Record<AbsenceKind, string> = {
@@ -94,7 +96,12 @@ export function CalendarPage() {
   const requests = useMemo(
     () =>
       (requestsQuery.data ?? []).filter(
-        (r) => r.workflowState !== 'Cancelled' && r.workflowState !== 'Rejected',
+        (r) =>
+          r.workflowState !== 'Cancelled' &&
+          r.workflowState !== 'Rejected' &&
+          // A Zeitkorrektur materialises as a TimeEntry on approval; it is
+          // not an absence state and does not belong on the year calendar.
+          r.type !== 'TimeAdjustment',
       ),
     [requestsQuery.data],
   );
