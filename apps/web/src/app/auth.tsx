@@ -8,7 +8,13 @@ import {
   type ReactNode,
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { api, REFRESH_STORAGE_KEY, TOKEN_STORAGE_KEY, type EmployeeRole } from '../api/client';
+import {
+  api,
+  REFRESH_STORAGE_KEY,
+  TOKEN_STORAGE_KEY,
+  type EmployeeRole,
+  type ThemePreference,
+} from '../api/client';
 
 const USER_STORAGE_KEY = 'openclockwork.user';
 
@@ -18,6 +24,7 @@ export interface AuthUser {
   firstName: string;
   lastName: string;
   role: EmployeeRole;
+  themePreference: ThemePreference;
 }
 
 interface AuthContextValue {
@@ -25,6 +32,8 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Patch fields of the cached user in-place, e.g. after a preferences update. */
+  patchUser: (patch: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -80,7 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   }, [queryClient]);
 
-  const value = useMemo<AuthContextValue>(() => ({ user, loading, login, logout }), [user, loading, login, logout]);
+  const patchUser = useCallback((patch: Partial<AuthUser>) => {
+    setUser((current) => (current ? { ...current, ...patch } : current));
+  }, []);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, loading, login, logout, patchUser }),
+    [user, loading, login, logout, patchUser],
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

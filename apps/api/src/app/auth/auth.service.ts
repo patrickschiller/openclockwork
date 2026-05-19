@@ -1,10 +1,11 @@
 import { randomUUID } from 'crypto';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { ThemePreference } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from './jwt.strategy';
-import type { LoginResponse, RefreshResponse } from './auth.dto';
+import type { EmployeeProfile, LoginResponse, RefreshResponse } from './auth.dto';
 
 const ACCESS_TTL = '15m';
 const ACCESS_TTL_SECONDS = 15 * 60;
@@ -32,13 +33,46 @@ export class AuthService {
     });
     return {
       ...tokens,
-      employee: {
-        id: employee.id,
-        email: employee.email,
-        firstName: employee.firstName,
-        lastName: employee.lastName,
-        role: employee.role,
-      },
+      employee: this.toProfile(employee),
+    };
+  }
+
+  async getProfile(employeeId: string): Promise<EmployeeProfile> {
+    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+    if (!employee || !employee.isActive) {
+      throw new UnauthorizedException('Account is no longer active');
+    }
+    return this.toProfile(employee);
+  }
+
+  async updatePreferences(
+    employeeId: string,
+    themePreference: ThemePreference,
+  ): Promise<EmployeeProfile> {
+    const updated = await this.prisma.employee.update({
+      where: { id: employeeId },
+      data: { themePreference },
+    }).catch(() => {
+      throw new NotFoundException('Employee not found');
+    });
+    return this.toProfile(updated);
+  }
+
+  private toProfile(employee: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    themePreference: ThemePreference;
+  }): EmployeeProfile {
+    return {
+      id: employee.id,
+      email: employee.email,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      role: employee.role,
+      themePreference: employee.themePreference,
     };
   }
 

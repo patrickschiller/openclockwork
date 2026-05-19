@@ -15,6 +15,7 @@ import { useAuth } from './auth';
 import { useRealtimeInvalidation } from './realtime';
 import { useInstallPrompt } from './use-install-prompt';
 import { visibleNavItems, type NavItem } from './navigation';
+import { ThemeToggle } from './ThemeToggle';
 
 export function AppShell() {
   const { user, logout } = useAuth();
@@ -46,6 +47,7 @@ export function AppShell() {
         <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card/80 px-4 backdrop-blur md:px-6">
           <span className="text-base font-semibold md:hidden">OpenClockwork</span>
           <div className="flex-1" />
+          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2">

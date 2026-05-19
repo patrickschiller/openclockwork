@@ -85,6 +85,12 @@ enum RequestEventKind {
 // Absences are recorded facts (Krankheit / Schulung / Gleittage etc.), not
 // approval workflows. The enum is open so additional kinds can be added in
 // future without changing the model.
+enum ThemePreference {
+  Light
+  Dark
+  System
+}
+
 enum AbsenceKind {
   Sickness
   Training
@@ -110,6 +116,8 @@ model Employee {
   overtimeOpeningBalanceMinutes Int                      @default(0)
   /// ISO-3166-2 code of the German state ("NW", "BY", …). Drives the holiday calendar.
   bundesland                    String                   @default("NW") @db.VarChar(2)
+  /// User-facing dark/light mode preference. "System" follows the OS setting.
+  themePreference               ThemePreference          @default(System)
   isActive                      Boolean                  @default(true)
   managerId                     String?                  @db.Uuid
   manager                       Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
