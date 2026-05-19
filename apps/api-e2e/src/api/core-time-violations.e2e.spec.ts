@@ -154,18 +154,23 @@ describe('Violations — gap-based core-time detection', () => {
   // core window share the test process's timezone — self-consistent, but
   // blind to the production bug where entries are absolute UTC instants
   // and the server must reason in Europe/Berlin (pinned in test-setup).
-  // These two cases store entries as explicit `Z` timestamps to exercise
-  // exactly that mismatch. 2026-06-16 is a Tuesday in CEST (UTC+2), so
-  // the 10:00–11:00 Berlin core window is 08:00Z–09:00Z.
+  // These cases store entries as explicit `Z` timestamps: if the TZ pin
+  // were lost the window (built via setHours) would drift while the
+  // entry stays put, and the assertions would break.
+  //
+  // 2026-05-11 is a fixed past date (so it clears the retroactive
+  // filter) in CEST (UTC+2) → the 10:00–11:00 Berlin core is 08:00Z–
+  // 09:00Z. The core applies on every weekday (mask 127) so the exact
+  // weekday is irrelevant.
   describe('timezone — entries are absolute UTC instants', () => {
-    async function morningCoreSchedule(employeeId: string) {
+    async function morningCoreSchedule(employeeId: string, name: string) {
       const schedule = await ctx.prisma.workSchedule.create({
         data: {
-          name: 'TZ Morning Core',
+          name,
           frameStart: '07:00',
           frameEnd: '23:00',
           isDefault: false,
-          coreTimes: { create: [{ label: 'Vormittag', start: '10:00', end: '11:00', weekdays: 31 }] },
+          coreTimes: { create: [{ label: 'Vormittag', start: '10:00', end: '11:00', weekdays: 127 }] },
         },
       });
       await ctx.prisma.employee.update({
@@ -181,13 +186,13 @@ describe('Violations — gap-based core-time detection', () => {
         lastName: 'Mueller',
         email: 'anna@test.local',
       });
-      await morningCoreSchedule(anna.id);
+      await morningCoreSchedule(anna.id, 'TZ Morning Core A');
       // Berlin 09:00–12:00 → covers the 10:00–11:00 core.
       await ctx.prisma.timeEntry.create({
         data: {
           employeeId: anna.id,
-          clockIn: new Date('2026-06-16T07:00:00Z'),
-          clockOut: new Date('2026-06-16T10:00:00Z'),
+          clockIn: new Date('2026-05-11T07:00:00Z'),
+          clockOut: new Date('2026-05-11T10:00:00Z'),
           status: 'Approved',
         },
       });
@@ -205,13 +210,13 @@ describe('Violations — gap-based core-time detection', () => {
         lastName: 'Mueller',
         email: 'anna2@test.local',
       });
-      await morningCoreSchedule(anna.id);
+      await morningCoreSchedule(anna.id, 'TZ Morning Core B');
       // Berlin 09:00–09:30 only → the 10:00–11:00 core is fully uncovered.
       await ctx.prisma.timeEntry.create({
         data: {
           employeeId: anna.id,
-          clockIn: new Date('2026-06-16T07:00:00Z'),
-          clockOut: new Date('2026-06-16T07:30:00Z'),
+          clockIn: new Date('2026-05-11T07:00:00Z'),
+          clockOut: new Date('2026-05-11T07:30:00Z'),
           status: 'Approved',
         },
       });
