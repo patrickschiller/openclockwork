@@ -5,7 +5,7 @@ name: lighthouse
 # checking the current state without redeploying.
 #
 # Required:
-#   - Repo variable AZURE_WEB_FQDN  (e.g. oclock-dev-web.<env>.<region>.azurecontainerapps.io)
+#   - Repo variable AZURE_WEB_FQDN  (<web-app>.<env>.<region>.azurecontainerapps.io)
 #     Set this after the first deploy from the Bicep webFqdn output:
 #       az deployment sub show --name <name> --query 'properties.outputs.webFqdn.value' -o tsv
 #

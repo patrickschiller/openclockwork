@@ -482,7 +482,6 @@ If you're contributing a feature for a non-German jurisdiction, propose the desi
 
 - A degree in HR systems.
 - Deep CI/CD wizardry.
-- Familiarity with the legacy `.NET / Azure Static Web Apps` snapshot under `legacy/frontend/` — it's read-only reference, do not touch.
 - Comfort with our Claude-based development workflow — humans are equally welcome; the [`CLAUDE.md`](../CLAUDE.md) is an aide-mémoire, not a requirement.
 
 ---

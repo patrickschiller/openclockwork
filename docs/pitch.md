@@ -72,23 +72,25 @@ Nicht das richtige Tool: Konzerne mit >1000 MA und Tarifbindung, hochregulierten
 
 ---
 
-## Demo
+## Selbst ausprobieren
 
-Live-Instanz (Alpha, kann jederzeit zurückgesetzt werden):
+OpenClockwork ist in wenigen Minuten lokal lauffähig — siehe
+[`README.md`](../README.md) (Getting started). `pnpm prisma db seed`
+legt einen vollständigen Beispiel-Mandanten an:
 
-```
-https://oclock-dev-web.lemondune-0385198e.westeurope.azurecontainerapps.io
-```
+| Rolle | E-Mail | Passwort |
+|---|---|---|
+| HR-Admin | `hannah.roth@openclockwork.test` | `openclockwork` |
+| Manager | `marc.becker@openclockwork.test` | `openclockwork` |
+| Mitarbeiter | `anna.mueller@openclockwork.test` | `openclockwork` |
 
-Demo-Zugänge (alle mit Passwort `openclockwork`):
+(+ 5 weitere Mitarbeiter, alle mit demselben Seed-Passwort.) In
+~30 Sekunden kannst du als Anna eine Stunde buchen, als Hannah ein
+Urlaubskontingent setzen und als Marc den Urlaub genehmigen — alle
+Änderungen erscheinen ohne Reload bei den jeweils anderen.
 
-| Rolle | E-Mail |
-|---|---|
-| HR-Admin | `hannah.roth@openclockwork.test` |
-| Manager | `marc.becker@openclockwork.test` |
-| Mitarbeiter | `anna.mueller@openclockwork.test` |
-
-In ~30 Sekunden kannst du als Anna eine Stunde buchen, als Hannah ein neues Urlaubskontingent setzen, und als Marc den Urlaub genehmigen — alle Änderungen erscheinen ohne Reload bei den jeweils anderen.
+> Das Seed-Passwort ist bewusst trivial und nur für lokale Demos
+> gedacht. Für jede echte Instanz: eigene Accounts, eigene Passwörter.
 
 ---
 

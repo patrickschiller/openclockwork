@@ -48,9 +48,7 @@ libs/
   shared/         Pure-TS shared types and domain functions (importable by api + web)
 prisma/
   schema.prisma   Single source of truth for the DB; migrations live alongside it
-docs/             Architecture notes, ADRs, deployment guides (currently empty)
-legacy/frontend/  Pre-pivot Vite/React snapshot. **Read-only reference.** Do not
-                  modify or import from here; the active web client is apps/web/.
+docs/             Architecture notes, ADRs, epic plans, backlog, pitch deck
 base-instructions.md   Authoritative German requirements specification
 ```
 
@@ -142,7 +140,6 @@ Don't introduce frameworks, ORMs, UI kits, or services the spec doesn't call for
 - Sign every commit with DCO (`git commit -s`). The CI will reject unsigned commits in pull requests.
 - Conventional Commits (`feat:`, `fix:`, `chore:`, ...) are used in this repository's commit messages.
 - After changing `prisma/schema.prisma`, always run `pnpm prisma generate` so the typed client stays in sync; create migrations with `pnpm prisma migrate dev` and commit them.
-- The `legacy/frontend/` tree is a pre-pivot snapshot kept for reference only. Do not edit it, import from it, or treat it as authoritative — the live web client is `apps/web/`.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->

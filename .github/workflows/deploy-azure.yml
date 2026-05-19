@@ -7,13 +7,13 @@ name: deploy-azure
 # Prereqs (one-time, see infra/azure/README.md):
 #   - GitHub OIDC federated credential bound to repo:main
 #   - Repo secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
-#   - Repo variables:
-#       AZURE_RESOURCE_GROUP        e.g. oclock-dev-rg
-#       AZURE_ACR_NAME              e.g. oclockdevab12cd
-#       AZURE_ACR_LOGIN_SERVER      e.g. oclockdevab12cd.azurecr.io
-#       AZURE_API_APP_NAME          e.g. oclock-dev-api
-#       AZURE_WEB_APP_NAME          e.g. oclock-dev-web
-#       AZURE_MIGRATE_JOB_NAME      e.g. oclock-dev-migrate
+#   - Repo variables (values come from the Bicep deployment outputs):
+#       AZURE_RESOURCE_GROUP        <prefix>-<env>-rg
+#       AZURE_ACR_NAME              <prefix><env><hash>
+#       AZURE_ACR_LOGIN_SERVER      <prefix><env><hash>.azurecr.io
+#       AZURE_API_APP_NAME          <prefix>-<env>-api
+#       AZURE_WEB_APP_NAME          <prefix>-<env>-web
+#       AZURE_MIGRATE_JOB_NAME      <prefix>-<env>-migrate
 
 on:
   push:
