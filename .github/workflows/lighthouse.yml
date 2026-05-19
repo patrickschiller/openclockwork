@@ -20,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       target_url:
-        description: 'Override the URL to audit (default: https://${{ vars.AZURE_WEB_FQDN }}/).'
+        description: 'Override the URL to audit. Leave empty to use the repo variable AZURE_WEB_FQDN.'
         required: false
         type: string
 
