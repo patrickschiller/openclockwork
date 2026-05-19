@@ -57,7 +57,10 @@ export function calculateOvertimeMinutes(input: OvertimeInput): OvertimeResult {
   const sollFromCandidate = utcMidnight(input.startDate).getTime() > yearStart.getTime()
     ? utcMidnight(input.startDate)
     : yearStart;
+  // Soll only accrues for *completed* days. Today is in progress; counting
+  // it would show every fresh hire as immediately one full day in deficit.
   const sollEnd = utcMidnight(input.now);
+  sollEnd.setUTCDate(sollEnd.getUTCDate() - 1);
 
   // If the employee hasn't started yet (future startDate), there is no Soll
   // and the YTD balance reduces to the opening balance.
