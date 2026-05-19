@@ -10,6 +10,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# nrwl/nx-set-shas looks up the last successful CI run via the Actions
+# API, which needs actions:read on the default GITHUB_TOKEN.
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   build-test-lint:
     runs-on: ubuntu-latest
@@ -139,6 +145,11 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm prisma generate
+
+      # libs/shared resolves to ./dist/index.js at runtime; build it
+      # before Jest tries to import 'shared' from the api modules.
+      - name: Build shared lib
+        run: pnpm nx build shared
 
       - name: Apply migrations to test DB
         run: pnpm prisma migrate deploy
