@@ -224,6 +224,77 @@ describe('Violations — gap-based core-time detection', () => {
     });
   });
 
+  // A core-time violation is only ever assessed retroactively: the
+  // current day's windows may not have elapsed yet, so evaluating today
+  // would flag every employee the moment they clock in in the morning.
+  describe('retroactive — the current day is never evaluated', () => {
+    function ymd(d: Date): { y: number; m: number; d: number } {
+      return { y: d.getFullYear(), m: d.getMonth(), d: d.getDate() };
+    }
+    function at(date: Date, hour: number, minute: number): Date {
+      const { y, m, d } = ymd(date);
+      return new Date(y, m, d, hour, minute, 0);
+    }
+    function key(date: Date): string {
+      const { y, m, d } = ymd(date);
+      return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    it('skips today but still flags yesterday', async () => {
+      const anna = await seedEmployee(ctx.prisma, {
+        personalNo: '1003',
+        firstName: 'Anna',
+        lastName: 'Mueller',
+        email: 'anna3@test.local',
+      });
+      // Core window applies on every weekday so the test is independent
+      // of which day it runs.
+      const schedule = await ctx.prisma.workSchedule.create({
+        data: {
+          name: 'Retro Morning Core',
+          frameStart: '07:00',
+          frameEnd: '23:00',
+          isDefault: false,
+          coreTimes: { create: [{ label: 'Vormittag', start: '10:00', end: '11:00', weekdays: 127 }] },
+        },
+      });
+      await ctx.prisma.employee.update({
+        where: { id: anna.id },
+        data: { workScheduleId: schedule.id },
+      });
+
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      // Both days: 09:00–09:30 only → the 10:00–11:00 core is fully missed.
+      await ctx.prisma.timeEntry.createMany({
+        data: [
+          {
+            employeeId: anna.id,
+            clockIn: at(today, 9, 0),
+            clockOut: at(today, 9, 30),
+            status: 'Approved',
+          },
+          {
+            employeeId: anna.id,
+            clockIn: at(yesterday, 9, 0),
+            clockOut: at(yesterday, 9, 30),
+            status: 'Approved',
+          },
+        ],
+      });
+
+      const res = await ctx.http
+        .get(`/api/violations?employeeId=${anna.id}`)
+        .expect(200);
+
+      // Only yesterday's violation surfaces — today is in progress.
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toMatchObject({ date: key(yesterday), boundary: '10:00–11:00' });
+    });
+  });
+
   it('Vertrauensarbeitszeit employees never have core-time violations', async () => {
     const hr = await seedEmployee(ctx.prisma, {
       personalNo: '0001',

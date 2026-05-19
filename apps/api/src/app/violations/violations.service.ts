@@ -58,8 +58,15 @@ export class ViolationsService {
       byDay.get(key)!.entries.push(e);
     }
 
+    // Core-time violations are only ever assessed retroactively. Today's
+    // core windows may not have elapsed yet — evaluating the current day
+    // would flag every employee the moment they clock in in the morning.
+    // Detection therefore runs strictly up to and including yesterday.
+    const todayKey = dateKey(new Date());
+
     const out: ViolationDto[] = [];
     for (const [key, group] of byDay) {
+      if (key >= todayKey) continue;
       const violations = detectCoreTimeViolationsForDay(
         group.entries,
         schedule.coreWindows,
