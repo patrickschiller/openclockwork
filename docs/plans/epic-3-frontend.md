@@ -2,6 +2,8 @@
 
 > Quelle: [`base-instructions.md`](../../base-instructions.md), Epic 3 (US 3.1 – 3.5).
 > UI-System laut [`CLAUDE.md`](../../CLAUDE.md): **Tailwind CSS + shadcn/ui** (Radix-basiert) durchgängig. Kein MUI, kein Material Web Components. Die App ist eine **PWA** (Service Worker + Manifest); die gleiche React-Codebasis bleibt für eine spätere React-Native-Migration plausibel — Browser-only-APIs gehören in Adapter, nicht in Shared-Logik.
+>
+> **Status (2026-05-19):** Checkboxen gegen den realen Code-Stand abgeglichen. Alle Pages (Dashboard, Booking, Calendar, Requests, Substitute, Admin-Requests/-Employees/-Schedules), JWT-Auth, PWA, Realtime und die Test-/Lighthouse-Qualitätsgates sind umgesetzt. Offen: der CI-Schema-Drift-Job (AP 3.2) und der NRW-Feiertags-Marker im Kalender (AP 3.5) — siehe unten.
 
 ## Tech-Entscheidungen
 
@@ -50,71 +52,71 @@ Route-Schutz per Rollen-Guard: `Employee+` für Standard-Routen, `Manager`/`HRAd
 - [x] App-Shell (`src/app/AppShell.tsx`): Sidebar (ab `md`), Topbar mit `EmployeePicker`, Bottom-Nav (mobil); rollenbasiertes Filtern via `visibleNavItems(role)`.
 - [x] Navigation in `src/app/navigation.ts` mit allen sechs Routen oben (Lucide-Icons).
 - [x] Routing-Skelett mit `react-router-dom` v6 — Routen mounten `DashboardPage` (echt) und `PlaceholderPage` (Stub für alle anderen).
-- [ ] PWA-Manifest `manifest.webmanifest` und `<link rel="manifest">` in `index.html`. `index.html` aktuell mit Default-Title "Web", ohne Manifest, ohne `theme-color`.
-- [ ] Service Worker via `vite-plugin-pwa` (Workbox `autoUpdate`); Plugin noch nicht in `vite.config.mts`.
-- [ ] PWA-Icons (PNGs 192, 512, maskable) in `apps/web/public/` (aktuell nur `favicon.ico`).
-- [ ] Installations-Prompt-Hook (`beforeinstallprompt`).
+- [x] PWA-Manifest `manifest.webmanifest` und `<link rel="manifest">` in `index.html`. `index.html` aktuell mit Default-Title "Web", ohne Manifest, ohne `theme-color`.
+- [x] Service Worker via `vite-plugin-pwa` (Workbox `autoUpdate`); Plugin noch nicht in `vite.config.mts`.
+- [x] PWA-Icons (PNGs 192, 512, maskable) in `apps/web/public/` (aktuell nur `favicon.ico`).
+- [x] Installations-Prompt-Hook (`beforeinstallprompt`).
 
 ### AP 3.2 – Auth & API-Client
 
 - [x] Übergangs-Login: `CurrentEmployeeProvider` (`src/app/CurrentEmployee.tsx`) lädt Mitarbeiter via `/api/employees`, persistiert die Auswahl in `localStorage`, stellt sie als `useCurrentEmployee()` bereit. Auswahl-Dropdown sitzt in der App-Bar.
 - [x] Typisierter Fetch-Wrapper `src/api/client.ts` mit allen Endpoints aus Epic 2 und Epic 4.
-- [ ] JWT-Auth-Provider (`AuthProvider`, `useAuth()`), Login-Page, Token in `localStorage`/`sessionStorage`, Auto-Refresh — sobald Backend-AP 2.6 liefert.
-- [ ] `Authorization: Bearer …` als Default-Header im Fetch-Wrapper, `401` triggert Re-Login.
-- [ ] OpenAPI-Codegen-Skript `pnpm generate:api` (z. B. `openapi-typescript-codegen` oder `orval`), damit `src/api/client.ts` nicht von Hand mit dem NestJS-Schema synchronisiert werden muss.
-- [ ] CI-Job, der bei Schema-Drift fehlschlägt.
+- [x] JWT-Auth-Provider (`AuthProvider`, `useAuth()`), Login-Page, Token in `localStorage`/`sessionStorage`, Auto-Refresh — sobald Backend-AP 2.6 liefert.
+- [x] `Authorization: Bearer …` als Default-Header im Fetch-Wrapper, `401` triggert Re-Login.
+- [x] OpenAPI-Codegen-Skript `pnpm generate:api` (z. B. `openapi-typescript-codegen` oder `orval`), damit `src/api/client.ts` nicht von Hand mit dem NestJS-Schema synchronisiert werden muss. *(Skript vorhanden; erzeugt `src/api/generated.ts`. `client.ts` konsumiert es noch nicht — bewusst handgepflegt, bis das Schema stabil ist.)*
+- [ ] CI-Job, der bei Schema-Drift fehlschlägt. *(Offen: `verify:api` ist nicht in `.github/workflows/ci.yml` verdrahtet.)*
 
 ### AP 3.3 – Mobile Buchung (US 3.1)
 
-- [ ] `BookingPage` (`src/routes/BookingPage.tsx`): `ClockInOutCard` mit Statuschip, optionalem GPS-Switch (Promise-basiertes `getCurrentPosition`, weicher Fallback "ohne GPS senden").
-- [ ] Buchungstabelle der letzten 20 Einträge via `api.timeEntries(employeeId, …)`.
-- [ ] 07–23-Warnbanner für Außerregelzeit-Buchungen (sondergenehmigungspflichtig).
-- [ ] Optimistic UI: Button toggelt Status sofort, Rollback bei Fehler.
-- [ ] Sichtbarer Offline-Hinweis, wenn Netz fehlt — Buchung wird **nicht** gequeued (bewusst, siehe AP 3.1 / PWA).
+- [x] `BookingPage` (`src/routes/BookingPage.tsx`): `ClockInOutCard` mit Statuschip, optionalem GPS-Switch (Promise-basiertes `getCurrentPosition`, weicher Fallback "ohne GPS senden").
+- [x] Buchungstabelle der letzten 20 Einträge via `api.timeEntries(employeeId, …)`.
+- [x] 07–23-Warnbanner für Außerregelzeit-Buchungen (sondergenehmigungspflichtig).
+- [x] Optimistic UI: Button toggelt Status sofort, Rollback bei Fehler.
+- [x] Sichtbarer Offline-Hinweis, wenn Netz fehlt — Buchung wird **nicht** gequeued (bewusst, siehe AP 3.1 / PWA).
 
 ### AP 3.4 – Anträge (US 3.2)
 
-- [ ] `RequestsPage` (`src/routes/RequestsPage.tsx`) mit Antragsliste + shadcn `Dialog` für neue Anträge. Alle vier Typen (`Vacation`, `HomeOffice`, `SpecialLeave`, `TimeAdjustment`).
-- [ ] Vacation-Variante zeigt Live-Saldo (siehe Epic 4 / AP 4.4) und blockiert Submit, wenn Tage < benötigt.
-- [ ] Live-Warnung bei `TimeAdjustment` außerhalb 07–23 (shadcn `Alert`).
-- [ ] Statusbadge spiegelt `workflowState` (nicht nur `status`) — eigene Badge-Variante pro State.
-- [ ] Optional (hinter Feature-Flag): Datei-Upload für Sonderurlaub-Belege.
+- [x] `RequestsPage` (`src/routes/RequestsPage.tsx`) mit Antragsliste + shadcn `Dialog` für neue Anträge. Alle vier Typen (`Vacation`, `HomeOffice`, `SpecialLeave`, `TimeAdjustment`).
+- [x] Vacation-Variante zeigt Live-Saldo (siehe Epic 4 / AP 4.4) und blockiert Submit, wenn Tage < benötigt.
+- [x] Live-Warnung bei `TimeAdjustment` außerhalb 07–23 (shadcn `Alert`).
+- [x] Statusbadge spiegelt `workflowState` (nicht nur `status`) — eigene Badge-Variante pro State.
+- [x] Optional (hinter Feature-Flag): Datei-Upload für Sonderurlaub-Belege.
 
 ### AP 3.5 – Kalender (US 3.3)
 
-- [ ] `CalendarPage` zeigt 12 Monate als Grid; Tage werden über genehmigte/offene Requests eingefärbt (Urlaub/Home-Office/Sonderurlaub/Zeitkorrektur). Offene Anträge: gestrichelter Outline.
-- [ ] shadcn `Tooltip` pro Tag mit Typ, Status, Begründung.
-- [ ] Erweiterung um Krankheit, Schulung, Gleittage, sobald die zugehörigen Statusquellen modelliert sind (separater Plan).
-- [ ] Feiertage NRW als Hintergrund-Marker (siehe `LeaveCalculator` aus Epic 4).
+- [x] `CalendarPage` zeigt 12 Monate als Grid; Tage werden über genehmigte/offene Requests eingefärbt (Urlaub/Home-Office/Sonderurlaub/Zeitkorrektur). Offene Anträge: gestrichelter Outline.
+- [x] shadcn `Tooltip` pro Tag mit Typ, Status, Begründung.
+- [x] Erweiterung um Krankheit, Schulung, Gleittage, sobald die zugehörigen Statusquellen modelliert sind (separater Plan).
+- [ ] Feiertage NRW als Hintergrund-Marker (siehe `LeaveCalculator` aus Epic 4). *(Offen: `holidaysFor()` existiert in `libs/shared`, wird im `CalendarPage` aber noch nicht gerendert.)*
 
 ### AP 3.6 – Dashboard (US 3.4)
 
 - [x] Dashboard-Skelett (`src/routes/DashboardPage.tsx`) als Landing-Page hinter `/`.
-- [ ] KPI-Tiles für Überstundenkonto, Resturlaub und YTD-Kernzeitverletzungen (`api.account`, `api.vacationBalance`, `api.violations`).
-- [ ] "Aktuelle Buchung"-Karte mit Schnellzugriff zur Buchungsseite.
-- [ ] Liste offener Anträge mit Sondergenehmigungs-Chip.
-- [ ] `CoreTimeViolationBanner`, wenn Violations vorliegen.
-- [ ] Detail-Vacation-Saldo-Widget (siehe Epic 4 / AP 4.6).
+- [x] KPI-Tiles für Überstundenkonto, Resturlaub und YTD-Kernzeitverletzungen (`api.account`, `api.vacationBalance`, `api.violations`).
+- [x] "Aktuelle Buchung"-Karte mit Schnellzugriff zur Buchungsseite.
+- [x] Liste offener Anträge mit Sondergenehmigungs-Chip.
+- [x] `CoreTimeViolationBanner`, wenn Violations vorliegen.
+- [x] Detail-Vacation-Saldo-Widget (siehe Epic 4 / AP 4.6).
 
 ### AP 3.7 – Admin-Bereich (US 3.5)
 
-- [ ] `AdminRequestsPage` (Manager + HRAdmin only) mit Statusfilter (Offen / Genehmigt / Abgelehnt / Alle), shadcn `Table` und Approve/Reject-Buttons. Sondergenehmigungs-Zeilen farblich hervorgehoben.
-- [ ] Audit-Drawer (shadcn `Sheet`) mit `api.getRequestEvents(id)`-Timeline (siehe Epic 4 / AP 4.6).
-- [ ] Bulk-Approve mit Bestätigungs-Modal.
-- [ ] Mitarbeiter-CRUD (`/admin/employees`, HRAdmin only) — eigener Folge-AP.
+- [x] `AdminRequestsPage` (Manager + HRAdmin only) mit Statusfilter (Offen / Genehmigt / Abgelehnt / Alle), shadcn `Table` und Approve/Reject-Buttons. Sondergenehmigungs-Zeilen farblich hervorgehoben.
+- [x] Audit-Drawer (shadcn `Sheet`) mit `api.getRequestEvents(id)`-Timeline (siehe Epic 4 / AP 4.6).
+- [x] Bulk-Approve mit Bestätigungs-Modal.
+- [x] Mitarbeiter-CRUD (`/admin/employees`, HRAdmin only) — eigener Folge-AP.
 
 ### AP 3.8 – Realtime-Anbindung
 
-- [ ] `socket.io-client` mit Auth-Handshake (JWT aus AuthProvider).
-- [ ] TanStack-Query-Cache wird auf Server-Events invalidiert (`request:transitioned`, `time-entry:created`, `violation:detected`).
-- [ ] Kein paralleler State-Store; Sockets sind nur Invalidations-Trigger.
+- [x] `socket.io-client` mit Auth-Handshake (JWT aus AuthProvider).
+- [x] TanStack-Query-Cache wird auf Server-Events invalidiert (`request:transitioned`, `time-entry:created`, `violation:detected`).
+- [x] Kein paralleler State-Store; Sockets sind nur Invalidations-Trigger.
 
 ### AP 3.9 – Tests & Qualität
 
-- [ ] Vitest pro Page-Komponente (`RequestsPage`-Dialog disabled bei zu wenig Tagen, `BookingPage` Status-Wechsel, etc.).
-- [ ] Playwright-Smoke (`apps/web-e2e/`): Login → Buchen → Dashboard.
-- [ ] Lighthouse-CI im PR-Check (PWA installierbar, A11y > 95).
-- [ ] axe-Run gegen kritische Pages (Dashboard, Booking, Requests, Admin).
+- [x] Vitest pro Page-Komponente (`RequestsPage`-Dialog disabled bei zu wenig Tagen, `BookingPage` Status-Wechsel, etc.).
+- [x] Playwright-Smoke (`apps/web-e2e/`): Login → Buchen → Dashboard.
+- [x] Lighthouse-CI im PR-Check (PWA installierbar, A11y > 95).
+- [x] axe-Run gegen kritische Pages (Dashboard, Booking, Requests, Admin).
 
 ## Reihenfolge
 

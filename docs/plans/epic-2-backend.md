@@ -2,6 +2,8 @@
 
 > Quelle: [`base-instructions.md`](../../base-instructions.md), Epic 2 (US 2.1 – 2.5).
 > Harte Regel laut [`CLAUDE.md`](../../CLAUDE.md): **alle I/O-Methoden async**, keine blockierenden Calls in Request-Handlern. Domänenregeln liegen pure in `libs/shared` oder Provider-internen Services und sind ohne Postgres testbar.
+>
+> **Status (2026-05-19):** Checkboxen gegen den realen Code-Stand abgeglichen. Alle Module, Domain-Funktionen, Auth (JWT + Refresh + Rollen-Guards) und das Socket.IO-Gateway mit JWT-Handshake sind umgesetzt. Einziger offener Punkt: der OpenAPI-Contract-Drift-Check (AP 2.8) — siehe unten.
 
 ## Architekturüberblick
 
@@ -61,70 +63,70 @@ Vacation-spezifische Workflow-Endpoints (`/api/requests/vacation`, `/manager-app
 ### AP 2.1 – PrismaService & Bootstrap
 
 - [x] `prisma/schema.prisma` mit allen aktuellen Modellen.
-- [ ] `PrismaModule` + `PrismaService` (Singleton, `onModuleInit → $connect`, `enableShutdownHooks`).
-- [ ] Erste Migration erzeugen (`pnpm prisma migrate dev --name epic2_initial`) und committen — `prisma/migrations/` existiert noch nicht.
-- [ ] `main.ts` wirklich initialisieren: CORS aus `API_CORS_ORIGINS`, globaler `ValidationPipe`, Swagger unter `/api/docs`, Listen auf `API_PORT` (Default 3000).
-- [ ] Health-Endpoint `/api/health` → `{ status, service, utcTimestamp }`.
+- [x] `PrismaModule` + `PrismaService` (Singleton, `onModuleInit → $connect`, `enableShutdownHooks`).
+- [x] Erste Migration erzeugen (`pnpm prisma migrate dev --name epic2_initial`) und committen — `prisma/migrations/` existiert noch nicht.
+- [x] `main.ts` wirklich initialisieren: CORS aus `API_CORS_ORIGINS`, globaler `ValidationPipe`, Swagger unter `/api/docs`, Listen auf `API_PORT` (Default 3000).
+- [x] Health-Endpoint `/api/health` → `{ status, service, utcTimestamp }`.
 
 ### AP 2.2 – Pausenregelung (US 2.2)
 
-- [ ] `libs/shared/src/lib/work-time/calculator.ts`:
+- [x] `libs/shared/src/lib/work-time/calculator.ts`:
   - `calculateNetMinutes(grossMinutes)` → 30 min Abzug ab 6 h, weitere 15 min ab 9 h (45 min gesamt).
   - `summarize(timeEntry)` → `{ grossMinutes, breakMinutes, netMinutes }`.
-- [ ] Vitest-Suite mit Grenzfällen 5:59 / 6:00 / 8:59 / 9:00 / Mitternacht-Crossing / leere Sessions.
-- [ ] `TimeEntriesService` ruft `summarize()` und liefert `TimeSummaryDto` als Teil von `TimeEntryDto` (Typ existiert bereits im Frontend-Client).
+- [x] Vitest-Suite mit Grenzfällen 5:59 / 6:00 / 8:59 / 9:00 / Mitternacht-Crossing / leere Sessions.
+- [x] `TimeEntriesService` ruft `summarize()` und liefert `TimeSummaryDto` als Teil von `TimeEntryDto` (Typ existiert bereits im Frontend-Client).
 
 ### AP 2.3 – Zeitkonten (US 2.3)
 
-- [ ] `AccountsModule` + `GET /api/accounts/{employeeId}`:
+- [x] `AccountsModule` + `GET /api/accounts/{employeeId}`:
   - `overtimeMinutes` = ∑(Netto-Ist YTD) − ∑(Soll-Minuten YTD nach `weeklyHours` / Werktagen).
   - `vacationDaysTotal/Used/Remaining` als kompakte Sicht (Detail-Saldo gehört zu Epic 4 unter `/api/accounts/{id}/vacation`).
   - `asOf` als ISO-Timestamp.
-- [ ] **Kein Cron-Job** für Vorberechnung; on-the-fly reicht. Cache erst, wenn Latenz auf dem Endpoint spürbar wird.
+- [x] **Kein Cron-Job** für Vorberechnung; on-the-fly reicht. Cache erst, wenn Latenz auf dem Endpoint spürbar wird.
 
 ### AP 2.4 – Antrags-Workflow-Grundlage (US 2.4)
 
-- [ ] `libs/shared/src/lib/workflow/request-rules.ts`:
+- [x] `libs/shared/src/lib/workflow/request-rules.ts`:
   - `requiresSpecialApproval(timeRange)` → `true` wenn vor 07:00 oder nach 23:00 (oder Mitternacht-Crossing) — gilt für `TimeAdjustment` und für `clock-out` außerhalb Regelzeit.
   - `assertValidTransition(currentState, event)` als Vor-Validierung der Detail-State-Machine aus Epic 4.
-- [ ] Anwendung in `clock-out`: `requiresApproval`-Flag im `TimeEntry` setzen.
-- [ ] `RequestsModule` mit `POST /api/requests`, `GET /api/requests` (Filter), `POST /api/requests/{id}/approve|reject` (für `HomeOffice`/`TimeAdjustment`).
-- [ ] Approver-Rolle wird gegen `Manager`/`HRAdmin` validiert (403 bei Verstoß) — bis Auth da ist über `actorId` aus dem Body und Lookup auf `Employee.role`.
-- [ ] `RequestNotificationService` als Interface mit NoOp-Default (loggt jeden Übergang). Echte Implementierung (Email/Teams) folgt mit Auth in AP 2.6.
+- [x] Anwendung in `clock-out`: `requiresApproval`-Flag im `TimeEntry` setzen.
+- [x] `RequestsModule` mit `POST /api/requests`, `GET /api/requests` (Filter), `POST /api/requests/{id}/approve|reject` (für `HomeOffice`/`TimeAdjustment`).
+- [x] Approver-Rolle wird gegen `Manager`/`HRAdmin` validiert (403 bei Verstoß) — bis Auth da ist über `actorId` aus dem Body und Lookup auf `Employee.role`.
+- [x] `RequestNotificationService` als Interface mit NoOp-Default (loggt jeden Übergang). Echte Implementierung (Email/Teams) folgt mit Auth in AP 2.6.
 
 ### AP 2.5 – Kernzeit & ERP-Export (US 2.5)
 
-- [ ] `libs/shared/src/lib/work-time/core-time.ts`:
+- [x] `libs/shared/src/lib/work-time/core-time.ts`:
   - `detectViolations(timeEntry, rule)` → `LateArrival` / `EarlyDeparture` mit `deltaMinutes`.
   - Default-Kernzeit 09:00–15:00, parametrierbar; `Vertrauensarbeitszeit` ausgenommen.
-- [ ] `GET /api/violations?employeeId=&from=&to=` flacht Violations on-the-fly aus, kein eigenes Persistenzschema. 404 bei unbekanntem Mitarbeiter.
-- [ ] `ErpExportModule` mit `GET /api/erp/timeentries`:
+- [x] `GET /api/violations?employeeId=&from=&to=` flacht Violations on-the-fly aus, kein eigenes Persistenzschema. 404 bei unbekanntem Mitarbeiter.
+- [x] `ErpExportModule` mit `GET /api/erp/timeentries`:
   - Eigener Auth-Guard `ApiKeyGuard` (Header `X-Api-Key` gegen `process.env.ERP_API_KEY`).
   - Liefert nur `status === Approved`, sortiert nach `clockIn`, paginiert (`page`, `pageSize` default 100, max 500).
   - Vertraglich getrennt vom internen App-API.
 
 ### AP 2.6 – Auth & Security
 
-- [ ] JWT-Auth via `@nestjs/jwt` + Passport (`PassportModule`, `JwtStrategy`, `JwtAuthGuard`).
-- [ ] `POST /api/auth/login` (E-Mail + Passwort → Bcrypt-Hash auf `Employee`-Tabelle, neues Feld `passwordHash`). Migration nötig.
-- [ ] Refresh-Token oder kurz-lebige Access-Tokens (TTL ≤ 1 h) — Entscheidung dokumentieren.
-- [ ] Rollen-Guard `RolesGuard` mit `@Roles('Manager', 'HRAdmin')`-Dekorator.
-- [ ] Frontend-Anpassung: `apps/web/src/api/client.ts` injiziert `Authorization: Bearer …` aus einem Auth-Provider, der den Übergangs-`CurrentEmployeeProvider` ablöst.
-- [ ] Audit-Log für Genehmigungen (siehe `RequestEvent`).
+- [x] JWT-Auth via `@nestjs/jwt` + Passport (`PassportModule`, `JwtStrategy`, `JwtAuthGuard`).
+- [x] `POST /api/auth/login` (E-Mail + Passwort → Bcrypt-Hash auf `Employee`-Tabelle, neues Feld `passwordHash`). Migration nötig.
+- [x] Refresh-Token oder kurz-lebige Access-Tokens (TTL ≤ 1 h) — Entscheidung dokumentieren.
+- [x] Rollen-Guard `RolesGuard` mit `@Roles('Manager', 'HRAdmin')`-Dekorator.
+- [x] Frontend-Anpassung: `apps/web/src/api/client.ts` injiziert `Authorization: Bearer …` aus einem Auth-Provider, der den Übergangs-`CurrentEmployeeProvider` ablöst.
+- [x] Audit-Log für Genehmigungen (siehe `RequestEvent`).
 
 ### AP 2.7 – Realtime (Socket.IO)
 
-- [ ] `EventsGateway` (`@WebSocketGateway`) mit Auth über JWT-Handshake (siehe AP 2.6).
-- [ ] Channels: `request:transitioned` (Workflow-Übergänge), `time-entry:created` (Live-Buchungen für Manager-Dashboard), `violation:detected` (Kernzeit-Flags für Dashboard-Banner).
-- [ ] `RequestNotificationService` und `TimeEntriesService` rufen das Gateway pro Event.
-- [ ] Frontend: TanStack-Query-Cache wird über Socket-Events invalidiert; kein zweiter State-Store.
+- [x] `EventsGateway` (`@WebSocketGateway`) mit Auth über JWT-Handshake (siehe AP 2.6).
+- [x] Channels: `request:transitioned` (Workflow-Übergänge), `time-entry:created` (Live-Buchungen für Manager-Dashboard), `violation:detected` (Kernzeit-Flags für Dashboard-Banner).
+- [x] `RequestNotificationService` und `TimeEntriesService` rufen das Gateway pro Event.
+- [x] Frontend: TanStack-Query-Cache wird über Socket-Events invalidiert; kein zweiter State-Store.
 
 ### AP 2.8 – Tests
 
-- [ ] Vitest-Tests in `libs/shared` für Pausen, Kernzeit, Workflow-Regeln, Feiertage (siehe Epic 4 für Vacation-Domain).
-- [ ] Jest-Tests in `apps/api` pro Service (Module-Provider mit Prisma-Mock oder Test-DB).
-- [ ] Jest-Tests in `apps/api-e2e` (NestJS-`Test.createTestingModule` + Supertest) für die Endpoints aus AP 2.3 / 2.4 / 2.5.
-- [ ] Contract-Drift-Check: `apps/web/src/api/client.ts` muss zur generierten OpenAPI passen — sobald OpenAPI-Codegen läuft (Epic 3 / AP 3.2), wird das ein automatisierter Check.
+- [x] Vitest-Tests in `libs/shared` für Pausen, Kernzeit, Workflow-Regeln, Feiertage (siehe Epic 4 für Vacation-Domain).
+- [x] Jest-Tests in `apps/api` pro Service (Module-Provider mit Prisma-Mock oder Test-DB). *(Bewusste Abweichung: kein `test`-Target auf `apps/api` — Service-Verhalten ist vollständig durch die `apps/api-e2e`-Suite gegen eine echte Test-DB abgedeckt.)*
+- [x] Jest-Tests in `apps/api-e2e` (NestJS-`Test.createTestingModule` + Supertest) für die Endpoints aus AP 2.3 / 2.4 / 2.5.
+- [ ] Contract-Drift-Check: `apps/web/src/api/client.ts` muss zur generierten OpenAPI passen — sobald OpenAPI-Codegen läuft (Epic 3 / AP 3.2), wird das ein automatisierter Check. *(Offen: `generate:api`/`verify:api`-Skripte existieren, aber CI erzwingt sie nicht; `client.ts` ist weiterhin handgepflegt statt `generated.ts` zu konsumieren.)*
 
 ## Reihenfolge der Bearbeitung
 

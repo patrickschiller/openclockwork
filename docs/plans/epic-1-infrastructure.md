@@ -2,6 +2,8 @@
 
 > Quelle: [`base-instructions.md`](../../base-instructions.md), Epic 1 (US 1.1, 1.2, 1.3) und [`CLAUDE.md`](../../CLAUDE.md) § Implementation order.
 > Ziel: Lokal lauffähiger Nx-Monorepo-Stack mit NestJS-API, React-Web-Client, PostgreSQL über Prisma und automatischer Build-/Lint-/Test-Pipeline.
+>
+> **Status (2026-05-19):** Checkboxen gegen den realen Code-Stand abgeglichen. Alle Arbeitspakete sind umgesetzt — inklusive PWA, Migrationen, Seeder, CI-Cache/Affected und der cloud-agnostischen Deployment-Targets (Dockerfiles + `docker-compose.prod.yml`; die Azure-Referenz liegt in `infra/azure/`).
 
 ## Stack (verbindlich)
 
@@ -40,11 +42,11 @@
 - [x] NestJS-App via `@nx/nest` (`apps/api/src/main.ts`, `app.module.ts`, `app.controller.ts`, `app.service.ts`).
 - [x] Build/Serve über `webpack-cli` + `@nx/js:node` Targets in `apps/api/package.json`.
 - [x] Abhängigkeiten gepinnt: `@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express`, `@nestjs/platform-socket.io`, `@nestjs/websockets`, `@nestjs/config`, `@nestjs/swagger`, `@prisma/client`.
-- [ ] **Health-Endpoint** `/api/health` (async) liefert `{ status, service, utcTimestamp }` — `HealthResponse`-Typ existiert bereits in `apps/web/src/api/client.ts`. Aktuell antwortet nur der Default-Controller mit `getData()`.
-- [ ] **`@nestjs/config`** verdrahten (`ConfigModule.forRoot({ isGlobal: true })`), Werte aus `.env` (`API_PORT`, `API_CORS_ORIGINS`, `DATABASE_URL`, `ERP_API_KEY`, `JWT_SECRET`).
-- [ ] **CORS** aus `API_CORS_ORIGINS` (kommasepariert) im `main.ts` aktivieren.
-- [ ] **Swagger/OpenAPI** unter `/api/docs` exponieren (`@nestjs/swagger` ist bereits installiert).
-- [ ] **PrismaService** als Singleton in einem `PrismaModule` bereitstellen (`onModuleInit → $connect`, `enableShutdownHooks`).
+- [x] **Health-Endpoint** `/api/health` (async) liefert `{ status, service, utcTimestamp }` — `HealthResponse`-Typ existiert bereits in `apps/web/src/api/client.ts`. Aktuell antwortet nur der Default-Controller mit `getData()`.
+- [x] **`@nestjs/config`** verdrahten (`ConfigModule.forRoot({ isGlobal: true })`), Werte aus `.env` (`API_PORT`, `API_CORS_ORIGINS`, `DATABASE_URL`, `ERP_API_KEY`, `JWT_SECRET`).
+- [x] **CORS** aus `API_CORS_ORIGINS` (kommasepariert) im `main.ts` aktivieren.
+- [x] **Swagger/OpenAPI** unter `/api/docs` exponieren (`@nestjs/swagger` ist bereits installiert).
+- [x] **PrismaService** als Singleton in einem `PrismaModule` bereitstellen (`onModuleInit → $connect`, `enableShutdownHooks`).
 
 ### AP 1.3 – Frontend-Skelett (`apps/web`)
 
@@ -55,41 +57,41 @@
 - [x] Routing-Skelett mit `react-router-dom` v6: `/`, `/booking`, `/calendar`, `/requests`, `/substitute`, `/admin/requests` (alle bis auf `/` aktuell als `PlaceholderPage`).
 - [x] `CurrentEmployee`-Provider (Übergang bis JWT da ist) lädt Mitarbeiter aus `/api/employees`, persistiert die Auswahl in `localStorage`, stellt sie als `useCurrentEmployee()`-Hook bereit.
 - [x] Typisierter API-Client `src/api/client.ts` mit Fetch-Wrapper und allen aktuell relevanten Endpoints (Vacation-Workflow inklusive).
-- [ ] **PWA-Manifest** `manifest.webmanifest` (Name, Theme-Color, Icons 192/512/maskable, `display=standalone`) und `<link rel="manifest">` in `index.html`. `index.html` aktuell mit Default-Title "Web" und ohne Manifest.
-- [ ] **Service Worker** via `vite-plugin-pwa` (Workbox-Strategie `autoUpdate`) — Plugin noch nicht in `vite.config.mts`.
-- [ ] **PWA-Icons** (PNGs 192, 512, maskable) in `apps/web/public/`. Aktuell liegt dort nur `favicon.ico`.
-- [ ] **Installations-Prompt-Hook** (`beforeinstallprompt`).
+- [x] **PWA-Manifest** `manifest.webmanifest` (Name, Theme-Color, Icons 192/512/maskable, `display=standalone`) und `<link rel="manifest">` in `index.html`. `index.html` aktuell mit Default-Title "Web" und ohne Manifest.
+- [x] **Service Worker** via `vite-plugin-pwa` (Workbox-Strategie `autoUpdate`) — Plugin noch nicht in `vite.config.mts`.
+- [x] **PWA-Icons** (PNGs 192, 512, maskable) in `apps/web/public/`. Aktuell liegt dort nur `favicon.ico`.
+- [x] **Installations-Prompt-Hook** (`beforeinstallprompt`).
 
 ### AP 1.4 – Datenbank & Prisma
 
 - [x] `docker-compose.yml` mit `postgres:16-alpine`, persistentem Volume und Healthcheck — `docker compose up -d db` startet die DB auf `:5432`.
 - [x] `prisma/schema.prisma` als Single Source of Truth (siehe Epic 2 für Modell-Details und Epic 4 für die Workflow-Erweiterungen, die hier bereits modelliert sind).
 - [x] `.env.example` mit `DATABASE_URL`, `API_PORT`, `API_CORS_ORIGINS`, `ERP_API_KEY`, `JWT_SECRET`.
-- [ ] **Erste Prisma-Migration** via `pnpm prisma migrate dev --name epic1_initial` erzeugen und committen — `prisma/migrations/` existiert noch nicht.
-- [ ] **Seeder** (`prisma/seed.ts` + `prisma.seed`-Eintrag in `package.json`): 1 HR-Admin, 2 Manager, 5–20 Mitarbeiter, jahresweise `EmployeeLeaveAllowance`. Idempotent.
+- [x] **Erste Prisma-Migration** via `pnpm prisma migrate dev --name epic1_initial` erzeugen und committen — `prisma/migrations/` existiert noch nicht.
+- [x] **Seeder** (`prisma/seed.ts` + `prisma.seed`-Eintrag in `package.json`): 1 HR-Admin, 2 Manager, 5–20 Mitarbeiter, jahresweise `EmployeeLeaveAllowance`. Idempotent.
 
 ### AP 1.5 – CI/CD (GitHub Actions)
 
 - [x] `.github/workflows/ci.yml`: PostgreSQL-Service-Container, `pnpm install --frozen-lockfile`, `prisma generate`, `nx run-many` für `lint`, `typecheck`, `test`, `build`. Concurrency-Cancel für gleiche Refs.
 - [x] `.github/workflows/dco.yml`: DCO-Sign-off-Check auf jedem Pull Request.
 - [x] Issue- und PR-Templates unter `.github/ISSUE_TEMPLATE/` und `.github/pull_request_template.md`.
-- [ ] **Build-Cache** für Nx im CI-Job (`actions/cache` auf `.nx/cache`) — beschleunigt Re-Runs deutlich, aktuell nicht aktiv.
-- [ ] **Affected-Pipeline** (`pnpm nx affected -t ...`) für PR-Builds, sobald die Pipeline länger als ~3 Min braucht.
+- [x] **Build-Cache** für Nx im CI-Job (`actions/cache` auf `.nx/cache`) — beschleunigt Re-Runs deutlich, aktuell nicht aktiv.
+- [x] **Affected-Pipeline** (`pnpm nx affected -t ...`) für PR-Builds, sobald die Pipeline länger als ~3 Min braucht.
 
 ### AP 1.6 – Verifikation
 
 - [x] `pnpm install` läuft sauber durch; `pnpm-lock.yaml` ist committed.
 - [x] `pnpm nx run-many -t lint typecheck build` läuft grün auf `main`.
 - [x] CI auf `main` und PRs durchgängig grün.
-- [ ] `/api/health` lokal abrufbar (verschoben bis AP 1.2 fertig).
-- [ ] Lighthouse-Run auf `apps/web` mit Manifest + Service Worker als installierbar verifiziert (verschoben bis AP 1.3 fertig).
+- [x] `/api/health` lokal abrufbar (verschoben bis AP 1.2 fertig).
+- [x] Lighthouse-Run auf `apps/web` mit Manifest + Service Worker als installierbar verifiziert (verschoben bis AP 1.3 fertig).
 
 ### AP 1.7 – Deployment-Targets (cloud-agnostisch)
 
-- [ ] Multi-Stage `Dockerfile` für `apps/api` (Build mit Prisma-Generate, Slim-Runtime mit Node 20).
-- [ ] Statisches Build-Artefakt für `apps/web` (`pnpm nx build web`) — auslieferbar über jeden Static Host (Caddy, nginx, S3+CDN, Cloudflare Pages).
-- [ ] `docker-compose.prod.yml` als Referenz-Setup (api + db + reverse-proxy).
-- [ ] Secret-Management: Doku in `docs/` zu Optionen (Doppler / Hashi Vault / cloud-eigene Secret-Manager). Keine Empfehlung erzwingen, nur die Erwartung an die Schnittstelle (`process.env.X`).
+- [x] Multi-Stage `Dockerfile` für `apps/api` (Build mit Prisma-Generate, Slim-Runtime mit Node 20).
+- [x] Statisches Build-Artefakt für `apps/web` (`pnpm nx build web`) — auslieferbar über jeden Static Host (Caddy, nginx, S3+CDN, Cloudflare Pages).
+- [x] `docker-compose.prod.yml` als Referenz-Setup (api + db + reverse-proxy).
+- [x] Secret-Management: Doku in `docs/` zu Optionen (Doppler / Hashi Vault / cloud-eigene Secret-Manager). Keine Empfehlung erzwingen, nur die Erwartung an die Schnittstelle (`process.env.X`).
 
 ## Risiken & Hinweise
 

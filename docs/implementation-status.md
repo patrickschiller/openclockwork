@@ -1,4 +1,49 @@
+# Implementation status
+
+## Update 2026-05-19 — all four epics functionally complete
+
+All four epic plans under [`docs/plans/`](./plans/) are implemented. The
+checkboxes in those files were reconciled against the real code state on
+2026-05-19 (they had drifted — they still showed the pre-implementation
+snapshot). The application runs as a live Azure Container Apps
+deployment with the full domain feature set.
+
+Landed since the 2026-05-10 snapshot below:
+
+- **Auth hardening** — Socket.IO gateway now verifies the JWT on the
+  handshake and rejects tokenless connections.
+- **Vacation extras (Epic 4 / AP 4.7)** — half-day requests,
+  per-Bundesland holiday provider, carry-over expiry, employee CRUD.
+- **Deployment** — `Dockerfile.api` / `Dockerfile.web`,
+  `docker-compose.prod.yml`, and an Azure reference (`infra/azure/`,
+  Bicep) with a `deploy-azure` GitHub Actions pipeline (build → push →
+  migrate → roll) and a post-deploy Lighthouse audit.
+- **Server timezone** — the API runs in `Europe/Berlin` so core-time
+  and off-hours reasoning is wall-clock-correct.
+- **Theme** — per-profile light/dark/system preference.
+- **Bug fixes** — overtime excludes the in-progress day; core-time
+  violations are assessed only retroactively; an approved
+  `TimeAdjustment` now materialises a real `TimeEntry`.
+
+### Genuinely open follow-ups (not blocking)
+
+- **OpenAPI contract-drift CI gate** — `generate:api` / `verify:api`
+  scripts exist and `apps/web/src/api/generated.ts` is produced, but
+  CI does not run `verify:api` and `client.ts` is still hand-typed.
+  (Epic 2 / AP 2.8, Epic 3 / AP 3.2.)
+- **NRW holiday markers in the year calendar** — `holidaysFor()` is
+  available in `libs/shared`; `CalendarPage` does not yet render it.
+  (Epic 3 / AP 3.5.)
+- **Email / Teams notifications** — `RequestNotificationService` logs
+  + broadcasts the socket event only; a real delivery adapter is
+  future work (always scoped as a stub in the plans).
+
+---
+
 # Implementation status (2026-05-10)
+
+> Historical snapshot. Superseded by the 2026-05-19 update above — kept
+> for the run instructions and the record of the autonomous pass.
 
 This is a snapshot of what landed in the autonomous implementation pass and what's
 explicitly still open. The four epic plans under [`docs/plans/`](./plans/) remain
