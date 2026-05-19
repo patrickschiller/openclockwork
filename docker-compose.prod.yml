@@ -35,6 +35,8 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 3000
+      # Wall-clock timezone for core-time + off-hours reasoning.
+      TZ: ${TZ:-Europe/Berlin}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       ERP_API_KEY: ${ERP_API_KEY}

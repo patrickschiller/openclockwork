@@ -150,6 +150,80 @@ describe('Violations — gap-based core-time detection', () => {
     });
   });
 
+  // The cases above build entries with `local()` so the entry and the
+  // core window share the test process's timezone — self-consistent, but
+  // blind to the production bug where entries are absolute UTC instants
+  // and the server must reason in Europe/Berlin (pinned in test-setup).
+  // These two cases store entries as explicit `Z` timestamps to exercise
+  // exactly that mismatch. 2026-06-16 is a Tuesday in CEST (UTC+2), so
+  // the 10:00–11:00 Berlin core window is 08:00Z–09:00Z.
+  describe('timezone — entries are absolute UTC instants', () => {
+    async function morningCoreSchedule(employeeId: string) {
+      const schedule = await ctx.prisma.workSchedule.create({
+        data: {
+          name: 'TZ Morning Core',
+          frameStart: '07:00',
+          frameEnd: '23:00',
+          isDefault: false,
+          coreTimes: { create: [{ label: 'Vormittag', start: '10:00', end: '11:00', weekdays: 31 }] },
+        },
+      });
+      await ctx.prisma.employee.update({
+        where: { id: employeeId },
+        data: { workScheduleId: schedule.id },
+      });
+    }
+
+    it('a Berlin-morning shift covering the core is not flagged', async () => {
+      const anna = await seedEmployee(ctx.prisma, {
+        personalNo: '1001',
+        firstName: 'Anna',
+        lastName: 'Mueller',
+        email: 'anna@test.local',
+      });
+      await morningCoreSchedule(anna.id);
+      // Berlin 09:00–12:00 → covers the 10:00–11:00 core.
+      await ctx.prisma.timeEntry.create({
+        data: {
+          employeeId: anna.id,
+          clockIn: new Date('2026-06-16T07:00:00Z'),
+          clockOut: new Date('2026-06-16T10:00:00Z'),
+          status: 'Approved',
+        },
+      });
+
+      const res = await ctx.http
+        .get(`/api/violations?employeeId=${anna.id}`)
+        .expect(200);
+      expect(res.body).toEqual([]);
+    });
+
+    it('a Berlin-morning shift missing the core is still flagged', async () => {
+      const anna = await seedEmployee(ctx.prisma, {
+        personalNo: '1002',
+        firstName: 'Anna',
+        lastName: 'Mueller',
+        email: 'anna2@test.local',
+      });
+      await morningCoreSchedule(anna.id);
+      // Berlin 09:00–09:30 only → the 10:00–11:00 core is fully uncovered.
+      await ctx.prisma.timeEntry.create({
+        data: {
+          employeeId: anna.id,
+          clockIn: new Date('2026-06-16T07:00:00Z'),
+          clockOut: new Date('2026-06-16T07:30:00Z'),
+          status: 'Approved',
+        },
+      });
+
+      const res = await ctx.http
+        .get(`/api/violations?employeeId=${anna.id}`)
+        .expect(200);
+      expect(res.body).toHaveLength(1);
+      expect(res.body[0]).toMatchObject({ boundary: '10:00–11:00', deltaMinutes: 60 });
+    });
+  });
+
   it('Vertrauensarbeitszeit employees never have core-time violations', async () => {
     const hr = await seedEmployee(ctx.prisma, {
       personalNo: '0001',
