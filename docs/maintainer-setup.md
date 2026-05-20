@@ -51,7 +51,7 @@ kleines privates Ops-/Doku-Repo (Modell C) für interne Planungsdocs.
 ## Empfohlenes Modell für OpenClockwork
 
 ```
-┌─────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────┐
 │  github.com/<user>/openclockwork   (PUBLIC)              │
 │  · App-Code, libs, prisma                                │
 │  · infra/azure/  (generische Bicep-Templates, OHNE Werte)│
@@ -64,18 +64,18 @@ kleines privates Ops-/Doku-Repo (Modell C) für interne Planungsdocs.
 │  · Environment-Secrets: AZURE_CLIENT_ID / _TENANT_ID /   │
 │    _SUBSCRIPTION_ID                                      │
 │  · Protection Rule: nur Branch `main`, optional Reviewer │
-└─────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────┘
                           │ deployt nach
                           ▼
                   Azure (Resource Group, ACA, …)
 
   (optional, privat)
-┌─────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────┐
 │  github.com/<user>/openclockwork-internal  (PRIVATE)     │
 │  · interne Planungsdocs, base-instructions.md, Backlog   │
 │  · KEIN App-Code — nur Notizen / umgebungsspezifische    │
 │    Parameter-Vorlagen                                    │
-└─────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────┘
 ```
 
 Der App-Code lebt **ausschließlich** im öffentlichen Repo. Es gibt
