@@ -10,6 +10,17 @@ OpenClockwork is a self-hostable working-time tracker for small and mid-sized or
 
 The project is intentionally small in scope and opinionated in its choices, so a single developer or a small team can stand it up, run it, and trust the numbers.
 
+<p align="center">
+  <img src="assets/screenshots/mobile/booking.jpg" alt="OpenClockwork mobile clock-in and clock-out view with optional GPS" width="30%">
+  <img src="assets/screenshots/mobile/calendar.jpg" alt="OpenClockwork mobile annual absence calendar" width="30%">
+  <img src="assets/screenshots/mobile/vacation-request.jpg" alt="OpenClockwork mobile vacation request with live leave balance" width="30%">
+</p>
+
+<p align="center">
+  <strong>Mobile-first PWA for employees, managers, and HR.</strong><br>
+  <a href="FEATURES.md">Explore the complete feature overview</a>
+</p>
+
 ## Project status
 
 **Alpha — under active development.** APIs, schemas, and UI flows will change without notice until a `0.1.0` tag is published. Do not run this in production yet.
@@ -23,6 +34,8 @@ Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignor
 - **PWA-first mobile experience.** Employees clock in and out from their phones with optional GPS — no app-store gatekeeper, no native build pipeline.
 - **API-first.** The web client is just one consumer of the public REST + WebSocket API. ERP integration is a first-class endpoint, not an afterthought.
 - **Open source under Apache 2.0.** Fork it, embed it, sell support around it. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for the terms.
+
+See the [complete feature overview](FEATURES.md) for employee, manager, HR, integration, and deployment capabilities.
 
 ## Tech stack
 
