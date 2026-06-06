@@ -5,8 +5,9 @@ small and mid-sized organisations. Its domain model focuses on German
 working-time workflows while keeping deployment and integration under the
 operator's control.
 
-> **Project status:** Alpha. The capabilities below are implemented, but APIs,
-> schemas, and user flows may still change before the first stable release.
+> **Project status:** Beta. The capabilities below are implemented and covered
+> by automated tests. APIs, schemas, and user flows may still evolve before the
+> first stable release.
 
 ## Mobile PWA
 
@@ -117,13 +118,14 @@ configuration.
 - Nx workspace with lint, type-check, build, unit, integration, and browser
   test targets
 
-## Current Limitations
+## Beta Considerations
 
-- OpenClockwork is in alpha and is not yet recommended for production use.
-- There is no hosted public demo or stable release yet.
-- Public APIs and database schemas may change before `0.1.0`.
-- Organisation-specific labour agreements and payroll integrations require
-  validation and potentially customisation.
+- There is currently no hosted public demo or stable release.
+- Public APIs and database schemas may still evolve before the first stable
+  release.
+- Production deployments should validate organisation-specific labour
+  agreements, payroll integrations, security requirements, backups, monitoring,
+  and operating procedures.
 
 ## Explore the Project
 
