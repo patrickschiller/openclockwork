@@ -1,0 +1,291 @@
+// Prisma schema for OpenClockwork.
+//
+// Single source of truth for the PostgreSQL database. Migrations are tracked
+// under prisma/migrations/ and must be checked into git. Never edit a migration
+// after it has been merged to main; create a new one instead.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// Enums
+// -------------------------------------------------------------
+
+enum Role {
+  Employee
+  Manager
+  HRAdmin
+}
+
+enum TimeModel {
+  Teilzeit
+  Vollzeit
+  Vertrauensarbeitszeit
+  Gleitzeit
+}
+
+enum EntrySource {
+  Manual
+  Pwa
+  Terminal
+  Erp
+}
+
+enum EntryStatus {
+  Open
+  Pending
+  Approved
+  Rejected
+}
+
+enum RequestType {
+  Vacation
+  HomeOffice
+  SpecialLeave
+  TimeAdjustment
+}
+
+enum RequestStatus {
+  Submitted
+  Approved
+  Rejected
+  Cancelled
+}
+
+enum WorkflowState {
+  Draft
+  Submitted
+  PendingSubstitute
+  PendingManager
+  PendingHr
+  Approved
+  Rejected
+  Cancelled
+}
+
+enum RequestEventKind {
+  Submitted
+  SubstituteAccepted
+  SubstituteDeclined
+  ManagerApproved
+  ManagerRejected
+  Returned
+  Resubmitted
+  HrConfirmed
+  HrRejected
+  Cancelled
+}
+
+// Absences are recorded facts (Krankheit / Schulung / Gleittage etc.), not
+// approval workflows. The enum is open so additional kinds can be added in
+// future without changing the model.
+enum ThemePreference {
+  Light
+  Dark
+  System
+}
+
+enum AbsenceKind {
+  Sickness
+  Training
+  Flextime
+}
+
+// -------------------------------------------------------------
+// Models
+// -------------------------------------------------------------
+
+model Employee {
+  id                            String                   @id @default(uuid()) @db.Uuid
+  personalNo                    String                   @unique
+  firstName                     String
+  lastName                      String
+  email                         String                   @unique
+  passwordHash                  String
+  role                          Role                     @default(Employee)
+  timeModel                     TimeModel
+  weeklyHours                   Decimal                  @db.Decimal(5, 2)
+  annualLeaveDays               Decimal                  @db.Decimal(5, 2)
+  startDate                     DateTime                 @db.Date
+  overtimeOpeningBalanceMinutes Int                      @default(0)
+  /// ISO-3166-2 code of the German state ("NW", "BY", …). Drives the holiday calendar.
+  bundesland                    String                   @default("NW") @db.VarChar(2)
+  /// User-facing dark/light mode preference. "System" follows the OS setting.
+  themePreference               ThemePreference          @default(System)
+  isActive                      Boolean                  @default(true)
+  managerId                     String?                  @db.Uuid
+  manager                       Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports                       Employee[]               @relation("ManagerToReports")
+  workScheduleId                String?                  @db.Uuid
+  workSchedule                  WorkSchedule?            @relation(fields: [workScheduleId], references: [id], onDelete: SetNull)
+  timeEntries                   TimeEntry[]
+  requests                      Request[]                @relation("RequestEmployee")
+  approverRequests              Request[]                @relation("RequestApprover")
+  substituteRequests            Request[]                @relation("RequestSubstitute")
+  leaveAllowances               EmployeeLeaveAllowance[]
+  events                        RequestEvent[]           @relation("EventActor")
+  uploadedAttachments           RequestAttachment[]
+  absences                      Absence[]
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+
+  @@index([role])
+  @@index([managerId])
+  @@index([workScheduleId])
+}
+
+// Frame and core working hours. A schedule is assigned per Employee
+// (Employee.workScheduleId). Multiple core-time windows per schedule are
+// supported (e.g. 10:00–11:00 and 14:00–15:00). Times are stored as
+// "HH:mm" strings; weekdays as a 7-bit mask (Mon=1, Tue=2, ..., Sun=64).
+model WorkSchedule {
+  id          String                 @id @default(uuid()) @db.Uuid
+  name        String                 @unique
+  description String?
+  frameStart  String // "HH:mm" — start of permitted booking window
+  frameEnd    String // "HH:mm" — end of permitted booking window
+  isDefault   Boolean                @default(false)
+  /// Working-days bitmask (Mon=1, Tue=2, ..., Sun=64). Default 31 = Mo–Fr.
+  /// Days outside the mask are non-working for Soll/Vacation accounting.
+  workingDays Int                    @default(31)
+  coreTimes   WorkScheduleCoreTime[]
+  employees   Employee[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+model WorkScheduleCoreTime {
+  id         String       @id @default(uuid()) @db.Uuid
+  scheduleId String       @db.Uuid
+  schedule   WorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  label      String?
+  start      String // "HH:mm"
+  end        String // "HH:mm"
+  weekdays   Int          @default(31) // bitmask Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64
+
+  @@index([scheduleId])
+}
+
+model TimeEntry {
+  id               String      @id @default(uuid()) @db.Uuid
+  employeeId       String      @db.Uuid
+  employee         Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  clockIn          DateTime
+  clockOut         DateTime?
+  source           EntrySource @default(Manual)
+  status           EntryStatus @default(Open)
+  requiresApproval Boolean     @default(false)
+  latitude         Decimal?    @db.Decimal(9, 6)
+  longitude        Decimal?    @db.Decimal(9, 6)
+  accuracyMeters   Decimal?    @db.Decimal(7, 2)
+  note             String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@index([employeeId, clockIn])
+  @@index([status])
+}
+
+model Request {
+  id                   String         @id @default(uuid()) @db.Uuid
+  employeeId           String         @db.Uuid
+  employee             Employee       @relation("RequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  type                 RequestType
+  status               RequestStatus  @default(Submitted)
+  workflowState        WorkflowState  @default(Submitted)
+  from                 DateTime
+  to                   DateTime
+  reason               String?
+  requiresApproval     Boolean        @default(false)
+  calculatedDays       Decimal        @default(0) @db.Decimal(6, 2)
+  halfDayStart         Boolean        @default(false)
+  halfDayEnd           Boolean        @default(false)
+  substituteId         String?        @db.Uuid
+  substitute           Employee?      @relation("RequestSubstitute", fields: [substituteId], references: [id], onDelete: SetNull)
+  substituteAcceptedAt DateTime?
+  currentApproverId    String?        @db.Uuid
+  currentApprover      Employee?      @relation("RequestApprover", fields: [currentApproverId], references: [id], onDelete: SetNull)
+  approverId           String?        @db.Uuid
+  hrConfirmedAt        DateTime?
+  cancelledAt          DateTime?
+  decidedAt            DateTime?
+  decisionNote         String?
+  events               RequestEvent[]
+  attachments          RequestAttachment[]
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([employeeId, workflowState])
+  @@index([currentApproverId])
+  @@index([substituteId])
+}
+
+// Files attached to a request — currently only used for Sonderurlaub
+// (SpecialLeave) where a Beleg is often required. Bytes live in the
+// configured StorageAdapter (local FS in dev, Blob in Azure); the DB
+// row carries metadata and the opaque storage key.
+model RequestAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  requestId    String   @db.Uuid
+  request      Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String   @unique
+  uploadedById String   @db.Uuid
+  uploadedBy   Employee @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  createdAt    DateTime @default(now())
+
+  @@index([requestId])
+}
+
+model RequestEvent {
+  id         String           @id @default(uuid()) @db.Uuid
+  requestId  String           @db.Uuid
+  request    Request          @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  kind       RequestEventKind
+  actorId    String?          @db.Uuid
+  actor      Employee?        @relation("EventActor", fields: [actorId], references: [id], onDelete: SetNull)
+  note       String?
+  occurredAt DateTime         @default(now())
+
+  @@index([requestId, occurredAt])
+}
+
+model Absence {
+  id         String      @id @default(uuid()) @db.Uuid
+  employeeId String      @db.Uuid
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kind       AbsenceKind @default(Sickness)
+  from       DateTime    @db.Date
+  to         DateTime    @db.Date
+  certified  Boolean     @default(false)
+  note       String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([employeeId, from])
+  @@index([kind, from])
+}
+
+model EmployeeLeaveAllowance {
+  id                 String    @id @default(uuid()) @db.Uuid
+  employeeId         String    @db.Uuid
+  employee           Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year               Int
+  baseDays           Decimal   @db.Decimal(5, 2)
+  carryOverDays      Decimal   @default(0) @db.Decimal(5, 2)
+  carryOverExpiresOn DateTime? @db.Date
+  adjustmentDays     Decimal   @default(0) @db.Decimal(5, 2)
+  adjustmentReason   String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([employeeId, year])
+}

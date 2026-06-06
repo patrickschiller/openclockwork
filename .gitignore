@@ -1,0 +1,95 @@
+# --- Node / pnpm ---
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Build output ---
+dist/
+build/
+out/
+out-tsc/
+tmp/
+*.tsbuildinfo
+
+# --- Nx ---
+.nx/cache
+.nx/workspace-data
+
+# --- Vite ---
+.vite/
+dist-ssr/
+*.local
+
+# --- Test reporters / coverage ---
+coverage/
+.nyc_output/
+playwright-report/
+playwright/.cache/
+test-results/
+
+# --- Prisma ---
+# schema and migrations ARE tracked; only local engine binaries / generated client output are ignored
+prisma/.env
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Editors / IDEs ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.recommended.json
+.idea/
+*.iml
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Misc local state ---
+*.log
+.cache/
+.eslintcache
+.stylelintcache
+.turbo/
+
+# --- Internal docs / automation kept out of the public repo ---
+docs/
+base-instructions.md
+CLAUDE.md
+AGENTS.md
+infra/azure/README.md
+.github/workflows/
+.github/skills/
+.github/agents/
+.github/prompts/
+.claude/
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- Generated OpenAPI clients ---
+libs/api-client/generated/
+
+# --- Storybook ---
+storybook-static/
+
+vite.config.*.timestamp*
+vitest.config.*.timestamp*
+test-output
+
+# --- Azure infra: real .bicepparam files carry secrets ---
+infra/azure/*.bicepparam
+!infra/azure/*.example.bicepparam
+
+.nx/polygraph
+.claude/worktrees
+.claude/settings.local.json
