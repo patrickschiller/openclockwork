@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: openclockwork-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: openclockwork
+      POSTGRES_PASSWORD: openclockwork
+      POSTGRES_DB: openclockwork
+    ports:
+      - '5432:5432'
+    volumes:
+      - openclockwork-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U openclockwork -d openclockwork']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  openclockwork-db-data:
+    name: openclockwork-db-data

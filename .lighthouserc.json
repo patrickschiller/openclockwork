@@ -1,0 +1,49 @@
+{
+  "ci": {
+    "collect": {
+      "numberOfRuns": 3,
+      "settings": {
+        "preset": "desktop",
+        "chromeFlags": "--no-sandbox --headless=new --disable-gpu",
+        "onlyCategories": [
+          "performance",
+          "accessibility",
+          "best-practices",
+          "seo"
+        ]
+      }
+    },
+    "assert": {
+      "assertions": {
+        "categories:performance": ["warn", { "minScore": 0.7 }],
+        "categories:accessibility": ["error", { "minScore": 0.9 }],
+        "categories:best-practices": ["warn", { "minScore": 0.85 }],
+        "categories:seo": ["warn", { "minScore": 0.85 }],
+
+        "is-on-https": "off",
+
+        "color-contrast": "error",
+        "html-has-lang": "error",
+        "document-title": "error",
+        "meta-description": "warn",
+        "viewport": "error",
+        "image-alt": "error",
+        "label": "error",
+
+        "uses-text-compression": "warn",
+        "uses-responsive-images": "warn",
+        "modern-image-formats": "warn",
+        "unused-javascript": "warn",
+        "uses-long-cache-ttl": "off",
+
+        "no-document-write": "error",
+        "geolocation-on-start": "error",
+        "notification-on-start": "error",
+        "deprecations": "error"
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}

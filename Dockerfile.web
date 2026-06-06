@@ -1,0 +1,39 @@
+# syntax=docker/dockerfile:1.7
+
+# ---------- build stage ----------
+FROM node:20-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY nx.json tsconfig.base.json tsconfig.json ./
+COPY vitest.workspace.ts ./
+
+COPY apps ./apps
+COPY libs ./libs
+COPY prisma ./prisma
+
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile \
+ && pnpm prisma generate \
+ && pnpm nx build web
+
+# ---------- runtime stage ----------
+FROM nginx:1.27-alpine AS runtime
+
+# Static assets + envsubst-templated nginx config. The official entrypoint
+# substitutes ${API_UPSTREAM} into default.conf at container start; the
+# NGINX_ENVSUBST_FILTER keeps nginx's own $host / $remote_addr alone.
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+COPY ops/nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# Compose default — overridden in ACA to https://<api>.internal.<env-domain>.
+ENV API_UPSTREAM=http://api:3000 \
+    NGINX_ENVSUBST_FILTER=^API_UPSTREAM$
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:8080/ || exit 1

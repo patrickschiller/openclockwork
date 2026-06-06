@@ -1,0 +1,88 @@
+# Production nginx config template for the OpenClockwork web container.
+#
+# The official nginx image runs envsubst on /etc/nginx/templates/*.template
+# at container start; ${API_UPSTREAM} is the only variable that gets
+# substituted (NGINX_ENVSUBST_FILTER), so nginx's own $host / $remote_addr
+# / $http_upgrade etc. survive verbatim.
+#
+#   docker-compose : API_UPSTREAM=http://api:3000      (compose service DNS)
+#   Azure CA       : API_UPSTREAM=https://<api>.internal.<env-domain>
+#
+# Serves the React/Vite/PWA bundle from /usr/share/nginx/html and proxies
+# /api + /socket.io to the api upstream. SPA fallback ensures deep links
+# survive a hard refresh.
+
+server {
+    listen 8080 default_server;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Compress text-ish responses. Static assets are hashed + long-cached
+    # below, so the gzip cost is paid once per build.
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        application/manifest+json
+        application/xml
+        image/svg+xml
+        font/woff2;
+
+    # Long-cache hashed assets; never cache the service worker or manifest.
+    location ~* \.(?:js|css|woff2|png|svg|ico)$ {
+        expires 1y;
+        access_log off;
+        add_header Cache-Control "public, immutable, max-age=31536000";
+    }
+    location = /sw.js {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+    location = /manifest.webmanifest {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+
+    # API proxy. proxy_ssl_server_name is required when the upstream is
+    # HTTPS and routed through ACA's internal envoy — the envoy demands
+    # an SNI hostname to pick the right backend, and nginx omits it by
+    # default. Harmless when API_UPSTREAM is plain http://.
+    location /api/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+
+    # Socket.IO upgrades.
+    location /socket.io/ {
+        proxy_pass ${API_UPSTREAM};
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+    }
+
+    # SPA fallback — any unmatched path serves the React shell.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

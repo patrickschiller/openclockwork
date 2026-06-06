@@ -1,0 +1,561 @@
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { api, type BulkResult, type RequestDto } from '../api/client';
+import { useCurrentUser } from '../app/auth';
+import { cn } from '@/lib/utils';
+
+type BulkDialog =
+  | { mode: 'approve'; ids: string[] }
+  | { mode: 'reject'; ids: string[] }
+  | null;
+
+export function AdminRequestsPage() {
+  const user = useCurrentUser();
+  const isAuthorized = user.role === 'Manager' || user.role === 'HRAdmin';
+  const qc = useQueryClient();
+  const [drawerId, setDrawerId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDialog, setBulkDialog] = useState<BulkDialog>(null);
+  const [bulkOutcome, setBulkOutcome] = useState<BulkResult[] | null>(null);
+
+  const inboxQuery = useQuery({
+    queryKey: ['requests', 'admin-inbox', user.id],
+    queryFn: () =>
+      api.listRequests(
+        user.role === 'HRAdmin'
+          ? { workflowState: 'PendingHr' }
+          : { currentApproverId: user.id },
+      ),
+    enabled: isAuthorized,
+  });
+
+  const allQuery = useQuery({
+    queryKey: ['requests', 'admin-all'],
+    queryFn: () => api.listRequests({}),
+    enabled: isAuthorized,
+  });
+
+  const inbox = useMemo(() => inboxQuery.data ?? [], [inboxQuery.data]);
+  const all = useMemo(() => allQuery.data ?? [], [allQuery.data]);
+  const others = useMemo(
+    () => all.filter((r) => !inbox.some((i) => i.id === r.id)).slice(0, 20),
+    [all, inbox],
+  );
+
+  // Drop selections that are no longer in the inbox (e.g. after a refresh).
+  const inboxIds = useMemo(() => new Set(inbox.map((r) => r.id)), [inbox]);
+  const cleanedSelected = useMemo(() => {
+    const out = new Set<string>();
+    selected.forEach((id) => {
+      if (inboxIds.has(id)) out.add(id);
+    });
+    return out;
+  }, [selected, inboxIds]);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const selectAll = () => setSelected(new Set(inbox.map((r) => r.id)));
+  const clear = () => setSelected(new Set());
+
+  if (!isAuthorized) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>Diese Seite ist Manager:innen und HR-Admins vorbehalten.</AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="space-y-6 pb-24">
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight">Genehmigungen</h1>
+        <p className="text-sm text-muted-foreground">
+          {user.role === 'HRAdmin'
+            ? 'HR-Inbox: alle Anträge im Status PendingHr'
+            : 'Manager-Inbox: Anträge, in denen Du der/die nächste Approver:in bist'}
+        </p>
+      </div>
+
+      {bulkOutcome && (
+        <BulkResultBanner results={bulkOutcome} onDismiss={() => setBulkOutcome(null)} />
+      )}
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2">
+          <CardTitle>Posteingang ({inbox.length})</CardTitle>
+          {inbox.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <Button variant="ghost" size="sm" onClick={selectAll}>
+                Alle auswählen
+              </Button>
+              {cleanedSelected.size > 0 && (
+                <Button variant="ghost" size="sm" onClick={clear}>
+                  Auswahl aufheben
+                </Button>
+              )}
+            </div>
+          )}
+        </CardHeader>
+        <CardContent>
+          {inbox.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Keine offenen Anträge.</p>
+          ) : (
+            <RequestList
+              items={inbox}
+              role={user.role}
+              actorId={user.id}
+              onAudit={(id) => setDrawerId(id)}
+              qc={qc}
+              selectable
+              selected={cleanedSelected}
+              onToggle={toggle}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Letzte Aktivität</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RequestList
+            items={others}
+            role={user.role}
+            actorId={user.id}
+            onAudit={(id) => setDrawerId(id)}
+            qc={qc}
+            selectable={false}
+            selected={cleanedSelected}
+            onToggle={toggle}
+          />
+        </CardContent>
+      </Card>
+
+      <Sheet open={!!drawerId} onOpenChange={(open) => !open && setDrawerId(null)}>
+        <SheetContent side="right" className="w-full max-w-md sm:w-[480px]">
+          {drawerId && <AuditTrail requestId={drawerId} />}
+        </SheetContent>
+      </Sheet>
+
+      {cleanedSelected.size > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-20 border-t bg-card/95 px-4 py-3 backdrop-blur md:left-64">
+          <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-medium">
+              {cleanedSelected.size} Antrag{cleanedSelected.size === 1 ? '' : 'e'} ausgewählt
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" size="sm" onClick={clear}>
+                Aufheben
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setBulkDialog({ mode: 'reject', ids: Array.from(cleanedSelected) })}
+              >
+                Ablehnen
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setBulkDialog({ mode: 'approve', ids: Array.from(cleanedSelected) })}
+              >
+                Genehmigen
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bulkDialog && (
+        <BulkConfirmDialog
+          state={bulkDialog}
+          actorId={user.id}
+          onClose={() => setBulkDialog(null)}
+          onDone={(results) => {
+            setBulkOutcome(results);
+            setBulkDialog(null);
+            clear();
+            qc.invalidateQueries({ queryKey: ['requests'] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function BulkResultBanner({ results, onDismiss }: { results: BulkResult[]; onDismiss: () => void }) {
+  const ok = results.filter((r) => r.ok).length;
+  const fail = results.length - ok;
+  const failures = results.filter((r) => !r.ok);
+  return (
+    <Alert variant={fail > 0 ? 'destructive' : 'default'}>
+      <AlertDescription className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span>
+            {ok} erfolgreich, {fail} fehlgeschlagen.
+          </span>
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
+            ✕
+          </Button>
+        </div>
+        {failures.length > 0 && (
+          <ul className="ml-4 list-disc text-xs">
+            {failures.map((f) => (
+              <li key={f.id}>
+                <code className="font-mono">{f.id.slice(0, 8)}…</code> — {f.error}
+              </li>
+            ))}
+          </ul>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+interface BulkConfirmDialogProps {
+  state: NonNullable<BulkDialog>;
+  actorId: string;
+  onClose: () => void;
+  onDone: (results: BulkResult[]) => void;
+}
+
+function BulkConfirmDialog({ state, actorId, onClose, onDone }: BulkConfirmDialogProps) {
+  const [note, setNote] = useState('');
+  const [requiresHr, setRequiresHr] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = useMutation({
+    mutationFn: () => {
+      if (state.mode === 'approve') {
+        return api.bulkApproveRequests(actorId, state.ids, note || undefined, requiresHr);
+      }
+      return api.bulkRejectRequests(actorId, state.ids, note);
+    },
+    onSuccess: onDone,
+    onError: (e) => setError(e instanceof Error ? e.message : 'Bulk-Aktion fehlgeschlagen'),
+  });
+
+  const isApprove = state.mode === 'approve';
+  const noteRequired = !isApprove;
+  const valid = !noteRequired || note.trim().length > 0;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {isApprove ? 'Anträge genehmigen' : 'Anträge ablehnen'} ({state.ids.length})
+          </DialogTitle>
+          <DialogDescription>
+            {isApprove
+              ? 'Manager-Inbox-Einträge werden direkt genehmigt; HR-Inbox-Einträge werden HR-bestätigt. Off-Hours-Zeitkorrekturen gehen automatisch in die HR-Stufe.'
+              : 'Notiz ist Pflicht und wird auf jeden Antrag geschrieben.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="bulk-note" className="text-xs">
+              Notiz {noteRequired && <span className="text-destructive">*</span>}
+            </Label>
+            <Input
+              id="bulk-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={isApprove ? 'optional' : 'z. B. „Bitte als TimeAdjustment einreichen"'}
+            />
+          </div>
+          {isApprove && (
+            <label className="flex items-center gap-2 text-xs">
+              <input
+                type="checkbox"
+                checked={requiresHr}
+                onChange={(e) => setRequiresHr(e.target.checked)}
+              />
+              HR-Bestätigung erforderlich (für alle Manager-Inbox-Einträge)
+            </label>
+          )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Abbrechen
+          </Button>
+          <Button
+            variant={isApprove ? 'default' : 'destructive'}
+            disabled={!valid || submit.isPending}
+            onClick={() => {
+              setError(null);
+              submit.mutate();
+            }}
+          >
+            {submit.isPending
+              ? 'Verarbeite…'
+              : isApprove
+                ? `${state.ids.length} genehmigen`
+                : `${state.ids.length} ablehnen`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface RequestListProps {
+  items: RequestDto[];
+  role: 'Employee' | 'Manager' | 'HRAdmin';
+  actorId: string;
+  onAudit: (id: string) => void;
+  qc: ReturnType<typeof useQueryClient>;
+  selectable: boolean;
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+}
+
+function RequestList({ items, role, actorId, onAudit, qc, selectable, selected, onToggle }: RequestListProps) {
+  return (
+    <ul className="divide-y text-sm">
+      {items.map((r) => (
+        <RequestRow
+          key={r.id}
+          request={r}
+          role={role}
+          actorId={actorId}
+          onAudit={onAudit}
+          qc={qc}
+          selectable={selectable}
+          isSelected={selected.has(r.id)}
+          onToggle={() => onToggle(r.id)}
+        />
+      ))}
+    </ul>
+  );
+}
+
+interface RequestRowProps {
+  request: RequestDto;
+  role: 'Employee' | 'Manager' | 'HRAdmin';
+  actorId: string;
+  onAudit: (id: string) => void;
+  qc: ReturnType<typeof useQueryClient>;
+  selectable: boolean;
+  isSelected: boolean;
+  onToggle: () => void;
+}
+
+function RequestRow({ request, role, actorId, onAudit, qc, selectable, isSelected, onToggle }: RequestRowProps) {
+  const [note, setNote] = useState('');
+  const [requiresHr, setRequiresHr] = useState(false);
+
+  const refresh = () => qc.invalidateQueries({ queryKey: ['requests'] });
+
+  const forcedHr = request.type === 'TimeAdjustment' && request.requiresApproval;
+  const hrChecked = forcedHr || requiresHr;
+  const isTimeAdjustment = request.type === 'TimeAdjustment';
+
+  const approve = useMutation({
+    mutationFn: () => api.managerApprove(request.id, actorId, note || undefined, hrChecked),
+    onSuccess: refresh,
+  });
+  const reject = useMutation({
+    mutationFn: () => api.managerReject(request.id, actorId, note || undefined),
+    onSuccess: refresh,
+  });
+  const returnIt = useMutation({
+    mutationFn: () => api.returnRequest(request.id, actorId, note || 'Bitte überarbeiten'),
+    onSuccess: refresh,
+  });
+  const hrConfirm = useMutation({
+    mutationFn: () => api.hrConfirm(request.id, actorId, note || undefined),
+    onSuccess: refresh,
+  });
+  const hrReject = useMutation({
+    mutationFn: () => api.hrReject(request.id, actorId, note || 'Abgelehnt'),
+    onSuccess: refresh,
+  });
+
+  const inHrInbox = request.workflowState === 'PendingHr';
+  const inManagerInbox = request.workflowState === 'PendingManager';
+
+  return (
+    <li className={cn('space-y-2 py-3', isSelected && 'bg-accent/40 -mx-3 px-3 rounded')}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex items-start gap-2">
+          {selectable && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onToggle}
+              aria-label="Antrag auswählen"
+              className="mt-1 h-4 w-4"
+            />
+          )}
+          <div>
+            <p className="font-medium">
+              {request.type} ·{' '}
+              {isTimeAdjustment
+                ? `${new Date(request.from).toLocaleString('de-DE')} – ${new Date(request.to).toLocaleString('de-DE')}`
+                : `${new Date(request.from).toLocaleDateString('de-DE')} – ${new Date(request.to).toLocaleDateString('de-DE')}`}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {isTimeAdjustment
+                ? `${Math.max(0, Math.round((new Date(request.to).getTime() - new Date(request.from).getTime()) / 60_000))} min`
+                : `${Number(request.calculatedDays).toFixed(1)} Werktage`}
+              {request.reason ? ` · ${request.reason}` : ''}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {request.requiresApproval && <Badge variant="destructive">Sondergenehmigung</Badge>}
+          <Badge variant="secondary">{request.workflowState}</Badge>
+          <Button variant="ghost" size="sm" onClick={() => onAudit(request.id)}>
+            Verlauf
+          </Button>
+        </div>
+      </div>
+
+      {((role === 'Manager' && inManagerInbox) || (role === 'HRAdmin' && (inHrInbox || inManagerInbox))) && (
+        <div className="rounded-md border bg-muted/30 p-3">
+          <Label htmlFor={`note-${request.id}`} className="text-xs">
+            Notiz
+          </Label>
+          <Input
+            id={`note-${request.id}`}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="optional"
+            className="mt-1 h-8 text-sm"
+          />
+          {forcedHr && inManagerInbox && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Außerhalb der Rahmenarbeitszeit — Genehmigung läuft automatisch in zwei Stufen
+              (Vorgesetzte/r, dann HR).
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {inManagerInbox && (
+              <>
+                <label className="flex items-center gap-1 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={hrChecked}
+                    disabled={forcedHr}
+                    onChange={(e) => setRequiresHr(e.target.checked)}
+                  />
+                  HR-Bestätigung erforderlich
+                </label>
+                <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate()}>
+                  Genehmigen
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={reject.isPending}
+                  onClick={() => reject.mutate()}
+                >
+                  Ablehnen
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={returnIt.isPending}
+                  onClick={() => returnIt.mutate()}
+                >
+                  Zur Korrektur
+                </Button>
+              </>
+            )}
+            {role === 'HRAdmin' && inHrInbox && (
+              <>
+                <Button size="sm" disabled={hrConfirm.isPending} onClick={() => hrConfirm.mutate()}>
+                  HR-bestätigen
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={hrReject.isPending}
+                  onClick={() => hrReject.mutate()}
+                >
+                  HR-ablehnen
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function AuditTrail({ requestId }: { requestId: string }) {
+  const requestQuery = useQuery({
+    queryKey: ['request', requestId],
+    queryFn: () => api.getRequest(requestId),
+  });
+  const eventsQuery = useQuery({
+    queryKey: ['request-events', requestId],
+    queryFn: () => api.getRequestEvents(requestId),
+  });
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle>Audit-Verlauf</SheetTitle>
+        <SheetDescription>
+          {requestQuery.data
+            ? `${requestQuery.data.type} · ${new Date(requestQuery.data.from).toLocaleDateString('de-DE')} – ${new Date(requestQuery.data.to).toLocaleDateString('de-DE')}`
+            : '…'}
+        </SheetDescription>
+      </SheetHeader>
+      <div className="mt-4">
+        {eventsQuery.data && eventsQuery.data.length > 0 ? (
+          <ol className="space-y-3 text-sm">
+            {eventsQuery.data.map((ev) => (
+              <li key={ev.id} className="rounded-md border p-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{ev.kind}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(ev.at).toLocaleString('de-DE')}
+                  </span>
+                </div>
+                {ev.note && <p className="mt-1 text-xs text-muted-foreground">{ev.note}</p>}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="text-sm text-muted-foreground">Keine Events.</p>
+        )}
+      </div>
+    </>
+  );
+}

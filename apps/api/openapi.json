@@ -1,0 +1,2301 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/employees": {
+      "get": {
+        "operationId": "EmployeesController_list",
+        "parameters": [
+          {
+            "name": "includeInactive",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "employees"
+        ]
+      },
+      "post": {
+        "operationId": "EmployeesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEmployeeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/employees/{id}": {
+      "get": {
+        "operationId": "EmployeesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "employees"
+        ]
+      },
+      "put": {
+        "operationId": "EmployeesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEmployeeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ]
+      },
+      "delete": {
+        "operationId": "EmployeesController_deactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/employees/{id}/password": {
+      "post": {
+        "operationId": "EmployeesController_setPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/employees/{id}/reactivate": {
+      "post": {
+        "operationId": "EmployeesController_reactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "employees"
+        ]
+      }
+    },
+    "/api/work-schedules": {
+      "get": {
+        "operationId": "WorkSchedulesController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "work-schedules"
+        ]
+      },
+      "post": {
+        "operationId": "WorkSchedulesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertWorkScheduleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "work-schedules"
+        ]
+      }
+    },
+    "/api/work-schedules/{id}": {
+      "get": {
+        "operationId": "WorkSchedulesController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "work-schedules"
+        ]
+      },
+      "put": {
+        "operationId": "WorkSchedulesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertWorkScheduleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "work-schedules"
+        ]
+      },
+      "delete": {
+        "operationId": "WorkSchedulesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "work-schedules"
+        ]
+      }
+    },
+    "/api/work-schedules/{id}/assign": {
+      "post": {
+        "operationId": "WorkSchedulesController_assign",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignToEmployeeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "work-schedules"
+        ]
+      }
+    },
+    "/api/work-schedules/{id}/bulk-assign": {
+      "post": {
+        "operationId": "WorkSchedulesController_bulkAssign",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkAssignDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "work-schedules"
+        ]
+      }
+    },
+    "/api/timeentries": {
+      "get": {
+        "operationId": "TimeEntriesController_list",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "time-entries"
+        ]
+      }
+    },
+    "/api/timeentries/clock-in": {
+      "post": {
+        "operationId": "TimeEntriesController_clockIn",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClockInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "time-entries"
+        ]
+      }
+    },
+    "/api/timeentries/clock-out": {
+      "post": {
+        "operationId": "TimeEntriesController_clockOut",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClockOutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "time-entries"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/leave-allowances": {
+      "get": {
+        "operationId": "LeaveAllowancesController_list",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "leave-allowances"
+        ]
+      }
+    },
+    "/api/employees/{employeeId}/leave-allowances/{year}": {
+      "put": {
+        "operationId": "LeaveAllowancesController_upsert",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpsertLeaveAllowanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "leave-allowances"
+        ]
+      }
+    },
+    "/api/admin/leave-allowances/expire-carryovers": {
+      "post": {
+        "operationId": "LeaveAllowancesAdminController_expireCarryOvers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/accounts/{employeeId}": {
+      "get": {
+        "operationId": "AccountsController_account",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/accounts/{employeeId}/vacation": {
+      "get": {
+        "operationId": "AccountsController_vacationBalance",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/requests": {
+      "get": {
+        "operationId": "RequestsController_list",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workflowState",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "approverId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "currentApproverId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "substituteId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      },
+      "post": {
+        "operationId": "RequestsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}": {
+      "get": {
+        "operationId": "RequestsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/events": {
+      "get": {
+        "operationId": "RequestsController_events",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/vacation": {
+      "post": {
+        "operationId": "RequestsController_createVacation",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateVacationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/approve": {
+      "post": {
+        "operationId": "RequestsController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/reject": {
+      "post": {
+        "operationId": "RequestsController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/manager-approve": {
+      "post": {
+        "operationId": "RequestsController_managerApprove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagerApproveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/manager-reject": {
+      "post": {
+        "operationId": "RequestsController_managerReject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/hr-confirm": {
+      "post": {
+        "operationId": "RequestsController_hrConfirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/hr-reject": {
+      "post": {
+        "operationId": "RequestsController_hrReject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionWithRequiredNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/substitute/accept": {
+      "post": {
+        "operationId": "RequestsController_substituteAccept",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/substitute/decline": {
+      "post": {
+        "operationId": "RequestsController_substituteDecline",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionWithRequiredNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/return": {
+      "post": {
+        "operationId": "RequestsController_returnForRevision",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionWithRequiredNoteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/{id}/cancel": {
+      "post": {
+        "operationId": "RequestsController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/bulk-approve": {
+      "post": {
+        "operationId": "RequestsController_bulkApprove",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkApproveDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/requests/bulk-reject": {
+      "post": {
+        "operationId": "RequestsController_bulkReject",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkRejectDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "requests"
+        ]
+      }
+    },
+    "/api/absences": {
+      "get": {
+        "operationId": "AbsencesController_list",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "absences"
+        ]
+      },
+      "post": {
+        "operationId": "AbsencesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAbsenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "absences"
+        ]
+      }
+    },
+    "/api/absences/{id}": {
+      "put": {
+        "operationId": "AbsencesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAbsenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "absences"
+        ]
+      },
+      "delete": {
+        "operationId": "AbsencesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "absences"
+        ]
+      }
+    },
+    "/api/requests/{requestId}/attachments": {
+      "post": {
+        "operationId": "AttachmentsController_upload",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "attachments"
+        ]
+      },
+      "get": {
+        "operationId": "AttachmentsController_list",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/attachments/{id}": {
+      "get": {
+        "operationId": "AttachmentsController_download",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "attachments"
+        ]
+      },
+      "delete": {
+        "operationId": "AttachmentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "attachments"
+        ]
+      }
+    },
+    "/api/violations": {
+      "get": {
+        "operationId": "ViolationsController_list",
+        "parameters": [
+          {
+            "name": "employeeId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "violations"
+        ]
+      }
+    },
+    "/api/erp/timeentries": {
+      "get": {
+        "operationId": "ErpExportController_list",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "erp"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "OpenClockwork API",
+    "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
+    "version": "0.1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "hannah.roth@openclockwork.test"
+          },
+          "password": {
+            "type": "string",
+            "example": "openclockwork"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "RefreshDto": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "A refresh token previously returned from /auth/login or /auth/refresh."
+          }
+        },
+        "required": [
+          "refreshToken"
+        ]
+      },
+      "CreateEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "personalNo": {
+            "type": "string",
+            "example": "1001",
+            "maxLength": 40
+          },
+          "firstName": {
+            "type": "string",
+            "example": "Anna",
+            "maxLength": 120
+          },
+          "lastName": {
+            "type": "string",
+            "example": "Mueller",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "example": "anna.mueller@openclockwork.test",
+            "maxLength": 200
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 120,
+            "description": "Initial password — bcrypt-hashed on the server."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Employee",
+              "Manager",
+              "HRAdmin"
+            ],
+            "example": "Employee"
+          },
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ],
+            "example": "Vollzeit"
+          },
+          "weeklyHours": {
+            "type": "number",
+            "example": 40,
+            "minimum": 0
+          },
+          "annualLeaveDays": {
+            "type": "number",
+            "example": 30,
+            "minimum": 0
+          },
+          "startDate": {
+            "type": "string",
+            "example": "2026-04-01",
+            "description": "ISO date when the employee starts; Soll-Stunden are counted from here."
+          },
+          "overtimeOpeningBalanceMinutes": {
+            "type": "number",
+            "example": 0,
+            "description": "One-time overtime carry-over in minutes (signed)."
+          },
+          "bundesland": {
+            "type": "string",
+            "enum": [
+              "BW",
+              "BY",
+              "BE",
+              "BB",
+              "HB",
+              "HH",
+              "HE",
+              "MV",
+              "NI",
+              "NW",
+              "RP",
+              "SL",
+              "SN",
+              "ST",
+              "SH",
+              "TH"
+            ],
+            "default": "NW",
+            "description": "ISO-3166-2 code of the German state — drives the holiday calendar."
+          },
+          "managerId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "workScheduleId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "personalNo",
+          "firstName",
+          "lastName",
+          "email",
+          "password",
+          "role",
+          "timeModel",
+          "weeklyHours",
+          "annualLeaveDays",
+          "startDate"
+        ]
+      },
+      "UpdateEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "personalNo": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "firstName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Employee",
+              "Manager",
+              "HRAdmin"
+            ]
+          },
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ]
+          },
+          "weeklyHours": {
+            "type": "number",
+            "minimum": 0
+          },
+          "annualLeaveDays": {
+            "type": "number",
+            "minimum": 0
+          },
+          "startDate": {
+            "type": "string",
+            "example": "2026-04-01"
+          },
+          "overtimeOpeningBalanceMinutes": {
+            "type": "number"
+          },
+          "bundesland": {
+            "type": "string",
+            "enum": [
+              "BW",
+              "BY",
+              "BE",
+              "BB",
+              "HB",
+              "HH",
+              "HE",
+              "MV",
+              "NI",
+              "NW",
+              "RP",
+              "SL",
+              "SN",
+              "ST",
+              "SH",
+              "TH"
+            ]
+          },
+          "managerId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "workScheduleId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SetPasswordDto": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "password"
+        ]
+      },
+      "CoreTimeWindowDto": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 120,
+            "example": "Vormittag"
+          },
+          "start": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "10:00"
+          },
+          "end": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "11:00"
+          },
+          "weekdays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 127,
+            "description": "Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Mo–Fr = 31."
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "weekdays"
+        ]
+      },
+      "UpsertWorkScheduleDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "description": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "frameStart": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "07:00"
+          },
+          "frameEnd": {
+            "type": "string",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+            "example": "23:00"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "default": false
+          },
+          "workingDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 127,
+            "default": 31,
+            "description": "Working-day bitmask. Mon=1, Tue=2, …, Sun=64. Mo–Fr = 31, Mo–Sa = 63."
+          },
+          "coreTimes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CoreTimeWindowDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "frameStart",
+          "frameEnd",
+          "coreTimes"
+        ]
+      },
+      "AssignToEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "employeeId"
+        ]
+      },
+      "BulkAssignDto": {
+        "type": "object",
+        "properties": {
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ]
+          },
+          "overrideExisting": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "timeModel"
+        ]
+      },
+      "ClockInDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "latitude": {
+            "type": "object",
+            "nullable": true,
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "object",
+            "nullable": true,
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyMeters": {
+            "type": "object",
+            "nullable": true,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "employeeId"
+        ]
+      },
+      "ClockOutDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "employeeId"
+        ]
+      },
+      "UpsertLeaveAllowanceDto": {
+        "type": "object",
+        "properties": {
+          "baseDays": {
+            "type": "number",
+            "minimum": 0,
+            "example": 30
+          },
+          "carryOverDays": {
+            "type": "number",
+            "minimum": 0,
+            "example": 0
+          },
+          "carryOverExpiresOn": {
+            "type": "object",
+            "nullable": true,
+            "format": "date"
+          },
+          "adjustmentDays": {
+            "type": "number",
+            "example": 0,
+            "description": "Signed adjustment days (e.g. half-year entry pro-rata)."
+          },
+          "adjustmentReason": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "baseDays",
+          "carryOverDays",
+          "adjustmentDays"
+        ]
+      },
+      "CreateRequestDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "Vacation",
+              "HomeOffice",
+              "SpecialLeave",
+              "TimeAdjustment"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-03T00:00:00.000Z"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-07T00:00:00.000Z"
+          },
+          "reason": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "employeeId",
+          "type",
+          "from",
+          "to"
+        ]
+      },
+      "CreateVacationDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "substituteId": {
+            "type": "object",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "halfDayStart": {
+            "type": "boolean",
+            "default": false,
+            "description": "Take the first day as a half-day"
+          },
+          "halfDayEnd": {
+            "type": "boolean",
+            "default": false,
+            "description": "Take the last day as a half-day"
+          }
+        },
+        "required": [
+          "employeeId",
+          "from",
+          "to"
+        ]
+      },
+      "TransitionDto": {
+        "type": "object",
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "actorId"
+        ]
+      },
+      "ManagerApproveDto": {
+        "type": "object",
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "requiresHrConfirmation": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "actorId"
+        ]
+      },
+      "TransitionWithRequiredNoteDto": {
+        "type": "object",
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "actorId",
+          "note"
+        ]
+      },
+      "BulkApproveDto": {
+        "type": "object",
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "requiresHrConfirmation": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "actorId",
+          "ids"
+        ]
+      },
+      "BulkRejectDto": {
+        "type": "object",
+        "properties": {
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "actorId",
+          "ids",
+          "note"
+        ]
+      },
+      "CreateAbsenceDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "Sickness",
+              "Training",
+              "Flextime"
+            ],
+            "default": "Sickness"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "certified": {
+            "type": "boolean",
+            "default": false,
+            "description": "Sickness only: ärztliches Attest vorgelegt."
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "employeeId",
+          "from",
+          "to"
+        ]
+      },
+      "UpdateAbsenceDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "certified": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 2000
+          }
+        }
+      }
+    }
+  }
+}
