@@ -4,7 +4,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![DCO](https://img.shields.io/badge/DCO-required-blue)](CONTRIBUTING.md#developer-certificate-of-origin-dco)
-[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#project-status)
+[![Status: beta](https://img.shields.io/badge/status-beta-blue)](#project-status)
 
 OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. It models real-world German labour-law requirements (statutory break deduction, _Soll/Ist_ hour accounts, vacation balances, multi-stage approval workflows for _Urlaub_, _Home-Office_, _Sonderurlaub_, _Zeitanträge_) — but it is built to be useful anywhere that needs a credible alternative to commercial _Zeiterfassung_ products.
 
@@ -23,7 +23,7 @@ The project is intentionally small in scope and opinionated in its choices, so a
 
 ## Project status
 
-**Alpha — under active development.** APIs, schemas, and UI flows will change without notice until a `0.1.0` tag is published. Do not run this in production yet.
+**Beta — feature-complete and tested for the current scope.** The core employee, manager, HR, approval, reporting, and self-hosting workflows are implemented and covered by automated tests. Before a production rollout, validate organisation-specific working-time rules, integrations, security requirements, and operating procedures.
 
 ## Why another time tracker?
 
