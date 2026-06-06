@@ -1,221 +1,166 @@
-# Maintainer-Setup — OSS-Projekt mit privater Test-/Demo-Umgebung
+# Maintainer-Setup: Public OSS + privates Internal-Repo
 
-> Maintainer-Doku. Beschreibt, wie OpenClockwork als öffentliches
-> Open-Source-Projekt geführt wird und wie der Maintainer parallel eine
-> eigene Azure-Test-/Demo-Umgebung betreibt — ohne ein zweites,
-> dauerhaft zu synchronisierendes Code-Repo.
+> Interne Maintainer-Dokumentation. Beschreibt die Aufteilung von
+> OpenClockwork auf ein öffentliches OSS-Repo mit frischer Historie und ein
+> privates Internal-Repo mit der vollständigen Entwicklungshistorie.
 
-## Das Zielbild
+## Zielbild
 
-Zwei Dinge sollen gleichzeitig stimmen:
+OpenClockwork wird in zwei bewusst unterschiedlich verantwortete Repositories
+aufgeteilt:
 
-1. **Ein öffentliches Repo** ist die kanonische Quelle des Projekts —
-   Contributions, Releases, Issues, der ganze OSS-Betrieb.
-2. **Der Maintainer betreibt eine eigene Umgebung** (Test/Demo) auf
-   Azure, automatisch per GitHub Action deployt.
+| Repository                               | Sichtbarkeit | Verantwortung                                                                         |
+| ---------------------------------------- | ------------ | ------------------------------------------------------------------------------------- |
+| `patrickschiller/openclockwork`          | public       | Kanonische Quelle für App-Code, öffentliche Beiträge, Releases und Issues             |
+| `patrickschiller/openclockwork-internal` | private      | Interne Docs, private CI/CD-Workflows, Demo-Deployment und vollständige alte Historie |
 
-Der naheliegende Reflex — „ich klone das Repo privat, entwickle dort und
-schiebe Fertiges per Pull Request ins öffentliche Repo" — ist fast immer
-der **falsche** Weg. Warum, steht unten unter *Anti-Pattern*. Vorab die
-zwei Kernfakten, die alles vereinfachen:
+Das Public-Repo beginnt mit einem frischen Initial-Commit. Dadurch enthält
+seine Git-Historie keine früher gelöschten internen Dateien oder
+umgebungsspezifischen Informationen.
 
-- **GitHub-Actions-Secrets sind auch in einem öffentlichen Repo
-  verschlüsselt und unsichtbar.** Ein public Repo legt keine Secrets
-  offen. Deshalb darf der Deploy-Workflow im öffentlichen Repo leben.
-- **Sobald du einen Pull Request öffnest, ist sein Inhalt sichtbar.**
-  „Privat entwickeln, dann per PR veröffentlichen" hält also ohnehin
-  nichts geheim — der PR *ist* die Veröffentlichung.
+Nach der Aufteilung gilt:
 
-## Kurzfassung der Empfehlung
+- App-Code wird im **Public-Repo** entwickelt und gemergt.
+- Interne Dokumentation und private Automatisierung werden ausschließlich im
+  **Internal-Repo** gepflegt.
+- Das Internal-Repo übernimmt Public-Änderungen über automatisiert erzeugte
+  Sync-PRs.
+- Änderungen am App-Code werden nicht direkt im Internal-Repo vorgenommen.
 
-> **Entwickle im Öffentlichen. Halte Secrets aus dem Repo. Trenne
-> „das Projekt" von „meiner Installation davon" über GitHub
-> Environments — nicht über ein zweites Code-Repo.**
+## Warum kein vollständiger Mirror?
 
-Ein vollständiger privater Fork des Codes ist nur gerechtfertigt, wenn
-echter, dauerhaft geheimer *Code* existiert. Bei OpenClockwork ist das
-nicht der Fall: die Bicep-Templates sind generisch, Secrets liegen in
-Key Vault / GitHub-Secrets, nicht im Code.
+Ein Git-Mirror würde den Public-Dateibaum und die Public-Historie vollständig
+ins Internal-Repo spiegeln und dabei interne Dateien oder interne Commits
+überschreiben. Stattdessen verwendet OpenClockwork normale Git-Merges:
 
-## Drei Modelle im Vergleich
+1. Ein einmaliger Baseline-Merge markiert den Public-Initial-Commit als bereits
+   im Internal-Repo enthalten, ohne den internen Dateibaum zu verändern.
+2. Danach werden nur neue Public-Commits in interne Sync-Branches gemergt.
+3. Interne Dateien, die nie Teil der Public-Historie waren, bleiben unberührt.
 
-| Modell | Code-Repos | Sync-Aufwand | Wann sinnvoll |
-|---|---|---|---|
-| **A — Alles öffentlich** | 1 (public) | keiner | Standardfall. Deploy-Workflow + IaC sind generisch, Secrets via GitHub Environments. |
-| **B — Voller privater Fork** | 2 (private + public) | hoch, dauerhaft | Nur wenn dauerhaft geheimer *Code* existiert. Für OpenClockwork **nicht** nötig. |
-| **C — Public + kleines privates Ops-Repo** | 2 (public + winziges privates) | gering | Wenn umgebungsspezifische Werte / interne Doku aus dem Blick sollen — das Ops-Repo enthält *keinen App-Code*. |
+## Repository-Inhalte
 
-**Empfehlung für OpenClockwork: Modell A**, optional ergänzt um ein
-kleines privates Ops-/Doku-Repo (Modell C) für interne Planungsdocs.
+### Public: `openclockwork`
 
-## Empfohlenes Modell für OpenClockwork
+- `apps/`, `libs/`, `prisma/`, generische Infrastruktur und Docker-Dateien
+- `README`, `LICENSE`, `NOTICE`, `CONTRIBUTING`, `SECURITY`, Code of Conduct
+- öffentliche Issue- und Pull-Request-Templates
+- keine internen Planungsdocs
+- keine GitHub-Actions-Workflows
 
+### Private: `openclockwork-internal`
+
+- vollständiger Public-App-Code als regelmäßig synchronisierte Basis
+- interne Docs, Architekturentscheidungen, Backlog und Arbeitspläne
+- `base-instructions.md`, `CLAUDE.md`, `AGENTS.md`
+- private GitHub Actions für CI, Deployment und Public-Synchronisierung
+- umgebungsspezifische Vorlagen, aber keine echten Secrets
+
+## Public-to-Internal-Synchronisierung
+
+Der Workflow `.github/workflows/sync-public.yml` läuft:
+
+- regelmäßig nach Zeitplan;
+- manuell über `workflow_dispatch`.
+
+Er führt folgende Schritte aus:
+
+1. Internal-`main` auschecken.
+2. Public-`main` als zusätzliches Remote abrufen.
+3. Branch `sync/public-main` neu von Internal-`main` aufbauen.
+4. Public-`main` hineinmergen.
+5. Bei Änderungen einen internen Pull Request erstellen oder aktualisieren.
+
+Der Workflow verarbeitet ausschließlich bereits nach Public-`main` gemergten
+Code. Er checkt niemals ungeprüften Code aus öffentlichen Pull Requests aus und
+führt ihn nicht mit privaten Secrets aus.
+
+Voraussetzung im Internal-Repo:
+
+- Unter **Settings → Actions → General → Workflow permissions**:
+  `Read and write permissions` aktivieren.
+- `Allow GitHub Actions to create and approve pull requests` aktivieren.
+
+Bei Merge-Konflikten schlägt der Workflow sichtbar fehl. Der Konflikt wird
+dann manuell in einem internen Sync-Branch gelöst; es erfolgt kein
+automatischer Force-Merge.
+
+## Private CI und Deployments
+
+Private Workflows laufen ausschließlich im Internal-Repo. GitHub-Ereignisse
+aus dem Public-Repo starten sie nicht automatisch.
+
+Praktische Aufteilung:
+
+- Public PRs werden lokal oder über einen später separat eingerichteten,
+  minimal berechtigten externen CI-Dienst geprüft.
+- Der interne Sync-PR führt die privaten CI-Checks erneut aus.
+- Ein Merge des Sync-PRs nach Internal-`main` kann das private Demo-Deployment
+  auslösen.
+
+Falls private CI-Ergebnisse später als Required Status Check im Public-Repo
+erscheinen sollen, muss eine dedizierte GitHub App oder ein fein berechtigtes
+Token den Status für den Public-Commit über die GitHub API setzen.
+
+## Secrets und Azure OIDC
+
+Echte Secrets werden niemals committed, auch nicht in das private Repo.
+
+| Secret-Art             | Ablage                                       |
+| ---------------------- | -------------------------------------------- |
+| Azure-OIDC-Werte       | GitHub Environment-Secrets im Internal-Repo  |
+| Laufzeit-Secrets       | Azure Key Vault                              |
+| lokale Entwicklerwerte | gitignored `.env`- und `.bicepparam`-Dateien |
+
+Der Azure Federated Credential Subject verweist auf das Internal-Repo und das
+Deployment-Environment:
+
+```text
+repo:patrickschiller/openclockwork-internal:environment:demo
 ```
-┌──────────────────────────────────────────────────────────┐
-│  github.com/<user>/openclockwork   (PUBLIC)              │
-│  · App-Code, libs, prisma                                │
-│  · infra/azure/  (generische Bicep-Templates, OHNE Werte)│
-│  · Dockerfile.*, docker-compose*.yml                     │
-│  · .github/workflows/  (ci, deploy-azure, lighthouse,dco)│
-│  · öffentlichkeitstaugliche Doku (README, architecture,  │
-│    pitch, CONTRIBUTING, SECURITY)                        │
-│                                                          │
-│  GitHub Environment "demo":                              │
-│  · Environment-Secrets: AZURE_CLIENT_ID / _TENANT_ID /   │
-│    _SUBSCRIPTION_ID                                      │
-│  · Protection Rule: nur Branch `main`, optional Reviewer │
-└──────────────────────────────────────────────────────────┘
-                          │ deployt nach
-                          ▼
-                  Azure (Resource Group, ACA, …)
 
-  (optional, privat)
-┌──────────────────────────────────────────────────────────┐
-│  github.com/<user>/openclockwork-internal  (PRIVATE)     │
-│  · interne Planungsdocs, base-instructions.md, Backlog   │
-│  · KEIN App-Code — nur Notizen / umgebungsspezifische    │
-│    Parameter-Vorlagen                                    │
-└──────────────────────────────────────────────────────────┘
-```
+Damit kann das Public-Repo keine privaten Deployments auslösen.
 
-Der App-Code lebt **ausschließlich** im öffentlichen Repo. Es gibt
-nichts zu synchronisieren.
+## Arbeitsablauf
 
-## Wo Secrets leben — und warum ein public Repo sicher bleibt
+### Öffentliche App-Code-Änderung
 
-| Secret-Art | Ablageort | Im public Repo sichtbar? |
-|---|---|---|
-| Azure-OIDC-Login (Client/Tenant/Subscription) | GitHub **Environment-Secrets** | nein — verschlüsselt |
-| Laufzeit-Secrets (DB-URL, JWT, API-Keys) | Azure **Key Vault**, von der App über Managed Identity gelesen | nein — nie im Repo |
-| Lokale Entwickler-Werte | `.env`, `infra/azure/main.bicepparam` — **gitignored** | nein — nie committed |
-| Nicht-geheime Infra-Namen (RG, ACR …) | GitHub **Variables** *oder* Environment-Secrets | Variables: ja · Secrets: nein |
+1. Branch oder Fork von `patrickschiller/openclockwork`.
+2. Änderung entwickeln, testen und als Public-PR öffnen.
+3. Review und Merge nach Public-`main`.
+4. Der private Sync-Workflow erzeugt einen PR im Internal-Repo.
+5. Private CI prüfen, internen PR mergen und Demo deployen.
 
-Regeln:
+### Interne Änderung
 
-- **Niemals** ein echtes Secret in eine Datei committen — auch nicht in
-  ein privates Repo. Privat ≠ sicher; verschlüsselte Secret-Stores sind
-  sicher.
-- Workflow-**Logs** eines public Repos sind öffentlich, aber GitHub
-  maskiert Secret-Werte automatisch. Solange der Workflow Secrets nicht
-  selbst ins Log `echo`t, leakt nichts.
-- Was nicht geheim, aber „nicht für jeden" ist (Demo-URL, Resource-
-  Namen): als Environment-**Secret** statt Variable ablegen — dann ist
-  es ebenfalls unsichtbar.
+Interne Docs und private Workflows werden direkt über Branch + PR im
+Internal-Repo geändert. Sie werden nie in Richtung Public-Repo synchronisiert.
 
-## GitHub Environments — der richtige Hebel für dev/demo/prod
+## Einmalige Einrichtung
 
-Ein **Environment** (Repo → Settings → Environments) ist die saubere
-Trennung von Stages, ganz ohne zweites Repo:
+1. Bestehendes Repo in `openclockwork-internal` umbenennen und privat lassen.
+2. Neues öffentliches Repo `openclockwork` mit bereinigtem Initial-Commit
+   erstellen.
+3. Public-Repo als Remote des Internal-Repos hinzufügen.
+4. Einmaligen Baseline-Merge mit `--strategy=ours --allow-unrelated-histories`
+   erstellen und nach Internal-`main` pushen.
+5. Workflow-Berechtigungen für interne Sync-PRs aktivieren.
+6. Azure OIDC und GitHub Environment-Secrets auf
+   `openclockwork-internal` umstellen.
+7. Public- und Internal-Branch-Regeln getrennt konfigurieren.
 
-- **Environment-scoped Secrets/Variables** — `demo` und `prod` haben je
-  eigene Werte.
-- **Protection Rules** — Required Reviewers (Deploy erst nach Freigabe),
-  Wait Timer, *Deployment branches* (nur `main` darf nach `demo`).
-- Im Workflow-Job: `environment: demo` — der Job zieht dann genau
-  dieses Environment.
+## Branch-Regeln
 
-OIDC lässt sich zusätzlich **auf das Environment einschränken**: Der
-Federated-Credential-Subject wird statt
-`repo:<user>/openclockwork:ref:refs/heads/main` auf
-`repo:<user>/openclockwork:environment:demo` gesetzt. Dann funktioniert
-der Azure-Login *nur* aus einem Job, der im `demo`-Environment läuft.
+Für Public-`main`:
 
-## Branch Protection & Fork-PR-Sicherheit
+- Pull Request vor Merge verlangen.
+- keine Force-Pushes.
+- Commits mit DCO-Sign-off verlangen oder bei Review prüfen.
+- Required Status Checks erst aktivieren, sobald ein Public-CI-Anbieter sie
+  zuverlässig setzt.
 
-Der häufigste Sorgenpunkt bei „Deploy-Workflow in einem public Repo":
-*Kann ein fremder Pull Request meine Secrets abgreifen?*
+Für Internal-`main`:
 
-Nein — wenn man die GitHub-Defaults nicht aushebelt:
-
-- Bei einem **`pull_request`-Trigger aus einem Fork** laufen Workflows
-  **ohne Secrets** und mit read-only `GITHUB_TOKEN`. Ein Fork-PR kann
-  also keinen echten Deploy auslösen.
-- **`pull_request_target`** läuft *mit* Secrets im Kontext des
-  Basis-Repos — nur einsetzen, wenn man weiß was man tut, und niemals
-  ungeprüften Fork-Code damit auschecken/ausführen.
-- Der Deploy-Job hängt an `push` auf `main` **plus** `environment:`
-  mit Branch-Restriction — er läuft nur, wenn ein Maintainer nach `main`
-  merged.
-
-Pflicht-Einstellungen auf `main`:
-
-- Require pull request before merging (Review-Pflicht).
-- Require status checks: `ci`, DCO.
-- Keine Force-Pushes, keine direkten Pushes auf `main`.
-
-## Der Arbeitsablauf konkret
-
-### Als Maintainer
-
-1. Feature-Branch im **öffentlichen** Repo: `git checkout -b feat/xyz`.
-2. Entwickeln + lokal testen (lokaler Postgres via `docker compose`).
-3. Push des Branches, Pull Request gegen `main`.
-4. CI läuft (lint/typecheck/test/build + api-e2e). Review (auch
-   Self-Review ist ok für Solo-Maintainer), dann Merge.
-5. Merge auf `main` triggert `deploy-azure` → deployt ins
-   `demo`-Environment. Optional erst nach deiner Freigabe (Required
-   Reviewer am Environment).
-
-→ Kein zweites Repo. Deine „DEV-Umgebung" ist der Feature-Branch +
-deine lokale Maschine. Deine „Test-/Demo-Umgebung" ist das, wohin
-`main` deployt.
-
-### Als externer Contributor
-
-1. Fork des öffentlichen Repos.
-2. Branch + PR gegen `main` des Originals.
-3. CI läuft **ohne** Secrets (Fork-PR) — Build/Test/Lint genügen.
-4. Maintainer reviewt + merged. Erst der Merge deployt.
-
-## Was privat bleibt — und wie
-
-| Inhalt | Ablage |
-|---|---|
-| Echte Secrets | GitHub Environment-Secrets / Azure Key Vault — nie im Repo |
-| Umgebungsspezifische Parameter (`main.bicepparam`-Werte) | lokal, gitignored — oder im privaten Ops-Repo |
-| Interne Planungsdocs, `base-instructions.md`, Backlog | privates `*-internal`-Repo, privater Wiki, oder lokal |
-| Demo-URL / Resource-Namen | Environment-Secrets (unsichtbar) statt Variables |
-
-Wenn ein privates Repo gewünscht ist: **klein halten**. Es enthält
-Notizen und Konfig-Vorlagen, **keinen App-Code**. Damit gibt es keinen
-Merge-/Sync-Aufwand.
-
-## Konkrete Einrichtung für OpenClockwork (Schritt für Schritt)
-
-1. **Ein** öffentliches Repo `openclockwork`. App-Code, generische
-   `infra/azure/`-Bicep, Workflows, public-taugliche Doku.
-2. Interne Docs aussortieren: `base-instructions.md`, `docs/plans/`,
-   `docs/backlog.md`, `docs/implementation-status.md` in ein privates
-   `openclockwork-internal`-Repo (oder lokal). Im public Repo bleiben
-   `README`, `CONTRIBUTING`, `SECURITY`, `docs/architecture.md`,
-   `docs/pitch.md`, `docs/adr/`.
-3. GitHub Environment `demo` anlegen; Environment-Secrets
-   `AZURE_CLIENT_ID/_TENANT_ID/_SUBSCRIPTION_ID` dort hinterlegen.
-   Protection Rule: Deployment branch nur `main`.
-4. `deploy-azure.yml`: den Deploy-Jobs `environment: demo` geben.
-5. OIDC-Federated-Credential auf
-   `repo:<user>/openclockwork:environment:demo` umstellen (statt
-   `:ref:refs/heads/main`).
-6. `AZURE_WEB_FQDN` & Resource-Namen als Environment-Secrets statt
-   Variables, falls die Demo-URL nicht öffentlich auffindbar sein soll.
-7. Branch Protection auf `main` (PR-Pflicht, CI + DCO required).
-
-## Anti-Pattern: der vollständige private Fork
-
-Warum „privat entwickeln, per PR ins public Repo" nicht funktioniert
-wie erhofft:
-
-- **Es hält nichts geheim.** Ein PR legt seinen Diff offen — die
-  Veröffentlichung passiert beim PR, nicht „später".
-- **Permanente Sync-Steuer.** Zwei Code-Repos driften auseinander;
-  jeder Public-Merge muss zurück in den privaten Fork gemergt werden.
-  Das ist Dauer-Handarbeit und eine ständige Konflikt-Quelle.
-- **PRs brauchen eine Fork-Beziehung.** Aus einem *unverwandten*
-  privaten Repo kann man keinen PR ins public Repo öffnen — man landet
-  beim manuellen Cherry-Picken über Git-Remotes.
-- **Kein Sicherheitsgewinn.** Der Schutz kommt von verschlüsselten
-  Secret-Stores und Environment-Regeln, nicht von der Repo-Sichtbarkeit.
-
-Kurz: Ein privater Fork des *Codes* löst kein Problem, das nicht schon
-durch GitHub Environments + Key Vault gelöst ist — er kostet nur
-laufend Zeit.
+- Pull Request vor Merge verlangen.
+- private CI-Checks verlangen.
+- keine Force-Pushes.

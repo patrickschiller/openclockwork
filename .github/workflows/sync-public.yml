@@ -1,0 +1,58 @@
+name: Sync public main
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-public-main
+  cancel-in-progress: false
+
+env:
+  PUBLIC_REPOSITORY: patrickschiller/openclockwork
+  SYNC_BRANCH: sync/public-main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out internal repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Merge public main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add public "https://github.com/${PUBLIC_REPOSITORY}.git"
+          git fetch public main
+          git checkout -B "${SYNC_BRANCH}" origin/main
+          git merge --no-edit public/main
+
+          if git diff --quiet origin/main...HEAD; then
+            echo "Internal main already contains public main."
+            exit 0
+          fi
+
+          git push --force-with-lease origin "${SYNC_BRANCH}"
+
+          if gh pr view "${SYNC_BRANCH}" --json url --jq .url >/dev/null 2>&1; then
+            gh pr edit "${SYNC_BRANCH}" \
+              --title "chore: sync public main" \
+              --body "Automated merge of \`${PUBLIC_REPOSITORY}:main\` into the internal repository."
+          else
+            gh pr create \
+              --base main \
+              --head "${SYNC_BRANCH}" \
+              --title "chore: sync public main" \
+              --body "Automated merge of \`${PUBLIC_REPOSITORY}:main\` into the internal repository."
+          fi

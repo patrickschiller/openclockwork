@@ -37,25 +37,25 @@ az bicep install                          # used implicitly by az deployment
 ## One-time GitHub OIDC federation (for deploys without long-lived secrets)
 
 You need a Microsoft Entra app + service principal with a federated
-credential bound to this GitHub repo's `main` branch. Replace `<your-...>`
-placeholders before running:
+credential bound to this private GitHub repo's `demo` environment. Replace
+`<your-...>` placeholders before running:
 
 ```bash
 APP_NAME=openclockwork-deploy
 SUB_ID=$(az account show --query id -o tsv)
 TENANT_ID=$(az account show --query tenantId -o tsv)
-REPO=patrickschiller/openclockwork
+REPO=patrickschiller/openclockwork-internal
 
 # 1. Create the app + service principal.
 APP_ID=$(az ad app create --display-name "$APP_NAME" --query appId -o tsv)
 az ad sp create --id "$APP_ID"
 SP_OBJECT_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
 
-# 2. Federated credential — issued by GitHub Actions on pushes to main.
+# 2. Federated credential — issued only by jobs using the demo environment.
 az ad app federated-credential create --id "$APP_ID" --parameters "{
-  \"name\": \"github-main\",
+  \"name\": \"github-demo\",
   \"issuer\": \"https://token.actions.githubusercontent.com\",
-  \"subject\": \"repo:$REPO:ref:refs/heads/main\",
+  \"subject\": \"repo:$REPO:environment:demo\",
   \"audiences\": [\"api://AzureADTokenExchange\"]
 }"
 
