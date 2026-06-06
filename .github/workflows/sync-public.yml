@@ -36,7 +36,7 @@ jobs:
           git remote add public "https://github.com/${PUBLIC_REPOSITORY}.git"
           git fetch public main
           git checkout -B "${SYNC_BRANCH}" origin/main
-          git merge --no-edit public/main
+          git merge --no-edit --signoff public/main
 
           if git diff --quiet origin/main...HEAD; then
             echo "Internal main already contains public main."
