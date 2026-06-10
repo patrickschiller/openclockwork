@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, type ClockInPayload, type TimeEntryDto } from '../api/client';
+import { api, type BookableProjectDto, type ClockInPayload, type TimeEntryDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useOnline } from '../app/use-online';
 
@@ -36,6 +45,13 @@ function fmtSummary(entry: TimeEntryDto): string {
   return `Brutto ${h(grossMinutes)} · Pause ${breakMinutes}min · Netto ${h(netMinutes)}`;
 }
 
+/** ISO timestamp → value for <input type="datetime-local"> in local time. */
+function toLocalInputValue(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function BookingPage() {
   const user = useCurrentUser();
   const employeeId = user.id;
@@ -43,12 +59,20 @@ export function BookingPage() {
   const online = useOnline();
   const [useGps, setUseGps] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [projectDialogEntry, setProjectDialogEntry] = useState<TimeEntryDto | null>(null);
+  const [splitDialogEntry, setSplitDialogEntry] = useState<TimeEntryDto | null>(null);
 
   const entriesKey = ['time-entries', employeeId];
   const entriesQuery = useQuery({
     queryKey: entriesKey,
     queryFn: () => api.timeEntries(employeeId),
   });
+  const bookableQuery = useQuery({
+    queryKey: ['bookable-projects', employeeId],
+    queryFn: () => api.bookableProjects(employeeId),
+  });
+  const bookable = useMemo(() => bookableQuery.data ?? [], [bookableQuery.data]);
   const open = entriesQuery.data?.find((e) => !e.clockOut) ?? null;
 
   const clockInMutation = useMutation<TimeEntryDto, Error, void, { previous?: TimeEntryDto[] }>({
@@ -59,12 +83,14 @@ export function BookingPage() {
         latitude: gps?.latitude ?? null,
         longitude: gps?.longitude ?? null,
         accuracyMeters: gps?.accuracy ?? null,
+        projectId: selectedProjectId || null,
       };
       return api.clockIn(payload);
     },
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: entriesKey });
       const previous = qc.getQueryData<TimeEntryDto[]>(entriesKey);
+      const project = bookable.find((p) => p.id === selectedProjectId) ?? null;
       const optimistic: TimeEntryDto = {
         id: `optimistic-${Date.now()}`,
         employeeId,
@@ -76,6 +102,9 @@ export function BookingPage() {
         latitude: null,
         longitude: null,
         accuracyMeters: null,
+        projectId: project?.id ?? null,
+        projectCode: project?.code ?? null,
+        projectName: project?.name ?? null,
         summary: null,
       };
       qc.setQueryData<TimeEntryDto[]>(entriesKey, (old) => [optimistic, ...(old ?? [])]);
@@ -113,7 +142,9 @@ export function BookingPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">Buchung</h1>
-        <p className="text-sm text-muted-foreground">Kommen / Gehen mit optionalem GPS.</p>
+        <p className="text-sm text-muted-foreground">
+          Kommen / Gehen mit optionalem GPS und optionaler Projektbuchung.
+        </p>
       </div>
 
       {!online && (
@@ -146,7 +177,7 @@ export function BookingPage() {
           <CardTitle>{open ? 'Eingestempelt' : 'Nicht eingestempelt'}</CardTitle>
           <CardDescription>
             {open
-              ? `Seit ${fmtDateTime(open.clockIn)}`
+              ? `Seit ${fmtDateTime(open.clockIn)}${open.projectCode ? ` · Projekt ${open.projectCode}` : ''}`
               : 'Drücke „Kommen", um eine neue Session zu starten.'}
           </CardDescription>
         </CardHeader>
@@ -163,6 +194,27 @@ export function BookingPage() {
               Standort beim Stempeln mitsenden (optional)
             </Label>
           </div>
+          {bookable.length > 0 && (
+            <div className="max-w-md space-y-1">
+              <Label htmlFor="clock-in-project" className="text-sm">
+                Projekt (optional)
+              </Label>
+              <select
+                id="clock-in-project"
+                value={selectedProjectId}
+                disabled={!!open}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="">— ohne Projekt —</option>
+                {bookable.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} · {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex flex-wrap gap-3">
             <Button
               size="lg"
@@ -197,7 +249,7 @@ export function BookingPage() {
           {entriesQuery.data && entriesQuery.data.length > 0 ? (
             <ul className="divide-y text-sm">
               {entriesQuery.data.slice(0, 20).map((e) => (
-                <li key={e.id} className="flex items-center justify-between gap-3 py-3">
+                <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
                     <p className="font-medium">
                       {fmtDateTime(e.clockIn)}
@@ -206,10 +258,35 @@ export function BookingPage() {
                     <p className="text-xs text-muted-foreground">{fmtSummary(e)}</p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {e.projectCode && (
+                      <Badge variant="outline" title={e.projectName ?? undefined}>
+                        {e.projectCode}
+                      </Badge>
+                    )}
                     {e.requiresApproval && <Badge variant="destructive">Genehmigung</Badge>}
                     <Badge variant={e.status === 'Approved' ? 'default' : 'secondary'}>
                       {e.status}
                     </Badge>
+                    {e.status !== 'Approved' && !e.id.startsWith('optimistic-') && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setProjectDialogEntry(e)}
+                        >
+                          Projekt
+                        </Button>
+                        {e.clockOut && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSplitDialogEntry(e)}
+                          >
+                            Aufteilen
+                          </Button>
+                        )}
+                      </>
+                    )}
                   </div>
                 </li>
               ))}
@@ -219,6 +296,197 @@ export function BookingPage() {
           )}
         </CardContent>
       </Card>
+
+      {projectDialogEntry && (
+        <EntryProjectDialog
+          entry={projectDialogEntry}
+          projects={bookable}
+          onClose={() => setProjectDialogEntry(null)}
+          onSaved={() => {
+            setProjectDialogEntry(null);
+            qc.invalidateQueries({ queryKey: entriesKey });
+          }}
+        />
+      )}
+      {splitDialogEntry && (
+        <SplitEntryDialog
+          entry={splitDialogEntry}
+          projects={bookable}
+          onClose={() => setSplitDialogEntry(null)}
+          onSaved={() => {
+            setSplitDialogEntry(null);
+            qc.invalidateQueries({ queryKey: entriesKey });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+interface EntryDialogProps {
+  entry: TimeEntryDto;
+  projects: BookableProjectDto[];
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function EntryProjectDialog({ entry, projects, onClose, onSaved }: EntryDialogProps) {
+  const [projectId, setProjectId] = useState(entry.projectId ?? '');
+  const [error, setError] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: () => api.updateTimeEntryProject(entry.id, projectId || null),
+    onSuccess: onSaved,
+    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Projekt zuordnen</DialogTitle>
+          <DialogDescription>
+            Buchung {fmtDateTime(entry.clockIn)}
+            {entry.clockOut ? ` – ${fmtDateTime(entry.clockOut)}` : ' (offen)'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="entry-project">Projekt</Label>
+          <select
+            id="entry-project"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="">— ohne Projekt —</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.code} · {p.name}
+              </option>
+            ))}
+          </select>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Abbrechen
+          </Button>
+          <Button
+            disabled={save.isPending}
+            onClick={() => {
+              setError(null);
+              save.mutate();
+            }}
+          >
+            {save.isPending ? 'Speichere…' : 'Speichern'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProps) {
+  // clockOut is guaranteed: the split action is only offered on closed entries.
+  const clockOut = entry.clockOut as string;
+  const midpoint = new Date(
+    (new Date(entry.clockIn).getTime() + new Date(clockOut).getTime()) / 2,
+  ).toISOString();
+  const [at, setAt] = useState(toLocalInputValue(midpoint));
+  // '' = inherit from first segment, 'none' = explicitly without project.
+  const [secondProject, setSecondProject] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const atDate = new Date(at);
+  const valid =
+    !Number.isNaN(atDate.getTime()) &&
+    atDate.getTime() > new Date(entry.clockIn).getTime() &&
+    atDate.getTime() < new Date(clockOut).getTime();
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.splitTimeEntry(
+        entry.id,
+        atDate.toISOString(),
+        secondProject === '' ? undefined : secondProject === 'none' ? null : secondProject,
+      ),
+    onSuccess: onSaved,
+    onError: (e) => setError(e instanceof Error ? e.message : 'Aufteilen fehlgeschlagen'),
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Buchung aufteilen</DialogTitle>
+          <DialogDescription>
+            {fmtDateTime(entry.clockIn)} – {fmtDateTime(clockOut)} wird am gewählten Zeitpunkt in
+            zwei Buchungen geteilt, z. B. für einen Projektwechsel.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="split-at">Zeitpunkt</Label>
+            <Input
+              id="split-at"
+              type="datetime-local"
+              value={at}
+              min={toLocalInputValue(entry.clockIn)}
+              max={toLocalInputValue(clockOut)}
+              onChange={(e) => setAt(e.target.value)}
+            />
+            {!valid && (
+              <p className="text-xs text-destructive">
+                Der Zeitpunkt muss strikt zwischen Kommen und Gehen liegen.
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="split-project">Projekt für den zweiten Teil</Label>
+            <select
+              id="split-project"
+              value={secondProject}
+              onChange={(e) => setSecondProject(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+            >
+              <option value="">
+                {entry.projectCode
+                  ? `— wie erster Teil (${entry.projectCode}) —`
+                  : '— wie erster Teil (ohne Projekt) —'}
+              </option>
+              <option value="none">— ohne Projekt —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} · {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Abbrechen
+          </Button>
+          <Button
+            disabled={!valid || save.isPending}
+            onClick={() => {
+              setError(null);
+              save.mutate();
+            }}
+          >
+            {save.isPending ? 'Teile…' : 'Aufteilen'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

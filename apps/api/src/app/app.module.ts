@@ -11,6 +11,7 @@ import { HealthModule } from './health/health.module';
 import { LeaveAllowancesModule } from './leave-allowances/leave-allowances.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ProjectsModule } from './projects/projects.module';
 import { RequestsModule } from './requests/requests.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { ViolationsModule } from './violations/violations.module';
@@ -26,6 +27,7 @@ import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
     HealthModule,
     EmployeesModule,
     WorkSchedulesModule,
+    ProjectsModule,
     TimeEntriesModule,
     LeaveAllowancesModule,
     AccountsModule,
