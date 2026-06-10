@@ -109,3 +109,45 @@
 - **Akzeptanzkriterien:**
   - Übersichtsliste aller offenen Anträge der Mitarbeiter (Urlaub, Home-Office etc.) mit Genehmigen/Ablehnen-Buttons.
   - Spezielle Hervorhebung von Anträgen, die **vor 7 Uhr /
+ oder nach 23 Uhr** liegen (genehmigungspflichtig).
+
+---
+
+## Epic 5: Projektzeiterfassung (Projekte & Service-Aufträge)
+**Ziel:** Zeiten können optional auf Projekte gebucht werden. Projekte werden im Admin-Bereich gepflegt und über Service-Aufträge strukturiert; eine Zuweisungsmatrix steuert, wer auf welches Projekt buchen darf.
+
+### User Stories
+
+**US 5.1: Projekt- & Service-Auftragsverwaltung**
+- **Story:** Als HR-Administrator oder Vorgesetzter möchte ich Projekte anlegen, bearbeiten und deaktivieren sowie sie über Service-Aufträge strukturieren, um Projektzeiten auswertbar zu machen.
+- **Akzeptanzkriterien:**
+  - Projekte haben einen eindeutigen Code, Namen, optionale Beschreibung und einen Aktiv-Status.
+  - Service-Aufträge (Auftragsnummer eindeutig je Projekt, Titel, Aktiv-Status) strukturieren ein Projekt rein administrativ — gebucht wird ausschließlich auf Projektebene.
+  - Projekte mit gebuchten Zeiten können nicht gelöscht, nur deaktiviert werden (ERP-Historie bleibt erhalten).
+
+**US 5.2: Zuweisungsmatrix (Mitarbeiter × Projekte)**
+- **Story:** Als HR-Administrator oder Vorgesetzter möchte ich in einer Matrix Mitarbeiter den Projekten zuordnen, um Buchungsberechtigungen zu steuern.
+- **Akzeptanzkriterien:**
+  - Der Admin-Bereich zeigt eine Matrix Mitarbeiter (Zeilen) × Projekte (Spalten) mit umschaltbaren Zuordnungen.
+  - Nur zugewiesene Mitarbeiter können Zeiten auf ein Projekt buchen; die API validiert das hart (fehlende Zuweisung wird abgelehnt).
+
+**US 5.3: Zeitbuchung mit Projekt**
+- **Story:** Als Mitarbeiter möchte ich beim Erfassen meiner Zeit direkt ein Projekt auswählen können.
+- **Akzeptanzkriterien:**
+  - Beim „Kommen" kann optional ein Projekt gewählt werden; der gesamte Zeiteintrag gehört dann zu diesem Projekt.
+  - Die Auswahl zeigt nur aktive, dem Mitarbeiter zugewiesene Projekte; Buchung ohne Projekt bleibt möglich.
+  - Inaktive, unbekannte oder nicht zugewiesene Projekte werden serverseitig mit klarer Fehlermeldung abgelehnt.
+
+**US 5.4: Nachträgliche Zuordnung & Aufteilen**
+- **Story:** Als Mitarbeiter möchte ich das Projekt eines Eintrags nachträglich setzen, ändern oder entfernen und einen Eintrag an einem Zeitpunkt in zwei Buchungen aufteilen (z. B. bei Projektwechsel innerhalb eines Arbeitstags).
+- **Akzeptanzkriterien:**
+  - Projektzuordnung ist auch nachträglich (inkl. offener Einträge) möglich; bereits freigegebene (Approved) Einträge sind gesperrt, da sie ggf. schon ans ERP exportiert wurden.
+  - Der Aufteilungszeitpunkt muss strikt zwischen Kommen und Gehen liegen; die entstehenden Segmente sind lückenlos.
+  - Die Genehmigungspflicht (07:00/23:00-Regel) wird je Segment neu berechnet; abgelehnte Einträge bleiben in beiden Segmenten abgelehnt.
+  - GPS-Daten verbleiben beim ersten Segment (sie gehören zum physischen Einstempeln).
+  - Vorgesetzte/HR dürfen fremde Einträge zuordnen und aufteilen, Mitarbeiter nur eigene.
+
+**US 5.5: ERP-Export mit Projektbezug**
+- **Story:** Als ERP-System benötige ich zu jeder freigegebenen Zeit den Projektbezug.
+- **Akzeptanzkriterien:**
+  - Der ERP-Export liefert je Zeiteintrag `projectCode` und `projectName` (null, wenn ohne Projekt gebucht).

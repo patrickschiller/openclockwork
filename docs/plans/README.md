@@ -24,6 +24,8 @@ Quelle aller fachlichen Anforderungen ist [`base-instructions.md`](../../base-in
    PWA-Schliff, Login, Pages für Buchung, Anträge, Kalender, Dashboard, Admin-Inbox, Realtime-Anbindung, Tests.
 4. [Epic 4 – Urlaub & vollständiger Freigabe-Workflow](./epic-4-vacation-workflow.md)
    Mehr-Stufen-Workflow (Substitute → Manager → optional HR → Approved), `EmployeeLeaveAllowance`, Resttage-Berechnung, Audit-Log, zugehörige Pages und Endpoints. Datenmodell ist im Schema bereits angelegt.
+5. [Epic 5 – Projektzeiterfassung](./epic-5-projekte.md)
+   Projekte mit Service-Aufträgen, Mitarbeiter×Projekte-Zuweisungsmatrix als Buchungsberechtigung, Projektwahl beim Stempeln, nachträgliche Zuordnung + Aufteilen von Einträgen, ERP-Export mit Projektbezug.
 
 ## Querschnittliche Regeln (gelten in allen Epics)
 

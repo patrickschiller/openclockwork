@@ -1,5 +1,37 @@
 # Implementation status
 
+## Update 2026-06-10 — Epic 5: project time tracking
+
+[`docs/plans/epic-5-projekte.md`](./plans/epic-5-projekte.md) is implemented
+end-to-end (spec section added to `base-instructions.md`):
+
+- **Schema** — `Project`, `ServiceOrder`, `ProjectAssignment`, nullable
+  `TimeEntry.projectId` (`onDelete: Restrict`); migration
+  `20260609211423_add_projects`; seed ships three projects with service
+  orders and matrix assignments.
+- **API** — new `projects` module (CRUD + service orders + idempotent
+  assignment endpoints + `bookable`/`assignments` reads, mutations guarded
+  `Manager`/`HRAdmin`); clock-in accepts an optional `projectId` (hard
+  assignment check: 404/400/403); `PATCH /timeentries/:id` and
+  `POST /timeentries/:id/split` (JWT, owner-or-admin, Approved entries
+  locked, per-segment `requiresSpecialApproval` recompute); ERP export
+  carries `projectCode`/`projectName`.
+- **Web** — `AdminProjectsPage` (`/admin/projects`, Manager + HRAdmin) with
+  project cards, inline service-order management, and the employee×project
+  assignment matrix; BookingPage gained the project selector, project
+  badges, and "Projekt zuordnen"/"Aufteilen" dialogs; realtime invalidation
+  for `project:changed`.
+- **Tests** — `projects.e2e.spec.ts` + `time-entry-projects.e2e.spec.ts`
+  (split semantics incl. boundaries, status recompute, GPS retention),
+  extended ERP export spec, `AdminProjectsPage.spec.tsx`, extended
+  `BookingPage.spec.tsx`. OpenAPI artifacts regenerated.
+
+Known gap carried over: `clock-in`/`clock-out` remain unguarded (the
+project check there is a business rule, not access control) — general
+TimeEntries hardening is still the open follow-up below.
+
+---
+
 ## Update 2026-05-19 — all four epics functionally complete
 
 All four epic plans under [`docs/plans/`](./plans/) are implemented. The
