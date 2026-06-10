@@ -132,6 +132,7 @@ model Employee {
   events                        RequestEvent[]           @relation("EventActor")
   uploadedAttachments           RequestAttachment[]
   absences                      Absence[]
+  projectAssignments            ProjectAssignment[]
   createdAt                     DateTime                 @default(now())
   updatedAt                     DateTime                 @updatedAt
 
@@ -185,11 +186,14 @@ model TimeEntry {
   longitude        Decimal?    @db.Decimal(9, 6)
   accuracyMeters   Decimal?    @db.Decimal(7, 2)
   note             String?
+  projectId        String?     @db.Uuid
+  project          Project?    @relation(fields: [projectId], references: [id], onDelete: Restrict)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
   @@index([employeeId, clockIn])
   @@index([status])
+  @@index([projectId])
 }
 
 model Request {
@@ -272,6 +276,56 @@ model Absence {
 
   @@index([employeeId, from])
   @@index([kind, from])
+}
+
+// Projects are the booking targets for project time capture (Epic 5).
+// Time is booked on the project level only; service orders structure a
+// project for admins but are never referenced by time entries. Projects
+// with booked time entries cannot be hard-deleted (onDelete: Restrict on
+// TimeEntry.project) — deactivate them via isActive instead.
+model Project {
+  id            String              @id @default(uuid()) @db.Uuid
+  /// Short unique project code ("PRJ-001"); exposed in the ERP export.
+  code          String              @unique
+  name          String
+  description   String?
+  isActive      Boolean             @default(true)
+  serviceOrders ServiceOrder[]
+  assignments   ProjectAssignment[]
+  timeEntries   TimeEntry[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([isActive])
+}
+
+model ServiceOrder {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @db.Uuid
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orderNo   String
+  title     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, orderNo])
+  @@index([projectId])
+}
+
+// Hard booking authorization: only assigned employees may book time on a
+// project. The admin matrix toggles these rows; the API validates on
+// clock-in, retroactive assignment, and split.
+model ProjectAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  employeeId String   @db.Uuid
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectId  String   @db.Uuid
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, projectId])
+  @@index([projectId])
 }
 
 model EmployeeLeaveAllowance {

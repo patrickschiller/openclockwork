@@ -72,13 +72,20 @@ export function useRealtimeInvalidation() {
         qc.invalidateQueries({ queryKey: ['account'] });
         qc.invalidateQueries({ queryKey: ['violations'] });
       };
+      const onProject = () => {
+        qc.invalidateQueries({ queryKey: ['projects'] });
+        qc.invalidateQueries({ queryKey: ['project-assignments'] });
+        qc.invalidateQueries({ queryKey: ['bookable-projects'] });
+      };
       socket.on('request:transitioned', onTransition);
       socket.on('time-entry:created', onTimeEntry);
       socket.on('time-entry:updated', onTimeEntry);
+      socket.on('project:changed', onProject);
       detach = () => {
         socket.off('request:transitioned', onTransition);
         socket.off('time-entry:created', onTimeEntry);
         socket.off('time-entry:updated', onTimeEntry);
+        socket.off('project:changed', onProject);
       };
     });
 
