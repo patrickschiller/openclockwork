@@ -23,6 +23,9 @@ const RESET_SQL = `
     "Request",
     "EmployeeLeaveAllowance",
     "TimeEntry",
+    "ProjectAssignment",
+    "ServiceOrder",
+    "Project",
     "WorkScheduleCoreTime",
     "WorkSchedule",
     "Employee"
@@ -108,6 +111,39 @@ export async function seedLeaveAllowance(
     create: { employeeId, year, baseDays, carryOverDays: 0, adjustmentDays: 0 },
     update: { baseDays, carryOverDays: 0, adjustmentDays: 0 },
   });
+}
+
+export interface SeedProjectInput {
+  code: string;
+  name?: string;
+  isActive?: boolean;
+  /** Employees to assign via the booking matrix. */
+  assigneeIds?: string[];
+  serviceOrders?: Array<{ orderNo: string; title: string; isActive?: boolean }>;
+}
+
+export async function seedProject(prisma: PrismaService, input: SeedProjectInput) {
+  const project = await prisma.project.create({
+    data: {
+      code: input.code,
+      name: input.name ?? input.code,
+      isActive: input.isActive ?? true,
+      serviceOrders: input.serviceOrders
+        ? {
+            create: input.serviceOrders.map((o) => ({
+              orderNo: o.orderNo,
+              title: o.title,
+              isActive: o.isActive ?? true,
+            })),
+          }
+        : undefined,
+      assignments: input.assigneeIds
+        ? { create: input.assigneeIds.map((employeeId) => ({ employeeId })) }
+        : undefined,
+    },
+    include: { serviceOrders: true, assignments: true },
+  });
+  return project;
 }
 
 export async function login(

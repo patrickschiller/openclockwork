@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   Clock,
+  FolderKanban,
   Handshake,
   Inbox,
   LayoutDashboard,
@@ -69,6 +70,13 @@ export const navItems: NavItem[] = [
     to: '/admin/requests',
     label: 'Genehmigungen',
     icon: Inbox,
+    roles: ['Manager', 'HRAdmin'],
+    showInBottomNav: false,
+  },
+  {
+    to: '/admin/projects',
+    label: 'Projekte',
+    icon: FolderKanban,
     roles: ['Manager', 'HRAdmin'],
     showInBottomNav: false,
   },
