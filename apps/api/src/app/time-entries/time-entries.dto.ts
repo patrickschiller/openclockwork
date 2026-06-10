@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsDateString, IsNumber, IsOptional, IsUUID, Max, Min } from 'class-validator';
 import type { TimeEntry } from '@prisma/client';
 import { summarize, type TimeSummary } from 'shared';
 
@@ -27,12 +27,42 @@ export class ClockInDto {
   @IsNumber()
   @Min(0)
   accuracyMeters?: number | null;
+
+  /** Active project assigned to the employee; the whole entry books onto it. */
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
 }
 
 export class ClockOutDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
+}
+
+export class UpdateTimeEntryProjectDto {
+  /** New project for the entry; null removes the project reference. */
+  @ApiProperty({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
+}
+
+export class SplitTimeEntryDto {
+  /** Split point, strictly between clockIn and clockOut. */
+  @ApiProperty({ format: 'date-time' })
+  @IsDateString()
+  at!: string;
+
+  /**
+   * Project for the second segment. Omitted → inherits the project of the
+   * original entry; explicit null → second segment has no project.
+   */
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
 }
 
 export interface TimeEntryDto {
@@ -46,10 +76,22 @@ export interface TimeEntryDto {
   latitude: number | null;
   longitude: number | null;
   accuracyMeters: number | null;
+  projectId: string | null;
+  projectCode: string | null;
+  projectName: string | null;
   summary: TimeSummary | null;
 }
 
-export function toTimeEntryDto(e: TimeEntry): TimeEntryDto {
+export interface SplitTimeEntryResult {
+  first: TimeEntryDto;
+  second: TimeEntryDto;
+}
+
+type TimeEntryWithProject = TimeEntry & {
+  project?: { code: string; name: string } | null;
+};
+
+export function toTimeEntryDto(e: TimeEntryWithProject): TimeEntryDto {
   return {
     id: e.id,
     employeeId: e.employeeId,
@@ -61,6 +103,9 @@ export function toTimeEntryDto(e: TimeEntry): TimeEntryDto {
     latitude: e.latitude !== null ? Number(e.latitude) : null,
     longitude: e.longitude !== null ? Number(e.longitude) : null,
     accuracyMeters: e.accuracyMeters !== null ? Number(e.accuracyMeters) : null,
+    projectId: e.projectId ?? null,
+    projectCode: e.project?.code ?? null,
+    projectName: e.project?.name ?? null,
     summary: e.clockOut ? summarize(e.clockIn, e.clockOut) : null,
   };
 }

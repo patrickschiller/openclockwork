@@ -4,19 +4,30 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![DCO](https://img.shields.io/badge/DCO-required-blue)](CONTRIBUTING.md#developer-certificate-of-origin-dco)
-[![Status: alpha](https://img.shields.io/badge/status-alpha-orange)](#project-status)
+[![Status: beta](https://img.shields.io/badge/status-beta-blue)](#project-status)
 
-OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. It models real-world German labour-law requirements (statutory break deduction, *Soll/Ist* hour accounts, vacation balances, multi-stage approval workflows for *Urlaub*, *Home-Office*, *Sonderurlaub*, *Zeitanträge*) — but it is built to be useful anywhere that needs a credible alternative to commercial *Zeiterfassung* products.
+OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. It models real-world German labour-law requirements (statutory break deduction, _Soll/Ist_ hour accounts, vacation balances, multi-stage approval workflows for _Urlaub_, _Home-Office_, _Sonderurlaub_, _Zeitanträge_) — but it is built to be useful anywhere that needs a credible alternative to commercial _Zeiterfassung_ products.
 
 The project is intentionally small in scope and opinionated in its choices, so a single developer or a small team can stand it up, run it, and trust the numbers.
 
+<p align="center">
+  <img src="assets/screenshots/mobile/booking.jpg" alt="OpenClockwork mobile clock-in and clock-out view with optional GPS" width="30%">
+  <img src="assets/screenshots/mobile/calendar.jpg" alt="OpenClockwork mobile annual absence calendar" width="30%">
+  <img src="assets/screenshots/mobile/vacation-request.jpg" alt="OpenClockwork mobile vacation request with live leave balance" width="30%">
+</p>
+
+<p align="center">
+  <strong>Mobile-first PWA for employees, managers, and HR.</strong><br>
+  <a href="FEATURES.md">Explore the complete feature overview</a>
+</p>
+
 ## Project status
 
-**Alpha — under active development.** The project is being built from a [German requirements specification](base-instructions.md) and an [implementation guide for Claude Code](CLAUDE.md). APIs, schemas, and UI flows will change without notice until a `0.1.0` tag is published. Do not run this in production yet.
+**Beta — feature-complete and tested for the current scope.** The core employee, manager, HR, approval, reporting, and self-hosting workflows are implemented and covered by automated tests. Before a production rollout, validate organisation-specific working-time rules, integrations, security requirements, and operating procedures.
 
 ## Why another time tracker?
 
-Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignore German labour law, or enterprise *Zeitwirtschaft* suites priced for HR departments with budget. OpenClockwork sits in the middle:
+Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignore German labour law, or enterprise _Zeitwirtschaft_ suites priced for HR departments with budget. OpenClockwork sits in the middle:
 
 - **Lawful by construction.** Statutory break deduction, core-hour violation flags, and the 07:00 / 23:00 approval threshold are encoded in the domain layer, not bolted on by the customer.
 - **Self-hostable.** PostgreSQL + a Node backend + a static web client. No SaaS lock-in; your data stays on your infrastructure.
@@ -24,19 +35,19 @@ Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignor
 - **API-first.** The web client is just one consumer of the public REST + WebSocket API. ERP integration is a first-class endpoint, not an afterthought.
 - **Open source under Apache 2.0.** Fork it, embed it, sell support around it. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for the terms.
 
+See the [complete feature overview](FEATURES.md) for employee, manager, HR, integration, and deployment capabilities.
+
 ## Tech stack
 
-| Layer        | Technology                              |
-| ------------ | --------------------------------------- |
-| Workspace    | Nx monorepo (pnpm)                      |
-| Frontend     | React 18, Vite, Tailwind CSS, shadcn/ui |
-| Backend      | NestJS (Node.js, TypeScript strict)     |
-| Database     | PostgreSQL with Prisma ORM              |
-| Realtime     | Socket.IO (NestJS WebSocket gateway)    |
-| Tests        | Vitest (web), Jest (api), Playwright    |
-| CI           | GitHub Actions                          |
-
-The full set of binding decisions and domain rules lives in [CLAUDE.md](CLAUDE.md) and [base-instructions.md](base-instructions.md).
+| Layer     | Technology                              |
+| --------- | --------------------------------------- |
+| Workspace | Nx monorepo (pnpm)                      |
+| Frontend  | React 19, Vite, Tailwind CSS, shadcn/ui |
+| Backend   | NestJS (Node.js, TypeScript strict)     |
+| Database  | PostgreSQL with Prisma ORM              |
+| Realtime  | Socket.IO (NestJS WebSocket gateway)    |
+| Tests     | Vitest (web), Jest (api), Playwright    |
+| Quality   | Nx lint, type-check, and test targets   |
 
 ## Repository layout
 
@@ -47,10 +58,7 @@ apps/
 libs/
   shared/         Shared TS types and pure-TS domain functions
 prisma/           Prisma schema and migrations (single source of DB truth)
-docs/
-  plans/          Per-epic implementation plans (binding for current work)
-base-instructions.md   Authoritative German requirements specification
-CLAUDE.md         Implementation guide consumed by Claude Code
+infra/            Reference deployment infrastructure
 ```
 
 ## Getting started (development)
@@ -93,4 +101,4 @@ The name "OpenClockwork" and any associated marks are trademarks of the project 
 
 ## Acknowledgements
 
-OpenClockwork is created and maintained by [Patrick Schiller](https://github.com/patrickschiller) and the open-source contributors listed in the project's commit history. The German requirements specification that drives the design comes from earlier in-house work and is now released under the same Apache 2.0 license alongside the code.
+OpenClockwork is created and maintained by [Patrick Schiller](https://github.com/patrickschiller) and the open-source contributors listed in the project's commit history.

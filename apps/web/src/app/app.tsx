@@ -35,6 +35,9 @@ const AdminRequestsPage = lazy(() =>
 const AdminSchedulesPage = lazy(() =>
   import('../routes/AdminSchedulesPage').then((m) => ({ default: m.AdminSchedulesPage })),
 );
+const AdminProjectsPage = lazy(() =>
+  import('../routes/AdminProjectsPage').then((m) => ({ default: m.AdminProjectsPage })),
+);
 const AdminEmployeesPage = lazy(() =>
   import('../routes/AdminEmployeesPage').then((m) => ({ default: m.AdminEmployeesPage })),
 );
@@ -78,6 +81,7 @@ export function App() {
           {/* Backwards-compat redirect from the old route name. */}
           <Route path="sickness" element={<Navigate to="/absences" replace />} />
           <Route path="admin/requests" element={<AdminRequestsPage />} />
+          <Route path="admin/projects" element={<AdminProjectsPage />} />
           <Route path="admin/schedules" element={<AdminSchedulesPage />} />
           <Route path="admin/employees" element={<AdminEmployeesPage />} />
           <Route
