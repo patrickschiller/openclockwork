@@ -140,7 +140,59 @@ export interface TimeEntryDto {
   latitude: number | null;
   longitude: number | null;
   accuracyMeters: number | null;
+  projectId: string | null;
+  projectCode: string | null;
+  projectName: string | null;
   summary: TimeSummaryDto | null;
+}
+
+export interface SplitTimeEntryResult {
+  first: TimeEntryDto;
+  second: TimeEntryDto;
+}
+
+export interface ServiceOrderDto {
+  id: string;
+  projectId: string;
+  orderNo: string;
+  title: string;
+  isActive: boolean;
+}
+
+export interface ProjectDto {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  serviceOrders: ServiceOrderDto[];
+  assignedEmployeeCount: number;
+  updatedAt: string;
+}
+
+/** Active project assigned to the current employee — booking selector entry. */
+export interface BookableProjectDto {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface ProjectAssignmentDto {
+  employeeId: string;
+  projectId: string;
+}
+
+export interface UpsertProjectPayload {
+  code: string;
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface UpsertServiceOrderPayload {
+  orderNo: string;
+  title: string;
+  isActive?: boolean;
 }
 
 export interface AccountDto {
@@ -335,6 +387,7 @@ export interface ClockInPayload {
   latitude: number | null;
   longitude: number | null;
   accuracyMeters: number | null;
+  projectId: string | null;
 }
 
 export interface LoginPayload {
@@ -525,6 +578,42 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ employeeId }),
     }),
+  updateTimeEntryProject: (id: string, projectId: string | null) =>
+    request<TimeEntryDto>(`/api/timeentries/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ projectId }),
+    }),
+  splitTimeEntry: (id: string, at: string, projectId?: string | null) =>
+    request<SplitTimeEntryResult>(`/api/timeentries/${id}/split`, {
+      method: 'POST',
+      body: JSON.stringify(projectId === undefined ? { at } : { at, projectId }),
+    }),
+  projects: (includeInactive = false) =>
+    request<ProjectDto[]>(`/api/projects${includeInactive ? '?includeInactive=true' : ''}`),
+  bookableProjects: (employeeId: string) =>
+    request<BookableProjectDto[]>(`/api/projects/bookable?employeeId=${employeeId}`),
+  projectAssignments: () => request<ProjectAssignmentDto[]>('/api/projects/assignments'),
+  createProject: (payload: UpsertProjectPayload) =>
+    request<ProjectDto>('/api/projects', { method: 'POST', body: JSON.stringify(payload) }),
+  updateProject: (id: string, payload: UpsertProjectPayload) =>
+    request<ProjectDto>(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+  createServiceOrder: (projectId: string, payload: UpsertServiceOrderPayload) =>
+    request<ServiceOrderDto>(`/api/projects/${projectId}/service-orders`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateServiceOrder: (projectId: string, orderId: string, payload: UpsertServiceOrderPayload) =>
+    request<ServiceOrderDto>(`/api/projects/${projectId}/service-orders/${orderId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteServiceOrder: (projectId: string, orderId: string) =>
+    request<void>(`/api/projects/${projectId}/service-orders/${orderId}`, { method: 'DELETE' }),
+  assignProject: (projectId: string, employeeId: string) =>
+    request<void>(`/api/projects/${projectId}/assignments/${employeeId}`, { method: 'PUT' }),
+  unassignProject: (projectId: string, employeeId: string) =>
+    request<void>(`/api/projects/${projectId}/assignments/${employeeId}`, { method: 'DELETE' }),
   listRequests: (
     filters: {
       employeeId?: string;

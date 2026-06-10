@@ -1,7 +1,27 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { TimeEntriesService } from './time-entries.service';
-import { ClockInDto, ClockOutDto, type TimeEntryDto } from './time-entries.dto';
+import {
+  ClockInDto,
+  ClockOutDto,
+  SplitTimeEntryDto,
+  UpdateTimeEntryProjectDto,
+  type SplitTimeEntryResult,
+  type TimeEntryDto,
+} from './time-entries.dto';
 
 @ApiTags('time-entries')
 @Controller('timeentries')
@@ -29,5 +49,27 @@ export class TimeEntriesController {
   @Post('clock-out')
   clockOut(@Body() dto: ClockOutDto): Promise<TimeEntryDto> {
     return this.entries.clockOut(dto.employeeId);
+  }
+
+  @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  updateProject(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateTimeEntryProjectDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TimeEntryDto> {
+    return this.entries.updateProject(id, dto, user);
+  }
+
+  @Post(':id/split')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  split(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SplitTimeEntryDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<SplitTimeEntryResult> {
+    return this.entries.split(id, dto, user);
   }
 }

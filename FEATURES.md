@@ -31,6 +31,9 @@ provides role-aware navigation for employees, managers, and HR administrators.
 | -------------------------- | --------------------------------------------------------------------------------------------- |
 | Personal dashboard         | Vacation balance, overtime account, and detected core-time violations at a glance             |
 | Clock in and out           | PWA-based time booking with optional GPS coordinates and recent-booking history               |
+| Project booking            | Optional project selection when clocking in, limited to active projects assigned to the employee |
+| Retroactive project changes | Assign, change, or clear an entry's project after booking; approved entries stay locked       |
+| Entry splitting            | Split a closed entry at a chosen time, e.g. when switching projects mid-day                   |
 | Automatic break accounting | Statutory break deduction after six and nine hours                                            |
 | Time accounts              | Calculated target hours, actual hours, overtime, and opening balances                         |
 | Annual calendar            | Year overview for vacation, home office, special leave, sickness, training, and flextime days |
@@ -75,6 +78,8 @@ Employee submits
 | Time models            | Full-time, part-time, trust-based working time, and flextime                        |
 | Work schedules         | Configurable working days, permitted booking frames, and multiple core-time windows |
 | Schedule assignment    | Assign schedules to individual employees or bulk-assign by time model               |
+| Project management     | Projects structured by service orders, with an active/inactive lifecycle and deletion protection once time is booked |
+| Project assignment matrix | Employee-by-project matrix that controls who may book time on each project       |
 | Leave allowances       | Base leave, carry-over, adjustments, expiry dates, and adjustment reasons           |
 | German public holidays | Configurable German-state holiday calendars used in vacation calculations           |
 | Absence administration | Record and review sickness, training, and flextime entries for employees            |
@@ -102,7 +107,7 @@ configuration.
 - JWT access and refresh authentication
 - Role-based endpoint protection
 - Authenticated Socket.IO events for real-time client refreshes
-- API-key-protected, paginated ERP time-entry export
+- API-key-protected, paginated ERP time-entry export with project references
 - Pluggable attachment storage
 - Health endpoint
 

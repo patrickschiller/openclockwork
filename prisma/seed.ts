@@ -127,7 +127,12 @@ async function ensureWorkSchedule(seed: ScheduleSeed) {
   });
 }
 
-async function ensureTimeEntry(employeeId: string, clockIn: Date, clockOut: Date) {
+async function ensureTimeEntry(
+  employeeId: string,
+  clockIn: Date,
+  clockOut: Date,
+  projectId?: string,
+) {
   const existing = await prisma.timeEntry.findFirst({
     where: { employeeId, clockIn },
   });
@@ -140,7 +145,56 @@ async function ensureTimeEntry(employeeId: string, clockIn: Date, clockOut: Date
       source: 'Manual',
       status: 'Approved',
       requiresApproval: false,
+      projectId: projectId ?? null,
     },
+  });
+}
+
+interface ServiceOrderSeed {
+  orderNo: string;
+  title: string;
+  isActive?: boolean;
+}
+
+interface ProjectSeed {
+  code: string;
+  name: string;
+  description: string;
+  isActive?: boolean;
+  serviceOrders: ServiceOrderSeed[];
+}
+
+async function ensureProject(seed: ProjectSeed) {
+  const data = {
+    name: seed.name,
+    description: seed.description,
+    isActive: seed.isActive ?? true,
+  };
+  const project = await prisma.project.upsert({
+    where: { code: seed.code },
+    create: { code: seed.code, ...data },
+    update: data,
+  });
+  for (const o of seed.serviceOrders) {
+    await prisma.serviceOrder.upsert({
+      where: { projectId_orderNo: { projectId: project.id, orderNo: o.orderNo } },
+      create: {
+        projectId: project.id,
+        orderNo: o.orderNo,
+        title: o.title,
+        isActive: o.isActive ?? true,
+      },
+      update: { title: o.title, isActive: o.isActive ?? true },
+    });
+  }
+  return project;
+}
+
+async function ensureProjectAssignment(employeeId: string, projectId: string) {
+  await prisma.projectAssignment.upsert({
+    where: { employeeId_projectId: { employeeId, projectId } },
+    create: { employeeId, projectId },
+    update: {},
   });
 }
 
@@ -279,8 +333,44 @@ async function main() {
     });
   }
 
-  // A handful of plausible time entries for the first employee, last 5 weekdays.
-  const anna = created.find((e) => e.email.startsWith('anna.'));
+  // Projects with service orders + booking assignments (Epic 5). Two active
+  // projects and one deactivated one so the admin UI and the booking selector
+  // show both states.
+  const website = await ensureProject({
+    code: 'PRJ-001',
+    name: 'Website Relaunch',
+    description: 'Relaunch der Unternehmenswebsite inkl. CMS-Migration.',
+    serviceOrders: [
+      { orderNo: 'SA-001', title: 'Konzeption & Design' },
+      { orderNo: 'SA-002', title: 'Umsetzung Frontend' },
+    ],
+  });
+  const erpIntro = await ensureProject({
+    code: 'PRJ-002',
+    name: 'ERP-Einführung',
+    description: 'Einführung und Anbindung des neuen ERP-Systems.',
+    serviceOrders: [{ orderNo: 'SA-001', title: 'Datenmigration' }],
+  });
+  await ensureProject({
+    code: 'PRJ-003',
+    name: 'Altsystem-Wartung',
+    description: 'Abgeschlossenes Wartungsprojekt (deaktiviert).',
+    isActive: false,
+    serviceOrders: [],
+  });
+  const byPersonalNo = (no: string) => created.find((e) => e.personalNo === no);
+  const anna = byPersonalNo('1001');
+  const bernd = byPersonalNo('1002');
+  const diana = byPersonalNo('1004');
+  if (anna) {
+    await ensureProjectAssignment(anna.id, website.id);
+    await ensureProjectAssignment(anna.id, erpIntro.id);
+  }
+  if (bernd) await ensureProjectAssignment(bernd.id, website.id);
+  if (diana) await ensureProjectAssignment(diana.id, erpIntro.id);
+
+  // A handful of plausible time entries for the first employee, last 5
+  // weekdays — the two most recent ones booked onto the website project.
   if (anna) {
     for (let i = 1; i <= 5; i += 1) {
       const day = new Date();
@@ -288,7 +378,7 @@ async function main() {
       // 09:00 → 17:30 UTC
       const clockIn = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 9, 0, 0));
       const clockOut = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 17, 30, 0));
-      await ensureTimeEntry(anna.id, clockIn, clockOut);
+      await ensureTimeEntry(anna.id, clockIn, clockOut, i <= 2 ? website.id : undefined);
     }
   }
 
