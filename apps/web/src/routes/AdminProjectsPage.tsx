@@ -1,0 +1,553 @@
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  api,
+  type ProjectAssignmentDto,
+  type ProjectDto,
+  type ServiceOrderDto,
+} from '../api/client';
+import { useCurrentUser } from '../app/auth';
+
+interface ProjectDraft {
+  code: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+}
+
+const EMPTY_DRAFT: ProjectDraft = { code: '', name: '', description: '', isActive: true };
+
+function fromProject(p: ProjectDto): ProjectDraft {
+  return {
+    code: p.code,
+    name: p.name,
+    description: p.description ?? '',
+    isActive: p.isActive,
+  };
+}
+
+export function AdminProjectsPage() {
+  const user = useCurrentUser();
+  const isAuthorized = user.role === 'Manager' || user.role === 'HRAdmin';
+
+  const qc = useQueryClient();
+  const projects = useQuery({
+    queryKey: ['projects', { includeInactive: true }],
+    queryFn: () => api.projects(true),
+    enabled: isAuthorized,
+  });
+  const employees = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => api.employees(),
+    enabled: isAuthorized,
+  });
+  const assignments = useQuery({
+    queryKey: ['project-assignments'],
+    queryFn: () => api.projectAssignments(),
+    enabled: isAuthorized,
+  });
+
+  const [editing, setEditing] = useState<{ id: string | null; draft: ProjectDraft } | null>(null);
+
+  if (!isAuthorized) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          Diese Seite ist Managern und HR-Admins vorbehalten.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  const activeEmployees = (employees.data ?? []).filter((e) => e.isActive);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Projekte</h1>
+          <p className="text-sm text-muted-foreground">
+            Projekte mit Service-Aufträgen strukturieren und Mitarbeiter:innen für die
+            Projektbuchung freischalten.
+          </p>
+        </div>
+        <Button onClick={() => setEditing({ id: null, draft: EMPTY_DRAFT })}>
+          <Plus className="mr-2 h-4 w-4" /> Neues Projekt
+        </Button>
+      </div>
+
+      <div className="grid gap-4">
+        {projects.data?.map((p) => (
+          <ProjectCard
+            key={p.id}
+            project={p}
+            onEdit={() => setEditing({ id: p.id, draft: fromProject(p) })}
+            onChanged={() => qc.invalidateQueries({ queryKey: ['projects'] })}
+          />
+        ))}
+        {projects.data && projects.data.length === 0 && (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Noch keine Projekte angelegt.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      <AssignmentMatrix
+        projects={projects.data ?? []}
+        employees={activeEmployees}
+        assignments={assignments.data ?? []}
+      />
+
+      {editing && (
+        <ProjectEditor
+          state={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ['projects'] });
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+interface ProjectCardProps {
+  project: ProjectDto;
+  onEdit: () => void;
+  onChanged: () => void;
+}
+
+function ProjectCard({ project, onEdit, onChanged }: ProjectCardProps) {
+  const [error, setError] = useState<string | null>(null);
+
+  const remove = useMutation({
+    mutationFn: () => api.deleteProject(project.id),
+    onSuccess: onChanged,
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Projekt konnte nicht gelöscht werden'),
+  });
+
+  return (
+    <Card className={project.isActive ? undefined : 'opacity-70'}>
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
+          <span className="font-mono text-base">{project.code}</span>
+          {project.name}
+          {!project.isActive && <Badge variant="secondary">Inaktiv</Badge>}
+          <Badge variant="outline">{project.assignedEmployeeCount} Mitarbeiter:innen</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        {project.description && <p className="text-muted-foreground">{project.description}</p>}
+
+        <ServiceOrderList project={project} onChanged={onChanged} />
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            <Pencil className="mr-1 h-4 w-4" /> Bearbeiten
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={remove.isPending}
+            onClick={() => {
+              setError(null);
+              remove.mutate();
+            }}
+            title="Löschen ist nur möglich, solange keine Zeiten gebucht sind"
+          >
+            <Trash2 className="mr-1 h-4 w-4" /> Löschen
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChanged: () => void }) {
+  const [draft, setDraft] = useState({ orderNo: '', title: '' });
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useMutation({
+    mutationFn: () => api.createServiceOrder(project.id, draft),
+    onSuccess: () => {
+      setDraft({ orderNo: '', title: '' });
+      setError(null);
+      onChanged();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Anlegen fehlgeschlagen'),
+  });
+
+  return (
+    <div className="rounded-md border bg-muted/30 p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Service-Aufträge
+      </p>
+      {project.serviceOrders.length === 0 ? (
+        <p className="mt-2 text-xs text-muted-foreground">Keine Service-Aufträge.</p>
+      ) : (
+        <ul className="mt-2 space-y-1">
+          {project.serviceOrders.map((o) => (
+            <ServiceOrderRow key={o.id} projectId={project.id} order={o} onChanged={onChanged} />
+          ))}
+        </ul>
+      )}
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <div>
+          <Label htmlFor={`so-no-${project.id}`} className="text-xs">
+            Auftragsnr.
+          </Label>
+          <Input
+            id={`so-no-${project.id}`}
+            value={draft.orderNo}
+            onChange={(e) => setDraft({ ...draft, orderNo: e.target.value })}
+            placeholder="SA-001"
+            className="mt-1 h-8 w-32 text-sm"
+          />
+        </div>
+        <div className="flex-1">
+          <Label htmlFor={`so-title-${project.id}`} className="text-xs">
+            Titel
+          </Label>
+          <Input
+            id={`so-title-${project.id}`}
+            value={draft.title}
+            onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+            placeholder="z. B. Konzeption & Design"
+            className="mt-1 h-8 text-sm"
+          />
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!draft.orderNo.trim() || !draft.title.trim() || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          <Plus className="mr-1 h-4 w-4" /> Hinzufügen
+        </Button>
+      </div>
+      {error && (
+        <Alert variant="destructive" className="mt-2">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
+function ServiceOrderRow({
+  projectId,
+  order,
+  onChanged,
+}: {
+  projectId: string;
+  order: ServiceOrderDto;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState({ orderNo: order.orderNo, title: order.title });
+  const [error, setError] = useState<string | null>(null);
+
+  const update = useMutation({
+    mutationFn: (payload: { orderNo: string; title: string; isActive: boolean }) =>
+      api.updateServiceOrder(projectId, order.id, payload),
+    onSuccess: () => {
+      setEditing(false);
+      setError(null);
+      onChanged();
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+  });
+  const remove = useMutation({
+    mutationFn: () => api.deleteServiceOrder(projectId, order.id),
+    onSuccess: onChanged,
+  });
+
+  if (editing) {
+    return (
+      <li className="flex flex-wrap items-center gap-2 text-sm">
+        <Input
+          value={draft.orderNo}
+          onChange={(e) => setDraft({ ...draft, orderNo: e.target.value })}
+          className="h-8 w-32 text-sm"
+          aria-label="Auftragsnr."
+        />
+        <Input
+          value={draft.title}
+          onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+          className="h-8 flex-1 text-sm"
+          aria-label="Titel"
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!draft.orderNo.trim() || !draft.title.trim() || update.isPending}
+          onClick={() => update.mutate({ ...draft, isActive: order.isActive })}
+        >
+          Speichern
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+          Abbrechen
+        </Button>
+        {error && <span className="w-full text-xs text-destructive">{error}</span>}
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex flex-wrap items-center gap-2 text-sm">
+      <span className="font-mono text-xs">{order.orderNo}</span>
+      <span className={order.isActive ? '' : 'line-through opacity-60'}>{order.title}</span>
+      {!order.isActive && <Badge variant="secondary">Inaktiv</Badge>}
+      <span className="ml-auto flex items-center gap-1">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() =>
+            update.mutate({ orderNo: order.orderNo, title: order.title, isActive: !order.isActive })
+          }
+          title={order.isActive ? 'Deaktivieren' : 'Aktivieren'}
+        >
+          {order.isActive ? 'Deaktivieren' : 'Aktivieren'}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setEditing(true)} aria-label="Bearbeiten">
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-destructive"
+          disabled={remove.isPending}
+          onClick={() => remove.mutate()}
+          aria-label="Löschen"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </span>
+    </li>
+  );
+}
+
+interface MatrixProps {
+  projects: ProjectDto[];
+  employees: { id: string; firstName: string; lastName: string; personalNo: string }[];
+  assignments: ProjectAssignmentDto[];
+}
+
+function AssignmentMatrix({ projects, employees, assignments }: MatrixProps) {
+  const qc = useQueryClient();
+  const assigned = useMemo(
+    () => new Set(assignments.map((a) => `${a.employeeId}:${a.projectId}`)),
+    [assignments],
+  );
+
+  const toggle = useMutation<
+    void,
+    Error,
+    { projectId: string; employeeId: string; assign: boolean },
+    { previous?: ProjectAssignmentDto[] }
+  >({
+    mutationFn: ({ projectId, employeeId, assign }) =>
+      assign ? api.assignProject(projectId, employeeId) : api.unassignProject(projectId, employeeId),
+    onMutate: async ({ projectId, employeeId, assign }) => {
+      await qc.cancelQueries({ queryKey: ['project-assignments'] });
+      const previous = qc.getQueryData<ProjectAssignmentDto[]>(['project-assignments']);
+      qc.setQueryData<ProjectAssignmentDto[]>(['project-assignments'], (old = []) =>
+        assign
+          ? [...old, { employeeId, projectId }]
+          : old.filter((a) => !(a.employeeId === employeeId && a.projectId === projectId)),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) qc.setQueryData(['project-assignments'], context.previous);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['project-assignments'] });
+      qc.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+
+  if (projects.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Zuweisungsmatrix</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Nur zugewiesene Mitarbeiter:innen können Zeiten auf ein Projekt buchen.
+        </p>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b text-left">
+              <th className="py-2 pr-4 font-medium">Mitarbeiter:in</th>
+              {projects.map((p) => (
+                <th
+                  key={p.id}
+                  className={`px-2 py-2 text-center font-mono text-xs font-medium ${
+                    p.isActive ? '' : 'opacity-50'
+                  }`}
+                  title={p.name}
+                >
+                  {p.code}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map((emp) => (
+              <tr key={emp.id} className="border-b last:border-0">
+                <td className="py-2 pr-4">
+                  {emp.firstName} {emp.lastName}
+                  <span className="ml-1 text-xs text-muted-foreground">({emp.personalNo})</span>
+                </td>
+                {projects.map((p) => {
+                  const isAssigned = assigned.has(`${emp.id}:${p.id}`);
+                  return (
+                    <td key={p.id} className="px-2 py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isAssigned}
+                        aria-label={`${emp.firstName} ${emp.lastName} – ${p.code}`}
+                        onChange={() =>
+                          toggle.mutate({
+                            projectId: p.id,
+                            employeeId: emp.id,
+                            assign: !isAssigned,
+                          })
+                        }
+                      />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface ProjectEditorProps {
+  state: { id: string | null; draft: ProjectDraft };
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
+  const [draft, setDraft] = useState<ProjectDraft>(state.draft);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: () => {
+      const payload = {
+        code: draft.code.trim(),
+        name: draft.name.trim(),
+        description: draft.description.trim() || null,
+        isActive: draft.isActive,
+      };
+      return state.id ? api.updateProject(state.id, payload) : api.createProject(payload);
+    },
+    onSuccess: onSaved,
+    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+  });
+
+  const valid = draft.code.trim().length > 0 && draft.name.trim().length > 0;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{state.id ? 'Projekt bearbeiten' : 'Neues Projekt'}</DialogTitle>
+          <DialogDescription>
+            Der Projekt-Code ist eindeutig und erscheint im ERP-Export.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="p-code">Code</Label>
+            <Input
+              id="p-code"
+              value={draft.code}
+              onChange={(e) => setDraft({ ...draft, code: e.target.value })}
+              placeholder="PRJ-001"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="p-name">Name</Label>
+            <Input
+              id="p-name"
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="p-desc">Beschreibung</Label>
+            <Input
+              id="p-desc"
+              value={draft.description}
+              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={draft.isActive}
+              onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
+            />
+            Aktiv (buchbar für zugewiesene Mitarbeiter:innen)
+          </label>
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Abbrechen
+          </Button>
+          <Button
+            disabled={!valid || save.isPending}
+            onClick={() => {
+              setError(null);
+              save.mutate();
+            }}
+          >
+            {save.isPending ? 'Speichere…' : 'Speichern'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

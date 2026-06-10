@@ -10,6 +10,8 @@ export interface ErpTimeEntryDto {
   clockIn: string;
   clockOut: string;
   netMinutes: number;
+  projectCode: string | null;
+  projectName: string | null;
 }
 
 @Injectable()
@@ -28,7 +30,10 @@ export class ErpExportService {
     const rows = await this.prisma.timeEntry.findMany({
       where,
       orderBy: { clockIn: 'asc' },
-      include: { employee: { select: { personalNo: true } } },
+      include: {
+        employee: { select: { personalNo: true } },
+        project: { select: { code: true, name: true } },
+      },
       skip,
       take,
     });
@@ -43,6 +48,8 @@ export class ErpExportService {
           clockIn: r.clockIn.toISOString(),
           clockOut: (r.clockOut as Date).toISOString(),
           netMinutes: summary.netMinutes,
+          projectCode: r.project?.code ?? null,
+          projectName: r.project?.name ?? null,
         };
       });
   }
