@@ -55,13 +55,28 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       assigneeIds: [worker.id],
     });
     const foreign = await seedProject(ctx.prisma, { code: 'P-FOREIGN' });
-    return { worker, other, manager, assigned, second, inactive, foreign };
+    // Project with one active and one inactive service order — booking onto
+    // it requires picking the active order (conditional-mandatory rule).
+    const ordered = await seedProject(ctx.prisma, {
+      code: 'P-ORDERED',
+      assigneeIds: [worker.id],
+      serviceOrders: [
+        { orderNo: 'SA-1', title: 'Design' },
+        { orderNo: 'SA-2', title: 'Altauftrag', isActive: false },
+      ],
+    });
+    return { worker, other, manager, assigned, second, inactive, foreign, ordered };
   }
 
   /** Closed mid-day entry (always inside the 07:00–23:00 frame): 09:00Z–15:00Z today. */
   async function seedClosedEntry(
     employeeId: string,
-    opts: { status?: 'Pending' | 'Approved' | 'Rejected'; projectId?: string } = {},
+    opts: {
+      status?: 'Pending' | 'Approved' | 'Rejected';
+      projectId?: string;
+      serviceOrderId?: string;
+      activity?: string;
+    } = {},
   ) {
     const now = new Date();
     const clockIn = new Date(
@@ -77,6 +92,8 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
         clockOut,
         status: opts.status ?? 'Pending',
         projectId: opts.projectId ?? null,
+        serviceOrderId: opts.serviceOrderId ?? null,
+        activity: opts.activity ?? null,
       },
     });
   }
@@ -182,18 +199,20 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
         .expect(403);
     });
 
-    it('approved entries are locked (409); foreign entries need Manager/HRAdmin', async () => {
+    it('approved entries are editable (lock removed); foreign entries need Manager/HRAdmin', async () => {
       const { worker, other, manager, assigned } = await fixture();
       const workerToken = await login(ctx.http, worker.email);
       const otherToken = await login(ctx.http, other.email);
       const managerToken = await login(ctx.http, manager.email);
 
+      // Closed entries auto-approve, so retroactive booking must work on them.
       const approved = await seedClosedEntry(worker.id, { status: 'Approved' });
-      await ctx.http
+      const retargeted = await ctx.http
         .patch(`/api/timeentries/${approved.id}`)
         .set('Authorization', `Bearer ${workerToken}`)
         .send({ projectId: assigned.id })
-        .expect(409);
+        .expect(200);
+      expect(retargeted.body.projectCode).toBe('P-ASSIGNED');
 
       const entry = await seedClosedEntry(worker.id);
       await ctx.http
@@ -320,14 +339,14 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
         .send({ at: new Date().toISOString() })
         .expect(400);
 
-      // Approved entries are locked.
+      // Approved entries can be split as well (lock removed with Epic 5.1).
       const approved = await seedClosedEntry(worker.id, { status: 'Approved' });
       const at = new Date(approved.clockIn.getTime() + 60 * 60 * 1000).toISOString();
       await ctx.http
         .post(`/api/timeentries/${approved.id}/split`)
         .set('Authorization', `Bearer ${token}`)
         .send({ at })
-        .expect(409);
+        .expect(201);
 
       // Unassigned project for the second segment is rejected.
       const { foreign } = await (async () => ({
@@ -412,6 +431,142 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
         .set('Authorization', `Bearer ${managerToken}`)
         .send({ at })
         .expect(201);
+    });
+  });
+
+  describe('service orders & activity (Epic 5.1)', () => {
+    it('clock-in enforces the conditional-mandatory service order', async () => {
+      const { worker, ordered, assigned } = await fixture();
+      const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
+      const inactiveOrder = ordered.serviceOrders.find((o) => !o.isActive);
+
+      // Project has an active order → picking one is mandatory.
+      await ctx.http
+        .post('/api/timeentries/clock-in')
+        .send({ employeeId: worker.id, projectId: ordered.id })
+        .expect(400);
+      // Inactive orders are not bookable.
+      await ctx.http
+        .post('/api/timeentries/clock-in')
+        .send({ employeeId: worker.id, projectId: ordered.id, serviceOrderId: inactiveOrder?.id })
+        .expect(400);
+      // Orders of another project are rejected.
+      await ctx.http
+        .post('/api/timeentries/clock-in')
+        .send({ employeeId: worker.id, projectId: assigned.id, serviceOrderId: activeOrder?.id })
+        .expect(404);
+      // serviceOrderId without a project makes no sense.
+      await ctx.http
+        .post('/api/timeentries/clock-in')
+        .send({ employeeId: worker.id, serviceOrderId: activeOrder?.id })
+        .expect(400);
+
+      const ok = await ctx.http
+        .post('/api/timeentries/clock-in')
+        .send({
+          employeeId: worker.id,
+          projectId: ordered.id,
+          serviceOrderId: activeOrder?.id,
+          activity: 'Designsystem überarbeitet',
+        })
+        .expect(201);
+      expect(ok.body.serviceOrderNo).toBe('SA-1');
+      expect(ok.body.serviceOrderTitle).toBe('Design');
+      expect(ok.body.activity).toBe('Designsystem überarbeitet');
+    });
+
+    it('PATCH edits the activity alone without re-validating legacy bookings', async () => {
+      const { worker, ordered } = await fixture();
+      const token = await login(ctx.http, worker.email);
+      // Legacy entry: booked on an ordered project WITHOUT an order (predates
+      // the rule). Editing only the activity must not trigger validation.
+      const legacy = await seedClosedEntry(worker.id, { projectId: ordered.id });
+
+      const res = await ctx.http
+        .patch(`/api/timeentries/${legacy.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ activity: 'Nachträglich dokumentiert' })
+        .expect(200);
+      expect(res.body.activity).toBe('Nachträglich dokumentiert');
+      expect(res.body.projectCode).toBe('P-ORDERED');
+      expect(res.body.serviceOrderId).toBeNull();
+    });
+
+    it('PATCH re-specifying the project applies the service-order rule', async () => {
+      const { worker, ordered, assigned } = await fixture();
+      const token = await login(ctx.http, worker.email);
+      const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
+      const entry = await seedClosedEntry(worker.id, { projectId: assigned.id });
+
+      // Switching to the ordered project without an order → 400.
+      await ctx.http
+        .patch(`/api/timeentries/${entry.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ projectId: ordered.id })
+        .expect(400);
+      // With the order → ok.
+      const ok = await ctx.http
+        .patch(`/api/timeentries/${entry.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ projectId: ordered.id, serviceOrderId: activeOrder?.id })
+        .expect(200);
+      expect(ok.body.serviceOrderNo).toBe('SA-1');
+      // Clearing the project clears the order too; an order alongside
+      // projectId: null is contradictory.
+      await ctx.http
+        .patch(`/api/timeentries/${entry.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ projectId: null, serviceOrderId: activeOrder?.id })
+        .expect(400);
+      const cleared = await ctx.http
+        .patch(`/api/timeentries/${entry.id}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ projectId: null })
+        .expect(200);
+      expect(cleared.body.projectId).toBeNull();
+      expect(cleared.body.serviceOrderId).toBeNull();
+    });
+
+    it('split inherits project, order, and activity when projectId is omitted', async () => {
+      const { worker, ordered } = await fixture();
+      const token = await login(ctx.http, worker.email);
+      const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
+      const entry = await seedClosedEntry(worker.id, {
+        projectId: ordered.id,
+        serviceOrderId: activeOrder?.id,
+        activity: 'Konzeptphase',
+      });
+      const at = new Date(entry.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+
+      const res = await ctx.http
+        .post(`/api/timeentries/${entry.id}/split`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ at })
+        .expect(201);
+      expect(res.body.second.serviceOrderNo).toBe('SA-1');
+      expect(res.body.second.activity).toBe('Konzeptphase');
+    });
+
+    it('split with an explicit ordered project requires the order and takes a fresh activity', async () => {
+      const { worker, ordered } = await fixture();
+      const token = await login(ctx.http, worker.email);
+      const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
+      const entry = await seedClosedEntry(worker.id, { activity: 'Alt' });
+      const at = new Date(entry.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+
+      await ctx.http
+        .post(`/api/timeentries/${entry.id}/split`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ at, projectId: ordered.id })
+        .expect(400);
+      const res = await ctx.http
+        .post(`/api/timeentries/${entry.id}/split`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ at, projectId: ordered.id, serviceOrderId: activeOrder?.id, activity: 'Neu' })
+        .expect(201);
+      expect(res.body.first.activity).toBe('Alt');
+      expect(res.body.second.activity).toBe('Neu');
+      expect(res.body.second.serviceOrderNo).toBe('SA-1');
     });
   });
 });

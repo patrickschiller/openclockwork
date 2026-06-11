@@ -12,6 +12,9 @@ export interface ErpTimeEntryDto {
   netMinutes: number;
   projectCode: string | null;
   projectName: string | null;
+  orderNo: string | null;
+  orderTitle: string | null;
+  activity: string | null;
 }
 
 @Injectable()
@@ -33,6 +36,7 @@ export class ErpExportService {
       include: {
         employee: { select: { personalNo: true } },
         project: { select: { code: true, name: true } },
+        serviceOrder: { select: { orderNo: true, title: true } },
       },
       skip,
       take,
@@ -50,6 +54,9 @@ export class ErpExportService {
           netMinutes: summary.netMinutes,
           projectCode: r.project?.code ?? null,
           projectName: r.project?.name ?? null,
+          orderNo: r.serviceOrder?.orderNo ?? null,
+          orderTitle: r.serviceOrder?.title ?? null,
+          activity: r.activity,
         };
       });
   }
