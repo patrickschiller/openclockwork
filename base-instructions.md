@@ -121,9 +121,9 @@
 **US 5.1: Projekt- & Service-Auftragsverwaltung**
 - **Story:** Als HR-Administrator oder Vorgesetzter möchte ich Projekte anlegen, bearbeiten und deaktivieren sowie sie über Service-Aufträge strukturieren, um Projektzeiten auswertbar zu machen.
 - **Akzeptanzkriterien:**
-  - Projekte haben einen eindeutigen Code, Namen, optionale Beschreibung und einen Aktiv-Status.
-  - Service-Aufträge (Auftragsnummer eindeutig je Projekt, Titel, Aktiv-Status) strukturieren ein Projekt rein administrativ — gebucht wird ausschließlich auf Projektebene.
-  - Projekte mit gebuchten Zeiten können nicht gelöscht, nur deaktiviert werden (ERP-Historie bleibt erhalten).
+  - Projekte haben einen eindeutigen Code, Namen, optionale Beschreibung, einen Aktiv-Status und eine optionale **PLAN-Zeit in Stunden**.
+  - Service-Aufträge (Auftragsnummer eindeutig je Projekt, Titel, Aktiv-Status, optionale PLAN-Zeit) strukturieren ein Projekt und sind selbst Buchungsebene (siehe US 5.3).
+  - Projekte und Service-Aufträge mit gebuchten Zeiten können nicht gelöscht, nur deaktiviert werden (ERP-Historie bleibt erhalten).
 
 **US 5.2: Zuweisungsmatrix (Mitarbeiter × Projekte)**
 - **Story:** Als HR-Administrator oder Vorgesetzter möchte ich in einer Matrix Mitarbeiter den Projekten zuordnen, um Buchungsberechtigungen zu steuern.
@@ -131,17 +131,19 @@
   - Der Admin-Bereich zeigt eine Matrix Mitarbeiter (Zeilen) × Projekte (Spalten) mit umschaltbaren Zuordnungen.
   - Nur zugewiesene Mitarbeiter können Zeiten auf ein Projekt buchen; die API validiert das hart (fehlende Zuweisung wird abgelehnt).
 
-**US 5.3: Zeitbuchung mit Projekt**
-- **Story:** Als Mitarbeiter möchte ich beim Erfassen meiner Zeit direkt ein Projekt auswählen können.
+**US 5.3: Zeitbuchung mit Projekt, Service-Auftrag und Tätigkeit**
+- **Story:** Als Mitarbeiter möchte ich beim Erfassen meiner Zeit direkt ein Projekt — und dessen Service-Auftrag — auswählen sowie meine Tätigkeit beschreiben können.
 - **Akzeptanzkriterien:**
   - Beim „Kommen" kann optional ein Projekt gewählt werden; der gesamte Zeiteintrag gehört dann zu diesem Projekt.
+  - Hat das gewählte Projekt mindestens einen **aktiven Service-Auftrag**, ist dessen Auswahl **pflichtig** (server- und clientseitig erzwungen); ohne aktive Aufträge wird auf Projektebene gebucht.
+  - Pro Buchung kann eine **Tätigkeit** beschrieben werden (kundenfähiger Freitext, auch nachträglich editierbar) — Grundlage der Kundenauswertung (US 5.8).
   - Die Auswahl zeigt nur aktive, dem Mitarbeiter zugewiesene Projekte; Buchung ohne Projekt bleibt möglich.
-  - Inaktive, unbekannte oder nicht zugewiesene Projekte werden serverseitig mit klarer Fehlermeldung abgelehnt.
+  - Inaktive, unbekannte oder nicht zugewiesene Projekte/Aufträge werden serverseitig mit klarer Fehlermeldung abgelehnt.
 
 **US 5.4: Nachträgliche Zuordnung & Aufteilen**
-- **Story:** Als Mitarbeiter möchte ich das Projekt eines Eintrags nachträglich setzen, ändern oder entfernen und einen Eintrag an einem Zeitpunkt in zwei Buchungen aufteilen (z. B. bei Projektwechsel innerhalb eines Arbeitstags).
+- **Story:** Als Mitarbeiter möchte ich das Buchungsziel (Projekt/Service-Auftrag) und die Tätigkeit eines Eintrags nachträglich ändern und einen Eintrag an einem Zeitpunkt in zwei Buchungen aufteilen (z. B. bei Projektwechsel innerhalb eines Arbeitstags).
 - **Akzeptanzkriterien:**
-  - Projektzuordnung ist auch nachträglich (inkl. offener Einträge) möglich; bereits freigegebene (Approved) Einträge sind gesperrt, da sie ggf. schon ans ERP exportiert wurden.
+  - Nachträgliche Änderungen sind **unabhängig vom Genehmigungsstatus** möglich (auch auf Approved-Einträgen): Anwesenheitssummen ändern sich dadurch nie; das pull-basierte ERP behandelt Entry-IDs als Quelle der Wahrheit. _(Revision 2026-06-11: ersetzt die frühere Approved-Sperre.)_
   - Der Aufteilungszeitpunkt muss strikt zwischen Kommen und Gehen liegen; die entstehenden Segmente sind lückenlos.
   - Die Genehmigungspflicht (07:00/23:00-Regel) wird je Segment neu berechnet; abgelehnte Einträge bleiben in beiden Segmenten abgelehnt.
   - GPS-Daten verbleiben beim ersten Segment (sie gehören zum physischen Einstempeln).
@@ -150,4 +152,25 @@
 **US 5.5: ERP-Export mit Projektbezug**
 - **Story:** Als ERP-System benötige ich zu jeder freigegebenen Zeit den Projektbezug.
 - **Akzeptanzkriterien:**
-  - Der ERP-Export liefert je Zeiteintrag `projectCode` und `projectName` (null, wenn ohne Projekt gebucht).
+  - Der ERP-Export liefert je Zeiteintrag `projectCode`, `projectName`, `orderNo`, `orderTitle` und `activity` (jeweils null, wenn ohne Projekt/Auftrag/Tätigkeit gebucht).
+
+**US 5.6: Projektzeit-Nachtrag**
+- **Story:** Als Mitarbeiter möchte ich unabhängig vom täglichen Einstempeln ein Zeitintervall nachträglich auf ein Projekt buchen.
+- **Akzeptanzkriterien:**
+  - Das Intervall muss **vollständig durch eingestempelte Zeit** (geschlossene, nicht abgelehnte Buchungen) gedeckt sein, sonst Ablehnung mit Angabe der tatsächlich gedeckten Fenster.
+  - Bestehende Buchungen werden am Intervall automatisch aufgeteilt; das Intervall trägt danach Projekt, ggf. Service-Auftrag und Tätigkeit (vorhandene Projektzuordnung im Intervall wird ersetzt).
+  - Die Genehmigungspflicht wird je entstandenem Segment neu berechnet; offene und abgelehnte Buchungen bleiben unberührt.
+  - Vorgesetzte/HR dürfen für fremde Mitarbeiter nachtragen, Mitarbeiter nur für sich selbst.
+
+**US 5.7: PLAN-Zeiten & Verbrauchsübersicht**
+- **Story:** Als HR-Administrator oder Vorgesetzter möchte ich PLAN-Zeiten je Projekt und Service-Auftrag pflegen und in der Projektübersicht den Stundenverbrauch sehen.
+- **Akzeptanzkriterien:**
+  - Die Summe der Auftrags-PLAN-Zeiten eines Projekts darf dessen PLAN-Zeit nicht überschreiten (serverseitig validiert, Konfliktmeldung).
+  - Die Projektübersicht zeigt IST/PLAN-Fortschrittsbalken je Projekt und je Service-Auftrag; IST = Brutto-Stunden der geschlossenen, nicht abgelehnten Buchungen.
+  - **Überbuchen durch Mitarbeiter ist möglich** — der Balken wird dann rot dargestellt.
+
+**US 5.8: Kundenauswertung der Tätigkeiten**
+- **Story:** Als Vorgesetzter möchte ich je Projekt eine Auswertung der gebuchten Zeiten und Tätigkeiten erstellen, die an den Kunden weitergegeben werden kann.
+- **Akzeptanzkriterien:**
+  - Auswertung je Projekt mit Zeitraumfilter: Datum, Mitarbeiter, Service-Auftrag, Stunden, Tätigkeit, Gesamtsumme.
+  - Export als CSV (Excel-tauglich); Zugriff nur für Manager/HR-Admin.

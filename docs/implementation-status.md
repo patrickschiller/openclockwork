@@ -1,5 +1,36 @@
 # Implementation status
 
+## Update 2026-06-11 — Epic 5.1: service-order booking, plan hours, retro booking
+
+Revision of Epic 5 per the extended spec (`base-instructions.md` US 5.1–5.8;
+plan: [`docs/plans/epic-5-projekte.md`](./plans/epic-5-projekte.md), revision
+section):
+
+- **Service orders are now a booking level** — mandatory when the chosen
+  project has ≥1 active order (`resolveServiceOrder` is the single validation
+  path for clock-in, PATCH, split, and range booking); order deletion is
+  blocked (409) once time references it.
+- **Activity** (`TimeEntry.activity`) — customer-facing free text per
+  booking, editable retroactively, shown in the booking list and exported
+  to the ERP (`orderNo`/`orderTitle`/`activity` added there too).
+- **The Approved lock is removed** — closed entries auto-approve, so the
+  lock would have made retro booking useless; attendance totals never
+  change, the pull-based ERP must treat entry IDs as source of truth.
+- **Retroactive range booking** (`POST /api/timeentries/book-project`) —
+  strict coverage check against closed, non-rejected entries (400 lists
+  the covered windows), then transactional carving (cases A–D) with
+  per-segment approval recompute; "Nachtragen" dialog on the booking page.
+- **Plan hours** per project and service order with the invariant
+  Σ order plans ≤ project plan (409); gross-minutes IST stats via raw SQL;
+  red IST/PLAN progress bars in the admin project overview on overbooking.
+- **Customer report** per project (Manager/HRAdmin): period filter, table,
+  client-side CSV export (UTF-8 BOM, semicolons for German Excel).
+- Migration `20260611103350_service_order_booking_activity_plan_hours`;
+  seed extended (plan hours, order bookings, activities). API e2e: 18
+  suites / 106 tests green; web Vitest green.
+
+---
+
 ## Update 2026-06-10 — Epic 5: project time tracking
 
 [`docs/plans/epic-5-projekte.md`](./plans/epic-5-projekte.md) is implemented
