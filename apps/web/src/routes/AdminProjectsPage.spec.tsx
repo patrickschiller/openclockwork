@@ -13,6 +13,7 @@ const updateServiceOrderMock = vi.fn();
 const deleteServiceOrderMock = vi.fn();
 const assignProjectMock = vi.fn();
 const unassignProjectMock = vi.fn();
+const projectReportMock = vi.fn();
 
 vi.mock('../api/client', () => ({
   api: {
@@ -27,6 +28,7 @@ vi.mock('../api/client', () => ({
     deleteServiceOrder: (...args: unknown[]) => deleteServiceOrderMock(...args),
     assignProject: (...args: unknown[]) => assignProjectMock(...args),
     unassignProject: (...args: unknown[]) => unassignProjectMock(...args),
+    projectReport: (...args: unknown[]) => projectReportMock(...args),
   },
 }));
 
@@ -49,8 +51,19 @@ const PROJECTS = [
     name: 'Website Relaunch',
     description: 'Relaunch inkl. CMS.',
     isActive: true,
+    // 50 h booked against a 40 h plan → the bar must flag overbooking.
+    planHours: 40,
+    bookedMinutes: 50 * 60,
     serviceOrders: [
-      { id: 'so-1', projectId: 'p-1', orderNo: 'SA-001', title: 'Konzeption', isActive: true },
+      {
+        id: 'so-1',
+        projectId: 'p-1',
+        orderNo: 'SA-001',
+        title: 'Konzeption',
+        isActive: true,
+        planHours: 20,
+        bookedMinutes: 10 * 60,
+      },
     ],
     assignedEmployeeCount: 1,
     updatedAt: new Date().toISOString(),
@@ -61,6 +74,8 @@ const PROJECTS = [
     name: 'ERP-Einführung',
     description: null,
     isActive: true,
+    planHours: null,
+    bookedMinutes: 0,
     serviceOrders: [],
     assignedEmployeeCount: 0,
     updatedAt: new Date().toISOString(),
@@ -97,6 +112,23 @@ describe('AdminProjectsPage', () => {
     createProjectMock.mockClear().mockResolvedValue(PROJECTS[0]);
     assignProjectMock.mockClear().mockResolvedValue(undefined);
     unassignProjectMock.mockClear().mockResolvedValue(undefined);
+    projectReportMock.mockClear().mockResolvedValue({
+      projectCode: 'PRJ-001',
+      projectName: 'Website Relaunch',
+      from: null,
+      to: null,
+      rows: [
+        {
+          date: '2026-06-10',
+          employeeName: 'Anna Müller',
+          orderNo: 'SA-001',
+          orderTitle: 'Konzeption',
+          grossMinutes: 90,
+          activity: 'Wireframes erstellt',
+        },
+      ],
+      totalGrossMinutes: 90,
+    });
   });
 
   it('blocks plain employees with an alert and loads nothing', async () => {
@@ -171,6 +203,54 @@ describe('AdminProjectsPage', () => {
     fireEvent.click(berndP2);
     await waitFor(() => {
       expect(assignProjectMock).toHaveBeenCalledWith('p-2', 'e-2');
+    });
+  });
+
+  it('flags overbooked plans in red and shows IST-only without a plan', async () => {
+    const { AdminProjectsPage } = await import('./AdminProjectsPage');
+    renderWithProviders(<AdminProjectsPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Website Relaunch')).toBeDefined();
+    });
+    // PRJ-001: 50 h IST vs 40 h PLAN → overbooked marker.
+    expect(screen.getByText('Überbucht')).toBeDefined();
+    // PRJ-002 has no plan → IST-only text.
+    expect(screen.getByText(/kein PLAN definiert/i)).toBeDefined();
+  });
+
+  it('sends planHours when creating a project', async () => {
+    const { AdminProjectsPage } = await import('./AdminProjectsPage');
+    renderWithProviders(<AdminProjectsPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Website Relaunch')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Neues Projekt/i }));
+    fireEvent.change(await screen.findByLabelText('Code'), { target: { value: 'PRJ-003' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Drittes Projekt' } });
+    fireEvent.change(screen.getByLabelText(/PLAN-Zeit/i), { target: { value: '99,5' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Speichern$/ }));
+
+    await waitFor(() => {
+      expect(createProjectMock).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'PRJ-003', planHours: 99.5 }),
+      );
+    });
+  });
+
+  it('opens the customer report dialog and renders activity rows', async () => {
+    const { AdminProjectsPage } = await import('./AdminProjectsPage');
+    renderWithProviders(<AdminProjectsPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Website Relaunch')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Auswertung/i })[0]);
+    await waitFor(() => {
+      expect(projectReportMock).toHaveBeenCalledWith('p-1', undefined, undefined);
+      expect(screen.getByText('Wireframes erstellt')).toBeDefined();
+      // Appears in the matrix AND the report table once the dialog is open.
+      expect(screen.getAllByText('Anna Müller').length).toBeGreaterThan(1);
     });
   });
 });

@@ -32,8 +32,11 @@ provides role-aware navigation for employees, managers, and HR administrators.
 | Personal dashboard         | Vacation balance, overtime account, and detected core-time violations at a glance             |
 | Clock in and out           | PWA-based time booking with optional GPS coordinates and recent-booking history               |
 | Project booking            | Optional project selection when clocking in, limited to active projects assigned to the employee |
-| Retroactive project changes | Assign, change, or clear an entry's project after booking; approved entries stay locked       |
+| Service-order booking      | When a project has active service orders, one must be picked — bookings land on the order level |
+| Activity per booking       | Customer-facing free-text description of the work performed, editable retroactively          |
+| Retroactive project changes | Assign, change, or clear an entry's booking target after the fact, regardless of approval status (the pull-based ERP treats entry IDs as source of truth) |
 | Entry splitting            | Split a closed entry at a chosen time, e.g. when switching projects mid-day                   |
+| Retroactive range booking  | Book a past time range onto a project — validated against actually clocked-in time, existing entries are carved automatically |
 | Automatic break accounting | Statutory break deduction after six and nine hours                                            |
 | Time accounts              | Calculated target hours, actual hours, overtime, and opening balances                         |
 | Annual calendar            | Year overview for vacation, home office, special leave, sickness, training, and flextime days |
@@ -80,6 +83,8 @@ Employee submits
 | Schedule assignment    | Assign schedules to individual employees or bulk-assign by time model               |
 | Project management     | Projects structured by service orders, with an active/inactive lifecycle and deletion protection once time is booked |
 | Project assignment matrix | Employee-by-project matrix that controls who may book time on each project       |
+| Plan-vs-actual tracking | Plan hours per project and service order (order plans capped by the project plan), with progress bars that turn red on overbooking |
+| Customer activity report | Per-project report of dates, employees, orders, hours, and activities with period filter and CSV export |
 | Leave allowances       | Base leave, carry-over, adjustments, expiry dates, and adjustment reasons           |
 | German public holidays | Configurable German-state holiday calendars used in vacation calculations           |
 | Absence administration | Record and review sickness, training, and flextime entries for employees            |
@@ -107,7 +112,7 @@ configuration.
 - JWT access and refresh authentication
 - Role-based endpoint protection
 - Authenticated Socket.IO events for real-time client refreshes
-- API-key-protected, paginated ERP time-entry export with project references
+- API-key-protected, paginated ERP time-entry export with project, service-order, and activity references
 - Pluggable attachment storage
 - Health endpoint
 

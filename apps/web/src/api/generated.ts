@@ -276,6 +276,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ProjectsController_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{id}/service-orders": {
         parameters: {
             query?: never;
@@ -372,6 +388,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/timeentries/book-project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TimeEntriesController_bookProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/timeentries/{id}": {
         parameters: {
             query?: never;
@@ -385,7 +417,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch: operations["TimeEntriesController_updateProject"];
+        patch: operations["TimeEntriesController_update"];
         trace?: never;
     };
     "/api/timeentries/{id}/split": {
@@ -989,6 +1021,7 @@ export interface components {
             description?: Record<string, never> | null;
             /** @default true */
             isActive: boolean;
+            planHours?: Record<string, never> | null;
         };
         UpsertServiceOrderDto: {
             /** @example SA-2026-001 */
@@ -996,6 +1029,7 @@ export interface components {
             title: string;
             /** @default true */
             isActive: boolean;
+            planHours?: Record<string, never> | null;
         };
         ClockInDto: {
             /** Format: uuid */
@@ -1005,20 +1039,42 @@ export interface components {
             accuracyMeters?: Record<string, never> | null;
             /** Format: uuid */
             projectId?: Record<string, never> | null;
+            /** Format: uuid */
+            serviceOrderId?: Record<string, never> | null;
+            activity?: Record<string, never> | null;
         };
         ClockOutDto: {
             /** Format: uuid */
             employeeId: string;
         };
-        UpdateTimeEntryProjectDto: {
+        BookProjectRangeDto: {
             /** Format: uuid */
-            projectId: Record<string, never> | null;
+            employeeId: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: uuid */
+            projectId: string;
+            /** Format: uuid */
+            serviceOrderId?: Record<string, never> | null;
+            activity?: Record<string, never> | null;
+        };
+        UpdateTimeEntryDto: {
+            /** Format: uuid */
+            projectId?: Record<string, never> | null;
+            /** Format: uuid */
+            serviceOrderId?: Record<string, never> | null;
+            activity?: Record<string, never> | null;
         };
         SplitTimeEntryDto: {
             /** Format: date-time */
             at: string;
             /** Format: uuid */
             projectId?: Record<string, never> | null;
+            /** Format: uuid */
+            serviceOrderId?: Record<string, never> | null;
+            activity?: Record<string, never> | null;
         };
         UpsertLeaveAllowanceDto: {
             /** @example 30 */
@@ -1661,6 +1717,28 @@ export interface operations {
             };
         };
     };
+    ProjectsController_report: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     ProjectsController_createServiceOrder: {
         parameters: {
             query?: never;
@@ -1831,7 +1909,28 @@ export interface operations {
             };
         };
     };
-    TimeEntriesController_updateProject: {
+    TimeEntriesController_bookProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookProjectRangeDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TimeEntriesController_update: {
         parameters: {
             query?: never;
             header?: never;
@@ -1842,7 +1941,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UpdateTimeEntryProjectDto"];
+                "application/json": components["schemas"]["UpdateTimeEntryDto"];
             };
         };
         responses: {
