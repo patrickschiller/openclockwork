@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Download, FileBarChart, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import {
   api,
   type ProjectAssignmentDto,
   type ProjectDto,
+  type ProjectReportDto,
   type ServiceOrderDto,
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
@@ -28,9 +29,16 @@ interface ProjectDraft {
   name: string;
   description: string;
   isActive: boolean;
+  planHours: string;
 }
 
-const EMPTY_DRAFT: ProjectDraft = { code: '', name: '', description: '', isActive: true };
+const EMPTY_DRAFT: ProjectDraft = {
+  code: '',
+  name: '',
+  description: '',
+  isActive: true,
+  planHours: '',
+};
 
 function fromProject(p: ProjectDto): ProjectDraft {
   return {
@@ -38,7 +46,55 @@ function fromProject(p: ProjectDto): ProjectDraft {
     name: p.name,
     description: p.description ?? '',
     isActive: p.isActive,
+    planHours: p.planHours !== null ? String(p.planHours) : '',
   };
+}
+
+function parsePlanHours(value: string): number | null {
+  const trimmed = value.trim().replace(',', '.');
+  if (trimmed === '') return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function fmtHours(minutes: number): string {
+  return `${(minutes / 60).toLocaleString('de-DE', { maximumFractionDigits: 1 })} h`;
+}
+
+/** IST/PLAN progress bar; turns red once the booked hours exceed the plan. */
+function PlanBar({ planHours, bookedMinutes }: { planHours: number | null; bookedMinutes: number }) {
+  if (planHours === null || planHours <= 0) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        IST {fmtHours(bookedMinutes)} · kein PLAN definiert
+      </p>
+    );
+  }
+  const bookedHours = bookedMinutes / 60;
+  const over = bookedHours > planHours;
+  const pct = Math.min(100, (bookedHours / planHours) * 100);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span>
+          IST {fmtHours(bookedMinutes)} / PLAN{' '}
+          {planHours.toLocaleString('de-DE', { maximumFractionDigits: 1 })} h
+        </span>
+        {over && <span className="font-medium text-destructive">Überbucht</span>}
+      </div>
+      <div
+        className="h-2 w-full overflow-hidden rounded bg-muted"
+        role="progressbar"
+        aria-valuenow={Math.round(bookedHours * 10) / 10}
+        aria-valuemax={planHours}
+      >
+        <div
+          className={`h-full ${over ? 'bg-destructive' : 'bg-primary'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
 }
 
 export function AdminProjectsPage() {
@@ -63,6 +119,7 @@ export function AdminProjectsPage() {
   });
 
   const [editing, setEditing] = useState<{ id: string | null; draft: ProjectDraft } | null>(null);
+  const [reportProject, setReportProject] = useState<ProjectDto | null>(null);
 
   if (!isAuthorized) {
     return (
@@ -82,8 +139,8 @@ export function AdminProjectsPage() {
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Projekte</h1>
           <p className="text-sm text-muted-foreground">
-            Projekte mit Service-Aufträgen strukturieren und Mitarbeiter:innen für die
-            Projektbuchung freischalten.
+            Projekte mit Service-Aufträgen strukturieren, PLAN-Zeiten pflegen und
+            Mitarbeiter:innen für die Projektbuchung freischalten.
           </p>
         </div>
         <Button onClick={() => setEditing({ id: null, draft: EMPTY_DRAFT })}>
@@ -97,6 +154,7 @@ export function AdminProjectsPage() {
             key={p.id}
             project={p}
             onEdit={() => setEditing({ id: p.id, draft: fromProject(p) })}
+            onReport={() => setReportProject(p)}
             onChanged={() => qc.invalidateQueries({ queryKey: ['projects'] })}
           />
         ))}
@@ -125,6 +183,9 @@ export function AdminProjectsPage() {
           }}
         />
       )}
+      {reportProject && (
+        <ProjectReportDialog project={reportProject} onClose={() => setReportProject(null)} />
+      )}
     </div>
   );
 }
@@ -132,10 +193,11 @@ export function AdminProjectsPage() {
 interface ProjectCardProps {
   project: ProjectDto;
   onEdit: () => void;
+  onReport: () => void;
   onChanged: () => void;
 }
 
-function ProjectCard({ project, onEdit, onChanged }: ProjectCardProps) {
+function ProjectCard({ project, onEdit, onReport, onChanged }: ProjectCardProps) {
   const [error, setError] = useState<string | null>(null);
 
   const remove = useMutation({
@@ -158,6 +220,8 @@ function ProjectCard({ project, onEdit, onChanged }: ProjectCardProps) {
       <CardContent className="space-y-4 text-sm">
         {project.description && <p className="text-muted-foreground">{project.description}</p>}
 
+        <PlanBar planHours={project.planHours} bookedMinutes={project.bookedMinutes} />
+
         <ServiceOrderList project={project} onChanged={onChanged} />
 
         {error && (
@@ -167,6 +231,9 @@ function ProjectCard({ project, onEdit, onChanged }: ProjectCardProps) {
         )}
 
         <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onReport}>
+            <FileBarChart className="mr-1 h-4 w-4" /> Auswertung
+          </Button>
           <Button variant="ghost" size="sm" onClick={onEdit}>
             <Pencil className="mr-1 h-4 w-4" /> Bearbeiten
           </Button>
@@ -189,13 +256,18 @@ function ProjectCard({ project, onEdit, onChanged }: ProjectCardProps) {
 }
 
 function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChanged: () => void }) {
-  const [draft, setDraft] = useState({ orderNo: '', title: '' });
+  const [draft, setDraft] = useState({ orderNo: '', title: '', planHours: '' });
   const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
-    mutationFn: () => api.createServiceOrder(project.id, draft),
+    mutationFn: () =>
+      api.createServiceOrder(project.id, {
+        orderNo: draft.orderNo,
+        title: draft.title,
+        planHours: parsePlanHours(draft.planHours),
+      }),
     onSuccess: () => {
-      setDraft({ orderNo: '', title: '' });
+      setDraft({ orderNo: '', title: '', planHours: '' });
       setError(null);
       onChanged();
     },
@@ -210,7 +282,7 @@ function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChang
       {project.serviceOrders.length === 0 ? (
         <p className="mt-2 text-xs text-muted-foreground">Keine Service-Aufträge.</p>
       ) : (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 space-y-2">
           {project.serviceOrders.map((o) => (
             <ServiceOrderRow key={o.id} projectId={project.id} order={o} onChanged={onChanged} />
           ))}
@@ -226,7 +298,7 @@ function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChang
             value={draft.orderNo}
             onChange={(e) => setDraft({ ...draft, orderNo: e.target.value })}
             placeholder="SA-001"
-            className="mt-1 h-8 w-32 text-sm"
+            className="mt-1 h-8 w-28 text-sm"
           />
         </div>
         <div className="flex-1">
@@ -239,6 +311,19 @@ function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChang
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             placeholder="z. B. Konzeption & Design"
             className="mt-1 h-8 text-sm"
+          />
+        </div>
+        <div>
+          <Label htmlFor={`so-plan-${project.id}`} className="text-xs">
+            PLAN (h)
+          </Label>
+          <Input
+            id={`so-plan-${project.id}`}
+            value={draft.planHours}
+            onChange={(e) => setDraft({ ...draft, planHours: e.target.value })}
+            placeholder="40"
+            inputMode="decimal"
+            className="mt-1 h-8 w-20 text-sm"
           />
         </div>
         <Button
@@ -269,12 +354,20 @@ function ServiceOrderRow({
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState({ orderNo: order.orderNo, title: order.title });
+  const [draft, setDraft] = useState({
+    orderNo: order.orderNo,
+    title: order.title,
+    planHours: order.planHours !== null ? String(order.planHours) : '',
+  });
   const [error, setError] = useState<string | null>(null);
 
   const update = useMutation({
-    mutationFn: (payload: { orderNo: string; title: string; isActive: boolean }) =>
-      api.updateServiceOrder(projectId, order.id, payload),
+    mutationFn: (payload: {
+      orderNo: string;
+      title: string;
+      isActive: boolean;
+      planHours: number | null;
+    }) => api.updateServiceOrder(projectId, order.id, payload),
     onSuccess: () => {
       setEditing(false);
       setError(null);
@@ -285,6 +378,7 @@ function ServiceOrderRow({
   const remove = useMutation({
     mutationFn: () => api.deleteServiceOrder(projectId, order.id),
     onSuccess: onChanged,
+    onError: (e) => setError(e instanceof Error ? e.message : 'Löschen fehlgeschlagen'),
   });
 
   if (editing) {
@@ -293,7 +387,7 @@ function ServiceOrderRow({
         <Input
           value={draft.orderNo}
           onChange={(e) => setDraft({ ...draft, orderNo: e.target.value })}
-          className="h-8 w-32 text-sm"
+          className="h-8 w-28 text-sm"
           aria-label="Auftragsnr."
         />
         <Input
@@ -302,11 +396,25 @@ function ServiceOrderRow({
           className="h-8 flex-1 text-sm"
           aria-label="Titel"
         />
+        <Input
+          value={draft.planHours}
+          onChange={(e) => setDraft({ ...draft, planHours: e.target.value })}
+          className="h-8 w-20 text-sm"
+          inputMode="decimal"
+          aria-label="PLAN (h)"
+        />
         <Button
           size="sm"
           variant="outline"
           disabled={!draft.orderNo.trim() || !draft.title.trim() || update.isPending}
-          onClick={() => update.mutate({ ...draft, isActive: order.isActive })}
+          onClick={() =>
+            update.mutate({
+              orderNo: draft.orderNo,
+              title: draft.title,
+              isActive: order.isActive,
+              planHours: parsePlanHours(draft.planHours),
+            })
+          }
         >
           Speichern
         </Button>
@@ -319,35 +427,45 @@ function ServiceOrderRow({
   }
 
   return (
-    <li className="flex flex-wrap items-center gap-2 text-sm">
-      <span className="font-mono text-xs">{order.orderNo}</span>
-      <span className={order.isActive ? '' : 'line-through opacity-60'}>{order.title}</span>
-      {!order.isActive && <Badge variant="secondary">Inaktiv</Badge>}
-      <span className="ml-auto flex items-center gap-1">
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() =>
-            update.mutate({ orderNo: order.orderNo, title: order.title, isActive: !order.isActive })
-          }
-          title={order.isActive ? 'Deaktivieren' : 'Aktivieren'}
-        >
-          {order.isActive ? 'Deaktivieren' : 'Aktivieren'}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={() => setEditing(true)} aria-label="Bearbeiten">
-          <Pencil className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-destructive"
-          disabled={remove.isPending}
-          onClick={() => remove.mutate()}
-          aria-label="Löschen"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </span>
+    <li className="space-y-1 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-xs">{order.orderNo}</span>
+        <span className={order.isActive ? '' : 'line-through opacity-60'}>{order.title}</span>
+        {!order.isActive && <Badge variant="secondary">Inaktiv</Badge>}
+        <span className="ml-auto flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              update.mutate({
+                orderNo: order.orderNo,
+                title: order.title,
+                isActive: !order.isActive,
+                planHours: order.planHours,
+              })
+            }
+            title={order.isActive ? 'Deaktivieren' : 'Aktivieren'}
+          >
+            {order.isActive ? 'Deaktivieren' : 'Aktivieren'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setEditing(true)} aria-label="Bearbeiten">
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive"
+            disabled={remove.isPending}
+            onClick={() => remove.mutate()}
+            aria-label="Löschen"
+            title="Löschen ist nur möglich, solange keine Zeiten auf den Auftrag gebucht sind"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </span>
+      </div>
+      <PlanBar planHours={order.planHours} bookedMinutes={order.bookedMinutes} />
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </li>
   );
 }
@@ -472,6 +590,7 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
         name: draft.name.trim(),
         description: draft.description.trim() || null,
         isActive: draft.isActive,
+        planHours: parsePlanHours(draft.planHours),
       };
       return state.id ? api.updateProject(state.id, payload) : api.createProject(payload);
     },
@@ -487,7 +606,8 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
         <DialogHeader>
           <DialogTitle>{state.id ? 'Projekt bearbeiten' : 'Neues Projekt'}</DialogTitle>
           <DialogDescription>
-            Der Projekt-Code ist eindeutig und erscheint im ERP-Export.
+            Der Projekt-Code ist eindeutig und erscheint im ERP-Export. Die PLAN-Zeit deckelt die
+            Summe der Auftrags-PLAN-Zeiten.
           </DialogDescription>
         </DialogHeader>
 
@@ -515,6 +635,16 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
               id="p-desc"
               value={draft.description}
               onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="p-plan">PLAN-Zeit (Stunden, leer = kein Plan)</Label>
+            <Input
+              id="p-plan"
+              value={draft.planHours}
+              inputMode="decimal"
+              placeholder="120"
+              onChange={(e) => setDraft({ ...draft, planHours: e.target.value })}
             />
           </div>
           <label className="flex items-center gap-2 text-sm">
@@ -545,6 +675,143 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
             }}
           >
             {save.isPending ? 'Speichere…' : 'Speichern'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function csvEscape(value: string): string {
+  return /[";\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+function reportToCsv(report: ProjectReportDto): string {
+  const header = ['Datum', 'Mitarbeiter:in', 'Service-Auftrag', 'Stunden', 'Tätigkeit'];
+  const lines = report.rows.map((r) =>
+    [
+      r.date,
+      r.employeeName,
+      r.orderNo ? `${r.orderNo} ${r.orderTitle ?? ''}`.trim() : '',
+      (r.grossMinutes / 60).toFixed(2).replace('.', ','),
+      r.activity ?? '',
+    ]
+      .map(csvEscape)
+      .join(';'),
+  );
+  const total = ['Gesamt', '', '', (report.totalGrossMinutes / 60).toFixed(2).replace('.', ','), ''];
+  // BOM so Excel detects UTF-8; semicolons for the German locale.
+  return '﻿' + [header.join(';'), ...lines, total.join(';')].join('\r\n');
+}
+
+function ProjectReportDialog({ project, onClose }: { project: ProjectDto; onClose: () => void }) {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  const fromIso = from ? new Date(`${from}T00:00:00`).toISOString() : undefined;
+  const toIso = to ? new Date(`${to}T23:59:59`).toISOString() : undefined;
+  const report = useQuery({
+    queryKey: ['project-report', project.id, fromIso ?? null, toIso ?? null],
+    queryFn: () => api.projectReport(project.id, fromIso, toIso),
+  });
+
+  const downloadCsv = () => {
+    if (!report.data) return;
+    const blob = new Blob([reportToCsv(report.data)], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${project.code.toLowerCase()}-auswertung.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>
+            Auswertung {project.code} · {project.name}
+          </DialogTitle>
+          <DialogDescription>
+            Gebuchte Zeiten mit Tätigkeiten — zur Weitergabe an den Kunden als CSV exportierbar.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <Label htmlFor="report-from">Von</Label>
+            <Input
+              id="report-from"
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="h-9"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="report-to">Bis</Label>
+            <Input
+              id="report-to"
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="h-9"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!report.data || report.data.rows.length === 0}
+            onClick={downloadCsv}
+          >
+            <Download className="mr-1 h-4 w-4" /> CSV herunterladen
+          </Button>
+        </div>
+
+        <div className="max-h-96 overflow-y-auto">
+          {report.data && report.data.rows.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="py-2 pr-3">Datum</th>
+                  <th className="py-2 pr-3">Mitarbeiter:in</th>
+                  <th className="py-2 pr-3">Auftrag</th>
+                  <th className="py-2 pr-3 text-right">Stunden</th>
+                  <th className="py-2">Tätigkeit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.data.rows.map((r, i) => (
+                  <tr key={i} className="border-b last:border-0 align-top">
+                    <td className="py-2 pr-3 whitespace-nowrap">{r.date}</td>
+                    <td className="py-2 pr-3">{r.employeeName}</td>
+                    <td className="py-2 pr-3">{r.orderNo ?? '—'}</td>
+                    <td className="py-2 pr-3 text-right">{fmtHours(r.grossMinutes)}</td>
+                    <td className="py-2">{r.activity ?? '—'}</td>
+                  </tr>
+                ))}
+                <tr className="font-medium">
+                  <td className="py-2 pr-3" colSpan={3}>
+                    Gesamt
+                  </td>
+                  <td className="py-2 pr-3 text-right">
+                    {fmtHours(report.data.totalGrossMinutes)}
+                  </td>
+                  <td />
+                </tr>
+              </tbody>
+            </table>
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {report.isLoading ? 'Lädt …' : 'Keine Buchungen im gewählten Zeitraum.'}
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Schließen
           </Button>
         </DialogFooter>
       </DialogContent>

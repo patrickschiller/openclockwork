@@ -117,9 +117,15 @@ export interface SeedProjectInput {
   code: string;
   name?: string;
   isActive?: boolean;
+  planHours?: number;
   /** Employees to assign via the booking matrix. */
   assigneeIds?: string[];
-  serviceOrders?: Array<{ orderNo: string; title: string; isActive?: boolean }>;
+  serviceOrders?: Array<{
+    orderNo: string;
+    title: string;
+    isActive?: boolean;
+    planHours?: number;
+  }>;
 }
 
 export async function seedProject(prisma: PrismaService, input: SeedProjectInput) {
@@ -128,12 +134,14 @@ export async function seedProject(prisma: PrismaService, input: SeedProjectInput
       code: input.code,
       name: input.name ?? input.code,
       isActive: input.isActive ?? true,
+      planHours: input.planHours ?? null,
       serviceOrders: input.serviceOrders
         ? {
             create: input.serviceOrders.map((o) => ({
               orderNo: o.orderNo,
               title: o.title,
               isActive: o.isActive ?? true,
+              planHours: o.planHours ?? null,
             })),
           }
         : undefined,

@@ -15,10 +15,12 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { TimeEntriesService } from './time-entries.service';
 import {
+  BookProjectRangeDto,
   ClockInDto,
   ClockOutDto,
   SplitTimeEntryDto,
-  UpdateTimeEntryProjectDto,
+  UpdateTimeEntryDto,
+  type BookProjectRangeResult,
   type SplitTimeEntryResult,
   type TimeEntryDto,
 } from './time-entries.dto';
@@ -51,15 +53,26 @@ export class TimeEntriesController {
     return this.entries.clockOut(dto.employeeId);
   }
 
+  // Static route — keep declared before the ':id' routes.
+  @Post('book-project')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  bookProject(
+    @Body() dto: BookProjectRangeDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<BookProjectRangeResult> {
+    return this.entries.bookProjectRange(dto, user);
+  }
+
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  updateProject(
+  update(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body() dto: UpdateTimeEntryProjectDto,
+    @Body() dto: UpdateTimeEntryDto,
     @CurrentUser() user: JwtUser,
   ): Promise<TimeEntryDto> {
-    return this.entries.updateProject(id, dto, user);
+    return this.entries.update(id, dto, user);
   }
 
   @Post(':id/split')

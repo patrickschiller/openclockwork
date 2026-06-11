@@ -52,6 +52,102 @@ function toLocalInputValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function entryBadge(e: TimeEntryDto): string | null {
+  if (!e.projectCode) return null;
+  return e.serviceOrderNo ? `${e.projectCode} · ${e.serviceOrderNo}` : e.projectCode;
+}
+
+/**
+ * Shared project / service-order / activity selection. The service-order
+ * select only appears when the chosen project has active orders — in that
+ * case picking one is mandatory (mirrors the API rule).
+ */
+interface BookingTargetState {
+  projectId: string;
+  serviceOrderId: string;
+  activity: string;
+}
+
+const EMPTY_TARGET: BookingTargetState = { projectId: '', serviceOrderId: '', activity: '' };
+
+function targetNeedsOrder(projects: BookableProjectDto[], target: BookingTargetState): boolean {
+  const project = projects.find((p) => p.id === target.projectId);
+  return !!project && project.serviceOrders.length > 0;
+}
+
+function targetIsValid(projects: BookableProjectDto[], target: BookingTargetState): boolean {
+  return !targetNeedsOrder(projects, target) || target.serviceOrderId !== '';
+}
+
+function BookingTargetFields({
+  idPrefix,
+  projects,
+  target,
+  onChange,
+  noProjectLabel = '— ohne Projekt —',
+}: {
+  idPrefix: string;
+  projects: BookableProjectDto[];
+  target: BookingTargetState;
+  onChange: (next: BookingTargetState) => void;
+  noProjectLabel?: string;
+}) {
+  const project = projects.find((p) => p.id === target.projectId);
+  const needsOrder = !!project && project.serviceOrders.length > 0;
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label htmlFor={`${idPrefix}-project`}>Projekt</Label>
+        <select
+          id={`${idPrefix}-project`}
+          value={target.projectId}
+          onChange={(e) =>
+            onChange({ projectId: e.target.value, serviceOrderId: '', activity: target.activity })
+          }
+          className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+        >
+          <option value="">{noProjectLabel}</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.code} · {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      {needsOrder && (
+        <div className="space-y-1">
+          <Label htmlFor={`${idPrefix}-order`}>Service-Auftrag (Pflicht)</Label>
+          <select
+            id={`${idPrefix}-order`}
+            value={target.serviceOrderId}
+            onChange={(e) => onChange({ ...target, serviceOrderId: e.target.value })}
+            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+          >
+            <option value="">— Auftrag wählen —</option>
+            {project?.serviceOrders.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.orderNo} · {o.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {target.projectId !== '' && (
+        <div className="space-y-1">
+          <Label htmlFor={`${idPrefix}-activity`}>Tätigkeit (für die Kundenauswertung)</Label>
+          <Input
+            id={`${idPrefix}-activity`}
+            value={target.activity}
+            maxLength={500}
+            placeholder="z. B. Konzept für Startseite erstellt"
+            onChange={(e) => onChange({ ...target, activity: e.target.value })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function BookingPage() {
   const user = useCurrentUser();
   const employeeId = user.id;
@@ -59,9 +155,10 @@ export function BookingPage() {
   const online = useOnline();
   const [useGps, setUseGps] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedProjectId, setSelectedProjectId] = useState('');
-  const [projectDialogEntry, setProjectDialogEntry] = useState<TimeEntryDto | null>(null);
+  const [clockInTarget, setClockInTarget] = useState<BookingTargetState>(EMPTY_TARGET);
+  const [editDialogEntry, setEditDialogEntry] = useState<TimeEntryDto | null>(null);
   const [splitDialogEntry, setSplitDialogEntry] = useState<TimeEntryDto | null>(null);
+  const [bookRangeOpen, setBookRangeOpen] = useState(false);
 
   const entriesKey = ['time-entries', employeeId];
   const entriesQuery = useQuery({
@@ -74,23 +171,29 @@ export function BookingPage() {
   });
   const bookable = useMemo(() => bookableQuery.data ?? [], [bookableQuery.data]);
   const open = entriesQuery.data?.find((e) => !e.clockOut) ?? null;
+  const clockInTargetValid = targetIsValid(bookable, clockInTarget);
 
   const clockInMutation = useMutation<TimeEntryDto, Error, void, { previous?: TimeEntryDto[] }>({
     mutationFn: async () => {
       const gps = useGps ? await captureGps() : null;
+      const project = bookable.find((p) => p.id === clockInTarget.projectId) ?? null;
       const payload: ClockInPayload = {
         employeeId,
         latitude: gps?.latitude ?? null,
         longitude: gps?.longitude ?? null,
         accuracyMeters: gps?.accuracy ?? null,
-        projectId: selectedProjectId || null,
+        projectId: project?.id ?? null,
+        serviceOrderId: clockInTarget.serviceOrderId || null,
+        activity: project ? clockInTarget.activity.trim() || null : null,
       };
       return api.clockIn(payload);
     },
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: entriesKey });
       const previous = qc.getQueryData<TimeEntryDto[]>(entriesKey);
-      const project = bookable.find((p) => p.id === selectedProjectId) ?? null;
+      const project = bookable.find((p) => p.id === clockInTarget.projectId) ?? null;
+      const order =
+        project?.serviceOrders.find((o) => o.id === clockInTarget.serviceOrderId) ?? null;
       const optimistic: TimeEntryDto = {
         id: `optimistic-${Date.now()}`,
         employeeId,
@@ -105,6 +208,10 @@ export function BookingPage() {
         projectId: project?.id ?? null,
         projectCode: project?.code ?? null,
         projectName: project?.name ?? null,
+        serviceOrderId: order?.id ?? null,
+        serviceOrderNo: order?.orderNo ?? null,
+        serviceOrderTitle: order?.title ?? null,
+        activity: project ? clockInTarget.activity.trim() || null : null,
         summary: null,
       };
       qc.setQueryData<TimeEntryDto[]>(entriesKey, (old) => [optimistic, ...(old ?? [])]);
@@ -177,7 +284,7 @@ export function BookingPage() {
           <CardTitle>{open ? 'Eingestempelt' : 'Nicht eingestempelt'}</CardTitle>
           <CardDescription>
             {open
-              ? `Seit ${fmtDateTime(open.clockIn)}${open.projectCode ? ` · Projekt ${open.projectCode}` : ''}`
+              ? `Seit ${fmtDateTime(open.clockIn)}${entryBadge(open) ? ` · ${entryBadge(open)}` : ''}`
               : 'Drücke „Kommen", um eine neue Session zu starten.'}
           </CardDescription>
         </CardHeader>
@@ -194,31 +301,25 @@ export function BookingPage() {
               Standort beim Stempeln mitsenden (optional)
             </Label>
           </div>
-          {bookable.length > 0 && (
-            <div className="max-w-md space-y-1">
-              <Label htmlFor="clock-in-project" className="text-sm">
-                Projekt (optional)
-              </Label>
-              <select
-                id="clock-in-project"
-                value={selectedProjectId}
-                disabled={!!open}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              >
-                <option value="">— ohne Projekt —</option>
-                {bookable.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} · {p.name}
-                  </option>
-                ))}
-              </select>
+          {bookable.length > 0 && !open && (
+            <div className="max-w-md">
+              <BookingTargetFields
+                idPrefix="clock-in"
+                projects={bookable}
+                target={clockInTarget}
+                onChange={setClockInTarget}
+              />
+              {!clockInTargetValid && (
+                <p className="mt-1 text-xs text-destructive">
+                  Dieses Projekt erfordert die Auswahl eines Service-Auftrags.
+                </p>
+              )}
             </div>
           )}
           <div className="flex flex-wrap gap-3">
             <Button
               size="lg"
-              disabled={!!open || clockInMutation.isPending || !online}
+              disabled={!!open || clockInMutation.isPending || !online || !clockInTargetValid}
               onClick={() => {
                 setError(null);
                 clockInMutation.mutate();
@@ -242,8 +343,13 @@ export function BookingPage() {
       </Card>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Letzte Buchungen</CardTitle>
+          {bookable.length > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setBookRangeOpen(true)}>
+              Nachtragen
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {entriesQuery.data && entriesQuery.data.length > 0 ? (
@@ -256,32 +362,27 @@ export function BookingPage() {
                       {e.clockOut ? ` – ${fmtDateTime(e.clockOut)}` : ' – offen'}
                     </p>
                     <p className="text-xs text-muted-foreground">{fmtSummary(e)}</p>
+                    {e.activity && (
+                      <p className="text-xs italic text-muted-foreground">{e.activity}</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {e.projectCode && (
-                      <Badge variant="outline" title={e.projectName ?? undefined}>
-                        {e.projectCode}
+                    {entryBadge(e) && (
+                      <Badge variant="outline" title={e.serviceOrderTitle ?? e.projectName ?? undefined}>
+                        {entryBadge(e)}
                       </Badge>
                     )}
                     {e.requiresApproval && <Badge variant="destructive">Genehmigung</Badge>}
                     <Badge variant={e.status === 'Approved' ? 'default' : 'secondary'}>
                       {e.status}
                     </Badge>
-                    {e.status !== 'Approved' && !e.id.startsWith('optimistic-') && (
+                    {!e.id.startsWith('optimistic-') && (
                       <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setProjectDialogEntry(e)}
-                        >
+                        <Button size="sm" variant="ghost" onClick={() => setEditDialogEntry(e)}>
                           Projekt
                         </Button>
                         {e.clockOut && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setSplitDialogEntry(e)}
-                          >
+                          <Button size="sm" variant="ghost" onClick={() => setSplitDialogEntry(e)}>
                             Aufteilen
                           </Button>
                         )}
@@ -297,13 +398,13 @@ export function BookingPage() {
         </CardContent>
       </Card>
 
-      {projectDialogEntry && (
-        <EntryProjectDialog
-          entry={projectDialogEntry}
+      {editDialogEntry && (
+        <EntryEditDialog
+          entry={editDialogEntry}
           projects={bookable}
-          onClose={() => setProjectDialogEntry(null)}
+          onClose={() => setEditDialogEntry(null)}
           onSaved={() => {
-            setProjectDialogEntry(null);
+            setEditDialogEntry(null);
             qc.invalidateQueries({ queryKey: entriesKey });
           }}
         />
@@ -319,6 +420,17 @@ export function BookingPage() {
           }}
         />
       )}
+      {bookRangeOpen && (
+        <BookProjectDialog
+          employeeId={employeeId}
+          projects={bookable}
+          onClose={() => setBookRangeOpen(false)}
+          onSaved={() => {
+            setBookRangeOpen(false);
+            qc.invalidateQueries({ queryKey: entriesKey });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -330,12 +442,21 @@ interface EntryDialogProps {
   onSaved: () => void;
 }
 
-function EntryProjectDialog({ entry, projects, onClose, onSaved }: EntryDialogProps) {
-  const [projectId, setProjectId] = useState(entry.projectId ?? '');
+function EntryEditDialog({ entry, projects, onClose, onSaved }: EntryDialogProps) {
+  const [target, setTarget] = useState<BookingTargetState>({
+    projectId: entry.projectId ?? '',
+    serviceOrderId: entry.serviceOrderId ?? '',
+    activity: entry.activity ?? '',
+  });
   const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
-    mutationFn: () => api.updateTimeEntryProject(entry.id, projectId || null),
+    mutationFn: () =>
+      api.updateTimeEntry(entry.id, {
+        projectId: target.projectId || null,
+        serviceOrderId: target.serviceOrderId || null,
+        activity: target.activity.trim() || null,
+      }),
     onSuccess: onSaved,
     onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
   });
@@ -344,39 +465,29 @@ function EntryProjectDialog({ entry, projects, onClose, onSaved }: EntryDialogPr
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Projekt zuordnen</DialogTitle>
+          <DialogTitle>Buchung bearbeiten</DialogTitle>
           <DialogDescription>
-            Buchung {fmtDateTime(entry.clockIn)}
+            {fmtDateTime(entry.clockIn)}
             {entry.clockOut ? ` – ${fmtDateTime(entry.clockOut)}` : ' (offen)'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
-          <Label htmlFor="entry-project">Projekt</Label>
-          <select
-            id="entry-project"
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-          >
-            <option value="">— ohne Projekt —</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.code} · {p.name}
-              </option>
-            ))}
-          </select>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-        </div>
+        <BookingTargetFields
+          idPrefix="entry-edit"
+          projects={projects}
+          target={target}
+          onChange={setTarget}
+        />
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             Abbrechen
           </Button>
           <Button
-            disabled={save.isPending}
+            disabled={save.isPending || !targetIsValid(projects, target)}
             onClick={() => {
               setError(null);
               save.mutate();
@@ -398,25 +509,37 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
   ).toISOString();
   const [at, setAt] = useState(toLocalInputValue(midpoint));
   // '' = inherit from first segment, 'none' = explicitly without project.
-  const [secondProject, setSecondProject] = useState('');
+  const [mode, setMode] = useState('');
+  const [target, setTarget] = useState<BookingTargetState>(EMPTY_TARGET);
   const [error, setError] = useState<string | null>(null);
 
   const atDate = new Date(at);
-  const valid =
+  const atValid =
     !Number.isNaN(atDate.getTime()) &&
     atDate.getTime() > new Date(entry.clockIn).getTime() &&
     atDate.getTime() < new Date(clockOut).getTime();
+  const targetValid =
+    mode !== 'project' || (target.projectId !== '' && targetIsValid(projects, target));
 
   const save = useMutation({
-    mutationFn: () =>
-      api.splitTimeEntry(
-        entry.id,
-        atDate.toISOString(),
-        secondProject === '' ? undefined : secondProject === 'none' ? null : secondProject,
-      ),
+    mutationFn: () => {
+      const base = { at: atDate.toISOString() };
+      if (mode === '') return api.splitTimeEntry(entry.id, base);
+      if (mode === 'none') return api.splitTimeEntry(entry.id, { ...base, projectId: null });
+      return api.splitTimeEntry(entry.id, {
+        ...base,
+        projectId: target.projectId,
+        serviceOrderId: target.serviceOrderId || null,
+        activity: target.activity.trim() || null,
+      });
+    },
     onSuccess: onSaved,
     onError: (e) => setError(e instanceof Error ? e.message : 'Aufteilen fehlgeschlagen'),
   });
+
+  const inheritLabel = entryBadge(entry)
+    ? `— wie erster Teil (${entryBadge(entry)}) —`
+    : '— wie erster Teil (ohne Projekt) —';
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -439,33 +562,37 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
               max={toLocalInputValue(clockOut)}
               onChange={(e) => setAt(e.target.value)}
             />
-            {!valid && (
+            {!atValid && (
               <p className="text-xs text-destructive">
                 Der Zeitpunkt muss strikt zwischen Kommen und Gehen liegen.
               </p>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="split-project">Projekt für den zweiten Teil</Label>
+            <Label htmlFor="split-mode">Projekt für den zweiten Teil</Label>
             <select
-              id="split-project"
-              value={secondProject}
-              onChange={(e) => setSecondProject(e.target.value)}
+              id="split-mode"
+              value={mode}
+              onChange={(e) => {
+                setMode(e.target.value);
+                setTarget(EMPTY_TARGET);
+              }}
               className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             >
-              <option value="">
-                {entry.projectCode
-                  ? `— wie erster Teil (${entry.projectCode}) —`
-                  : '— wie erster Teil (ohne Projekt) —'}
-              </option>
+              <option value="">{inheritLabel}</option>
               <option value="none">— ohne Projekt —</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} · {p.name}
-                </option>
-              ))}
+              <option value="project">Anderes Projekt wählen…</option>
             </select>
           </div>
+          {mode === 'project' && (
+            <BookingTargetFields
+              idPrefix="split"
+              projects={projects}
+              target={target}
+              onChange={setTarget}
+              noProjectLabel="— Projekt wählen —"
+            />
+          )}
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
@@ -477,13 +604,121 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
             Abbrechen
           </Button>
           <Button
-            disabled={!valid || save.isPending}
+            disabled={!atValid || !targetValid || save.isPending}
             onClick={() => {
               setError(null);
               save.mutate();
             }}
           >
             {save.isPending ? 'Teile…' : 'Aufteilen'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BookProjectDialog({
+  employeeId,
+  projects,
+  onClose,
+  onSaved,
+}: {
+  employeeId: string;
+  projects: BookableProjectDto[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const today = new Date();
+  const defaultFrom = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0);
+  const defaultTo = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 0);
+  const [from, setFrom] = useState(toLocalInputValue(defaultFrom.toISOString()));
+  const [to, setTo] = useState(toLocalInputValue(defaultTo.toISOString()));
+  const [target, setTarget] = useState<BookingTargetState>(EMPTY_TARGET);
+  const [error, setError] = useState<string | null>(null);
+
+  const fromDate = new Date(from);
+  const toDate = new Date(to);
+  const rangeValid =
+    !Number.isNaN(fromDate.getTime()) &&
+    !Number.isNaN(toDate.getTime()) &&
+    fromDate.getTime() < toDate.getTime();
+  const targetValid = target.projectId !== '' && targetIsValid(projects, target);
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.bookProjectRange({
+        employeeId,
+        from: fromDate.toISOString(),
+        to: toDate.toISOString(),
+        projectId: target.projectId,
+        serviceOrderId: target.serviceOrderId || null,
+        activity: target.activity.trim() || null,
+      }),
+    onSuccess: onSaved,
+    onError: (e) => setError(e instanceof Error ? e.message : 'Nachtrag fehlgeschlagen'),
+  });
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Projektzeit nachtragen</DialogTitle>
+          <DialogDescription>
+            Bucht ein Zeitintervall nachträglich auf ein Projekt. Voraussetzung: Du warst im
+            gesamten Intervall eingestempelt — die bestehenden Buchungen werden entsprechend
+            aufgeteilt.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="range-from">Von</Label>
+              <Input
+                id="range-from"
+                type="datetime-local"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="range-to">Bis</Label>
+              <Input
+                id="range-to"
+                type="datetime-local"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
+            </div>
+          </div>
+          {!rangeValid && (
+            <p className="text-xs text-destructive">„Von" muss vor „Bis" liegen.</p>
+          )}
+          <BookingTargetFields
+            idPrefix="range"
+            projects={projects}
+            target={target}
+            onChange={setTarget}
+            noProjectLabel="— Projekt wählen —"
+          />
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            Abbrechen
+          </Button>
+          <Button
+            disabled={!rangeValid || !targetValid || save.isPending}
+            onClick={() => {
+              setError(null);
+              save.mutate();
+            }}
+          >
+            {save.isPending ? 'Buche…' : 'Nachtragen'}
           </Button>
         </DialogFooter>
       </DialogContent>
