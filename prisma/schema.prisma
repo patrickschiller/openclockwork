@@ -188,12 +188,17 @@ model TimeEntry {
   note             String?
   projectId        String?     @db.Uuid
   project          Project?    @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  serviceOrderId   String?       @db.Uuid
+  serviceOrder     ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+  /// Customer-facing description of the work performed (Tätigkeit).
+  activity         String?
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
   @@index([employeeId, clockIn])
   @@index([status])
   @@index([projectId])
+  @@index([serviceOrderId])
 }
 
 model Request {
@@ -290,6 +295,9 @@ model Project {
   name          String
   description   String?
   isActive      Boolean             @default(true)
+  /// Planned effort in hours; null = no plan defined. The sum of the
+  /// service-order planHours must not exceed this (service-enforced).
+  planHours     Decimal?            @db.Decimal(8, 2)
   serviceOrders ServiceOrder[]
   assignments   ProjectAssignment[]
   timeEntries   TimeEntry[]
@@ -300,14 +308,17 @@ model Project {
 }
 
 model ServiceOrder {
-  id        String   @id @default(uuid()) @db.Uuid
-  projectId String   @db.Uuid
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  orderNo   String
-  title     String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String      @id @default(uuid()) @db.Uuid
+  projectId   String      @db.Uuid
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  orderNo     String
+  title       String
+  isActive    Boolean     @default(true)
+  /// Planned effort in hours; null = no plan defined.
+  planHours   Decimal?    @db.Decimal(8, 2)
+  timeEntries TimeEntry[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   @@unique([projectId, orderNo])
   @@index([projectId])

@@ -63,8 +63,9 @@ describe('ERP export — API-key auth + time-entry list', () => {
       code: 'PRJ-001',
       name: 'Website Relaunch',
       assigneeIds: [e.id],
+      serviceOrders: [{ orderNo: 'SA-1', title: 'Konzeption' }],
     });
-    const mk = (hoursAgo: number, projectId?: string) =>
+    const mk = (hoursAgo: number, projectId?: string, extra: Record<string, unknown> = {}) =>
       ctx.prisma.timeEntry.create({
         data: {
           employeeId: e.id,
@@ -72,9 +73,13 @@ describe('ERP export — API-key auth + time-entry list', () => {
           clockOut: new Date(Date.now() - (hoursAgo - 1) * 60 * 60 * 1000),
           status: 'Approved',
           projectId: projectId ?? null,
+          ...extra,
         },
       });
-    await mk(4, project.id);
+    await mk(4, project.id, {
+      serviceOrderId: project.serviceOrders[0].id,
+      activity: 'Konzept finalisiert',
+    });
     await mk(2);
 
     const res = await ctx.http
@@ -84,8 +89,13 @@ describe('ERP export — API-key auth + time-entry list', () => {
     expect(res.body.length).toBe(2);
     expect(res.body[0].projectCode).toBe('PRJ-001');
     expect(res.body[0].projectName).toBe('Website Relaunch');
+    expect(res.body[0].orderNo).toBe('SA-1');
+    expect(res.body[0].orderTitle).toBe('Konzeption');
+    expect(res.body[0].activity).toBe('Konzept finalisiert');
     expect(res.body[1].projectCode).toBeNull();
     expect(res.body[1].projectName).toBeNull();
+    expect(res.body[1].orderNo).toBeNull();
+    expect(res.body[1].activity).toBeNull();
   });
 
   it('only Approved entries are exported — Pending/Open are filtered out', async () => {

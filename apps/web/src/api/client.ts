@@ -143,6 +143,10 @@ export interface TimeEntryDto {
   projectId: string | null;
   projectCode: string | null;
   projectName: string | null;
+  serviceOrderId: string | null;
+  serviceOrderNo: string | null;
+  serviceOrderTitle: string | null;
+  activity: string | null;
   summary: TimeSummaryDto | null;
 }
 
@@ -151,12 +155,40 @@ export interface SplitTimeEntryResult {
   second: TimeEntryDto;
 }
 
+export interface UpdateTimeEntryPayload {
+  projectId?: string | null;
+  serviceOrderId?: string | null;
+  activity?: string | null;
+}
+
+export interface SplitTimeEntryPayload {
+  at: string;
+  projectId?: string | null;
+  serviceOrderId?: string | null;
+  activity?: string | null;
+}
+
+export interface BookProjectRangePayload {
+  employeeId: string;
+  from: string;
+  to: string;
+  projectId: string;
+  serviceOrderId?: string | null;
+  activity?: string | null;
+}
+
+export interface BookProjectRangeResult {
+  entries: TimeEntryDto[];
+}
+
 export interface ServiceOrderDto {
   id: string;
   projectId: string;
   orderNo: string;
   title: string;
   isActive: boolean;
+  planHours: number | null;
+  bookedMinutes: number;
 }
 
 export interface ProjectDto {
@@ -165,9 +197,17 @@ export interface ProjectDto {
   name: string;
   description: string | null;
   isActive: boolean;
+  planHours: number | null;
+  bookedMinutes: number;
   serviceOrders: ServiceOrderDto[];
   assignedEmployeeCount: number;
   updatedAt: string;
+}
+
+export interface BookableServiceOrderDto {
+  id: string;
+  orderNo: string;
+  title: string;
 }
 
 /** Active project assigned to the current employee — booking selector entry. */
@@ -175,6 +215,8 @@ export interface BookableProjectDto {
   id: string;
   code: string;
   name: string;
+  /** Active service orders — when non-empty, one MUST be chosen on booking. */
+  serviceOrders: BookableServiceOrderDto[];
 }
 
 export interface ProjectAssignmentDto {
@@ -182,17 +224,37 @@ export interface ProjectAssignmentDto {
   projectId: string;
 }
 
+export interface ProjectReportRow {
+  date: string;
+  employeeName: string;
+  orderNo: string | null;
+  orderTitle: string | null;
+  grossMinutes: number;
+  activity: string | null;
+}
+
+export interface ProjectReportDto {
+  projectCode: string;
+  projectName: string;
+  from: string | null;
+  to: string | null;
+  rows: ProjectReportRow[];
+  totalGrossMinutes: number;
+}
+
 export interface UpsertProjectPayload {
   code: string;
   name: string;
   description?: string | null;
   isActive?: boolean;
+  planHours?: number | null;
 }
 
 export interface UpsertServiceOrderPayload {
   orderNo: string;
   title: string;
   isActive?: boolean;
+  planHours?: number | null;
 }
 
 export interface AccountDto {
@@ -388,6 +450,8 @@ export interface ClockInPayload {
   longitude: number | null;
   accuracyMeters: number | null;
   projectId: string | null;
+  serviceOrderId: string | null;
+  activity: string | null;
 }
 
 export interface LoginPayload {
@@ -578,16 +642,28 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ employeeId }),
     }),
-  updateTimeEntryProject: (id: string, projectId: string | null) =>
+  updateTimeEntry: (id: string, payload: UpdateTimeEntryPayload) =>
     request<TimeEntryDto>(`/api/timeentries/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ projectId }),
+      body: JSON.stringify(payload),
     }),
-  splitTimeEntry: (id: string, at: string, projectId?: string | null) =>
+  splitTimeEntry: (id: string, payload: SplitTimeEntryPayload) =>
     request<SplitTimeEntryResult>(`/api/timeentries/${id}/split`, {
       method: 'POST',
-      body: JSON.stringify(projectId === undefined ? { at } : { at, projectId }),
+      body: JSON.stringify(payload),
     }),
+  bookProjectRange: (payload: BookProjectRangePayload) =>
+    request<BookProjectRangeResult>('/api/timeentries/book-project', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  projectReport: (id: string, from?: string, to?: string) => {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const qs = params.toString();
+    return request<ProjectReportDto>(`/api/projects/${id}/report${qs ? `?${qs}` : ''}`);
+  },
   projects: (includeInactive = false) =>
     request<ProjectDto[]>(`/api/projects${includeInactive ? '?includeInactive=true' : ''}`),
   bookableProjects: (employeeId: string) =>

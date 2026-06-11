@@ -23,6 +23,7 @@ import {
   type BookableProjectDto,
   type ProjectAssignmentDto,
   type ProjectDto,
+  type ProjectReportDto,
   type ServiceOrderDto,
 } from './projects.dto';
 
@@ -56,6 +57,22 @@ export class ProjectsController {
   @Get(':id')
   get(@Param('id', new ParseUUIDPipe()) id: string): Promise<ProjectDto> {
     return this.projects.getById(id);
+  }
+
+  @Get(':id/report')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('Manager', 'HRAdmin')
+  report(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<ProjectReportDto> {
+    return this.projects.report(
+      id,
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
+    );
   }
 
   @Post()

@@ -127,11 +127,17 @@ async function ensureWorkSchedule(seed: ScheduleSeed) {
   });
 }
 
+interface TimeEntryBookingSeed {
+  projectId?: string;
+  serviceOrderId?: string;
+  activity?: string;
+}
+
 async function ensureTimeEntry(
   employeeId: string,
   clockIn: Date,
   clockOut: Date,
-  projectId?: string,
+  booking: TimeEntryBookingSeed = {},
 ) {
   const existing = await prisma.timeEntry.findFirst({
     where: { employeeId, clockIn },
@@ -145,7 +151,9 @@ async function ensureTimeEntry(
       source: 'Manual',
       status: 'Approved',
       requiresApproval: false,
-      projectId: projectId ?? null,
+      projectId: booking.projectId ?? null,
+      serviceOrderId: booking.serviceOrderId ?? null,
+      activity: booking.activity ?? null,
     },
   });
 }
@@ -154,6 +162,7 @@ interface ServiceOrderSeed {
   orderNo: string;
   title: string;
   isActive?: boolean;
+  planHours?: number;
 }
 
 interface ProjectSeed {
@@ -161,6 +170,7 @@ interface ProjectSeed {
   name: string;
   description: string;
   isActive?: boolean;
+  planHours?: number;
   serviceOrders: ServiceOrderSeed[];
 }
 
@@ -169,6 +179,7 @@ async function ensureProject(seed: ProjectSeed) {
     name: seed.name,
     description: seed.description,
     isActive: seed.isActive ?? true,
+    planHours: seed.planHours ?? null,
   };
   const project = await prisma.project.upsert({
     where: { code: seed.code },
@@ -176,15 +187,15 @@ async function ensureProject(seed: ProjectSeed) {
     update: data,
   });
   for (const o of seed.serviceOrders) {
+    const orderData = {
+      title: o.title,
+      isActive: o.isActive ?? true,
+      planHours: o.planHours ?? null,
+    };
     await prisma.serviceOrder.upsert({
       where: { projectId_orderNo: { projectId: project.id, orderNo: o.orderNo } },
-      create: {
-        projectId: project.id,
-        orderNo: o.orderNo,
-        title: o.title,
-        isActive: o.isActive ?? true,
-      },
-      update: { title: o.title, isActive: o.isActive ?? true },
+      create: { projectId: project.id, orderNo: o.orderNo, ...orderData },
+      update: orderData,
     });
   }
   return project;
@@ -340,16 +351,18 @@ async function main() {
     code: 'PRJ-001',
     name: 'Website Relaunch',
     description: 'Relaunch der Unternehmenswebsite inkl. CMS-Migration.',
+    planHours: 120,
     serviceOrders: [
-      { orderNo: 'SA-001', title: 'Konzeption & Design' },
-      { orderNo: 'SA-002', title: 'Umsetzung Frontend' },
+      { orderNo: 'SA-001', title: 'Konzeption & Design', planHours: 40 },
+      { orderNo: 'SA-002', title: 'Umsetzung Frontend', planHours: 60 },
     ],
   });
+  // PRJ-002 demonstrates plan hours on the order level only (no project plan).
   const erpIntro = await ensureProject({
     code: 'PRJ-002',
     name: 'ERP-Einführung',
     description: 'Einführung und Anbindung des neuen ERP-Systems.',
-    serviceOrders: [{ orderNo: 'SA-001', title: 'Datenmigration' }],
+    serviceOrders: [{ orderNo: 'SA-001', title: 'Datenmigration', planHours: 25 }],
   });
   await ensureProject({
     code: 'PRJ-003',
@@ -370,15 +383,30 @@ async function main() {
   if (diana) await ensureProjectAssignment(diana.id, erpIntro.id);
 
   // A handful of plausible time entries for the first employee, last 5
-  // weekdays — the two most recent ones booked onto the website project.
+  // weekdays — the two most recent ones booked onto the website project
+  // (service order SA-001 with a customer-facing activity).
   if (anna) {
+    const websiteDesign = await prisma.serviceOrder.findUnique({
+      where: { projectId_orderNo: { projectId: website.id, orderNo: 'SA-001' } },
+    });
     for (let i = 1; i <= 5; i += 1) {
       const day = new Date();
       day.setUTCDate(day.getUTCDate() - i);
       // 09:00 → 17:30 UTC
       const clockIn = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 9, 0, 0));
       const clockOut = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 17, 30, 0));
-      await ensureTimeEntry(anna.id, clockIn, clockOut, i <= 2 ? website.id : undefined);
+      await ensureTimeEntry(
+        anna.id,
+        clockIn,
+        clockOut,
+        i <= 2
+          ? {
+              projectId: website.id,
+              serviceOrderId: websiteDesign?.id,
+              activity: 'Wireframes und Designsystem für den Relaunch erarbeitet',
+            }
+          : {},
+      );
     }
   }
 
