@@ -691,6 +691,50 @@
         ]
       }
     },
+    "/api/projects/{id}/report": {
+      "get": {
+        "operationId": "ProjectsController_report",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "projects"
+        ]
+      }
+    },
     "/api/projects/{id}/service-orders": {
       "post": {
         "operationId": "ProjectsController_createServiceOrder",
@@ -966,9 +1010,38 @@
         ]
       }
     },
+    "/api/timeentries/book-project": {
+      "post": {
+        "operationId": "TimeEntriesController_bookProject",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookProjectRangeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "time-entries"
+        ]
+      }
+    },
     "/api/timeentries/{id}": {
       "patch": {
-        "operationId": "TimeEntriesController_updateProject",
+        "operationId": "TimeEntriesController_update",
         "parameters": [
           {
             "name": "id",
@@ -984,7 +1057,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateTimeEntryProjectDto"
+                "$ref": "#/components/schemas/UpdateTimeEntryDto"
               }
             }
           }
@@ -2498,6 +2571,11 @@
           "isActive": {
             "type": "boolean",
             "default": true
+          },
+          "planHours": {
+            "type": "object",
+            "nullable": true,
+            "minimum": 0
           }
         },
         "required": [
@@ -2520,6 +2598,11 @@
           "isActive": {
             "type": "boolean",
             "default": true
+          },
+          "planHours": {
+            "type": "object",
+            "nullable": true,
+            "minimum": 0
           }
         },
         "required": [
@@ -2555,6 +2638,16 @@
             "type": "object",
             "format": "uuid",
             "nullable": true
+          },
+          "serviceOrderId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activity": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 500
           }
         },
         "required": [
@@ -2573,18 +2666,62 @@
           "employeeId"
         ]
       },
-      "UpdateTimeEntryProjectDto": {
+      "BookProjectRangeDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceOrderId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activity": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "employeeId",
+          "from",
+          "to",
+          "projectId"
+        ]
+      },
+      "UpdateTimeEntryDto": {
         "type": "object",
         "properties": {
           "projectId": {
             "type": "object",
             "format": "uuid",
             "nullable": true
+          },
+          "serviceOrderId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activity": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 500
           }
-        },
-        "required": [
-          "projectId"
-        ]
+        }
       },
       "SplitTimeEntryDto": {
         "type": "object",
@@ -2597,6 +2734,16 @@
             "type": "object",
             "format": "uuid",
             "nullable": true
+          },
+          "serviceOrderId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activity": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 500
           }
         },
         "required": [
