@@ -85,6 +85,17 @@ Employee submits
 | Absence administration | Record and review sickness, training, and flextime entries for employees            |
 | Approval operations    | Role-aware manager and HR inboxes with bulk actions and audit history               |
 
+## Data Privacy & Security (DSGVO/GDPR)
+
+As a system handling sensitive employee data within the EU, OpenClockwork places
+strong emphasis on privacy and security.
+
+- **Data Protection**: User data is stored securely; no external tracking or commercial telemetry is used.
+- **Right to Erasure**: Administrators can delete users and their associated data (time entries, requests) while retaining audit logs if required by law.
+- **Access Control**: Fine-grained Role-Based Access Control (RBAC) ensures employees only see relevant information.
+- **Audit Logs**: All administrative actions (e.g., mass edits, user deletions) are recorded in immutable system logs.
+- **Encryption**: Support for HTTPS/TLS and encrypted database connections in production configurations.
+
 ## Compliance-Oriented Domain Logic
 
 OpenClockwork makes working-time rules visible in code and testable as domain
@@ -102,26 +113,23 @@ configuration.
 
 ## API and Integrations
 
-- REST API implemented with NestJS
-- Generated OpenAPI specification
-- JWT access and refresh authentication
-- Role-based endpoint protection
-- Authenticated Socket.IO events for real-time client refreshes
-- API-key-protected, paginated ERP time-entry export with project references
-- Pluggable attachment storage
-- Health endpoint
+A robust REST API enables integration with existing ERP or HR systems.
+
+- **Implementation**: NestJS with a Prisma ORM layer.
+- **Documentation**: Auto-generated OpenAPI (Swagger) specification included in the repository (`apps/api/openapi.json`).
+- **Authentication**: JWT (Access/Refresh token flow) and dedicated API Key support for machine-to-machine integration.
+- **Real-time Updates**: Socket.IO endpoints provide real-time notifications for workflow changes (e.g., approved requests).
+- **ERP Export**: Paginated, secure export of time data compatible with common payroll systems.
 
 ## Self-Hosting and Operations
 
-- Dockerfiles for API and web applications
-- Docker Compose configurations for local development and self-hosting
-- PostgreSQL with versioned Prisma migrations
-- Seed data for local evaluation
-- Generic Azure Bicep reference infrastructure
-- Azure Key Vault and managed-identity integration
-- Azure Blob Storage support for attachments
-- Nx workspace with lint, type-check, build, unit, integration, and browser
-  test targets
+Designed for operator control, allowing deployment on-premise or in private clouds.
+
+- **Containerization**: Official Dockerfiles for API and Web apps; `docker-compose` stack for quick start.
+- **Infrastructure as Code**: Reference Bicep templates for Azure deployment (Kubernetes/Container Apps ready).
+- **Database**: PostgreSQL with versioned Prisma migrations. Supports automated backups (via `pg_dump` or volume snapshots).
+- **Storage**: Pluggable storage backend (Local disk, S3-compatible, or Azure Blob) for documents and images.
+- **Secrets Management**: Integration with environment variables and Azure Key Vault.
 
 ## Beta Considerations
 
