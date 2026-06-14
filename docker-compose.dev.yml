@@ -1,0 +1,82 @@
+# ============================================================
+# OpenClockwork – Local Docker Dev Stack (DB + API + Web)
+# ============================================================
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d --build
+#   docker compose -f docker-compose.dev.yml down
+#
+# Access:
+#   Frontend → http://localhost
+#   API      → http://localhost:3001
+#   DB       → localhost:5432 (user: openclockwork / pass: openclockwork)
+# ============================================================
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: oclock-dev-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-openclockwork}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openclockwork}
+      POSTGRES_DB: ${POSTGRES_DB:-openclockwork}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - openclockwork-dev-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-openclockwork} -d ${POSTGRES_DB:-openclockwork}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: oclock-dev-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      API_PORT: 3001
+      TZ: ${TZ:-Europe/Berlin}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-openclockwork}:${POSTGRES_PASSWORD:-openclockwork}@db:5432/${POSTGRES_DB:-openclockwork}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
+      ERP_API_KEY: ${ERP_API_KEY:-dev-erp-key}
+      CRON_API_KEY: ${CRON_API_KEY:-dev-cron-key}
+      API_CORS_ORIGINS: http://localhost,http://localhost:4200
+      STORAGE_BACKEND: local
+      ATTACHMENTS_DIR: data/attachments
+    ports:
+      - '${API_PORT:-3001}:3001'
+    volumes:
+      - ./data:/app/data        # persistent attachments in host dir
+      - /tmp:/tmp               # Prisma schema/query engine cache
+    command: ['sh', '-c', 'npx prisma migrate deploy && npx prisma db seed && node dist/main.js']
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3001/api/health >/dev/null || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: oclock-dev-web
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: http://api:3001
+    ports:
+      - '${WEB_PORT:-80}:8080'
+
+volumes:
+  openclockwork-dev-db-data:
+    name: oclock-dev-db-data
