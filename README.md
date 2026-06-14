@@ -65,6 +65,8 @@ infra/            Reference deployment infrastructure
 
 Prerequisites: **Node 20+**, **pnpm 9+**, **Docker** (for the local PostgreSQL).
 
+### Option A: Node.js + Docker (classic dev workflow)
+
 ```bash
 # Clone
 git clone https://github.com/patrickschiller/openclockwork.git
@@ -84,6 +86,31 @@ pnpm nx run-many -t serve -p api,web
 ```
 
 The web client is then available at http://localhost:4200 and proxies API calls to http://localhost:3000.
+
+### Option B: Full local Docker stack (containerized everything)
+
+For a fully containerised environment — including the web frontend and API — use the provided dev compose file:
+
+```bash
+# Prepare environment variables
+cp .env.dev.example .env.dev
+
+# Build & start all services (DB → API → Web)
+docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
+
+# Apply migrations on first boot
+docker exec -it oclock-dev-api npx prisma migrate deploy
+```
+
+| Service | URL                 | Port mapping       |
+|---------|---------------------|--------------------|
+| Frontend| `http://localhost`  | `80:8080` (Nginx)  |
+| API     | `http://localhost:3001` | `3001:3001`    |
+| Database| `localhost:5432`    | internal (`5432`)  |
+
+> **Tip:** If a local PostgreSQL already binds to port `5432`, set `DB_PORT=5433` in `.env.dev` before starting the stack.
+
+Stop the stack with `docker compose -f docker-compose.dev.yml down`. Add `-v` to also remove persistent volumes.
 
 ## Contributing
 
