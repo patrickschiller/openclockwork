@@ -97,16 +97,16 @@ cp .env.dev.example .env.dev
 
 # Build & start all services (DB → API → Web)
 docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
-
-# Apply migrations on first boot
-docker exec -it oclock-dev-api npx prisma migrate deploy
 ```
 
-| Service | URL                 | Port mapping       |
-|---------|---------------------|--------------------|
-| Frontend| `http://localhost`  | `80:8080` (Nginx)  |
-| API     | `http://localhost:3001` | `3001:3001`    |
-| Database| `localhost:5432`    | internal (`5432`)  |
+The API container applies pending migrations and seeds the development database
+automatically before starting.
+
+| Service  | URL                     | Port mapping        |
+| -------- | ----------------------- | ------------------- |
+| Frontend | `http://localhost:4200` | `4200:8080` (Nginx) |
+| API      | `http://localhost:3001` | `3001:3001`         |
+| Database | `localhost:5432`        | internal (`5432`)   |
 
 > **Tip:** If a local PostgreSQL already binds to port `5432`, set `DB_PORT=5433` in `.env.dev` before starting the stack.
 
