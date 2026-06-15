@@ -97,6 +97,7 @@ az deployment sub show --name <deployment-name> \
     AZURE_API_APP_NAME: apiAppName.value,
     AZURE_WEB_APP_NAME: webAppName.value,
     AZURE_MIGRATE_JOB_NAME: migrateJobName.value,
+    AZURE_DEMO_RESET_JOB_NAME: demoResetJobName.value,
     AZURE_WEB_FQDN: webFqdn.value
   }' -o jsonc
 ```
@@ -122,6 +123,23 @@ That spins everything up with placeholder hello-world images for api and
 web. The first push to `main` after merging the deploy workflow will
 replace them with the real builds.
 
+## Disposable public demo reset
+
+For the public demo, set these values in the local, gitignored
+`infra/azure/main.bicepparam` before deploying the Bicep:
+
+```bicep
+param environment = 'demo'
+param enableDemoReset = true
+param demoResetCronExpression = '0 3 * * *'
+```
+
+Redeploy the Bicep once after the public demo reset feature lands. Then
+store `demoResetJobName` from the deployment outputs as the repository
+variable `AZURE_DEMO_RESET_JOB_NAME`. The deploy workflow treats this
+variable as optional; when it is present, each deploy pins the nightly
+reset job to the same API image as the application.
+
 ## Outputs you'll need
 
 After the deployment finishes:
@@ -136,6 +154,8 @@ The interesting ones:
 - `apiAppName` / `webAppName` — the ACA app names the workflow updates
 - `keyVaultName` — for rotating secrets later
 - `postgresFqdn` — for prisma migrate / psql
+- `demoResetJobName` — optional; update `AZURE_DEMO_RESET_JOB_NAME`
+  when the disposable demo reset is enabled
 - `webFqdn` — the public URL of the app
 
 ## Cost envelope
