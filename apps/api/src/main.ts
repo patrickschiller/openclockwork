@@ -24,19 +24,22 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('OpenClockwork API')
-    .setDescription('Self-hostable working-time tracker — REST + WebSocket surface.')
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  const swaggerEnabled = config.get<string>('SWAGGER_ENABLED', 'true') === 'true';
+  if (swaggerEnabled) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('OpenClockwork API')
+      .setDescription('Self-hostable working-time tracker — REST + WebSocket surface.')
+      .setVersion('0.1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = Number(config.get<string>('API_PORT', '3000'));
   await app.listen(port);
   Logger.log(`OpenClockwork API listening on http://localhost:${port}/api`);
-  Logger.log(`Swagger docs at        http://localhost:${port}/api/docs`);
+  if (swaggerEnabled) Logger.log(`Swagger docs at        http://localhost:${port}/api/docs`);
 }
 
 bootstrap().catch((err) => {
