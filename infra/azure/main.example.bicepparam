@@ -12,6 +12,11 @@ param location = 'westeurope'
 param namePrefix = 'oclock'
 param environment = 'dev'
 
+// Opt in only for a disposable public demo: this destroys visitor-created
+// database rows and attachments every night, then recreates the seed data.
+param enableDemoReset = false
+param demoResetCronExpression = '0 3 * * *'
+
 // Postgres admin login. Avoid reserved names like admin, root, postgres.
 param postgresAdminLogin = 'ocadmin'
 
