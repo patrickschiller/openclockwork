@@ -23,6 +23,7 @@ import {
   type ServiceOrderDto,
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
+import { useI18n } from '../app/i18n';
 
 interface ProjectDraft {
   code: string;
@@ -62,7 +63,13 @@ function fmtHours(minutes: number): string {
 }
 
 /** IST/PLAN progress bar; turns red once the booked hours exceed the plan. */
-function PlanBar({ planHours, bookedMinutes }: { planHours: number | null; bookedMinutes: number }) {
+function PlanBar({
+  planHours,
+  bookedMinutes,
+}: {
+  planHours: number | null;
+  bookedMinutes: number;
+}) {
   if (planHours === null || planHours <= 0) {
     return (
       <p className="text-xs text-muted-foreground">
@@ -80,7 +87,9 @@ function PlanBar({ planHours, bookedMinutes }: { planHours: number | null; booke
           IST {fmtHours(bookedMinutes)} / PLAN{' '}
           {planHours.toLocaleString('de-DE', { maximumFractionDigits: 1 })} h
         </span>
-        {over && <span className="font-medium text-destructive">Überbucht</span>}
+        {over && (
+          <span className="font-medium text-destructive">Überbucht</span>
+        )}
       </div>
       <div
         className="h-2 w-full overflow-hidden rounded bg-muted"
@@ -99,6 +108,7 @@ function PlanBar({ planHours, bookedMinutes }: { planHours: number | null; booke
 
 export function AdminProjectsPage() {
   const user = useCurrentUser();
+  const { t } = useI18n();
   const isAuthorized = user.role === 'Manager' || user.role === 'HRAdmin';
 
   const qc = useQueryClient();
@@ -118,7 +128,10 @@ export function AdminProjectsPage() {
     enabled: isAuthorized,
   });
 
-  const [editing, setEditing] = useState<{ id: string | null; draft: ProjectDraft } | null>(null);
+  const [editing, setEditing] = useState<{
+    id: string | null;
+    draft: ProjectDraft;
+  } | null>(null);
   const [reportProject, setReportProject] = useState<ProjectDto | null>(null);
 
   if (!isAuthorized) {
@@ -137,14 +150,15 @@ export function AdminProjectsPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Projekte</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t('projects.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Projekte mit Service-Aufträgen strukturieren, PLAN-Zeiten pflegen und
-            Mitarbeiter:innen für die Projektbuchung freischalten.
+            {t('projects.description')}
           </p>
         </div>
         <Button onClick={() => setEditing({ id: null, draft: EMPTY_DRAFT })}>
-          <Plus className="mr-2 h-4 w-4" /> Neues Projekt
+          <Plus className="mr-2 h-4 w-4" /> {t('projects.new')}
         </Button>
       </div>
 
@@ -161,7 +175,7 @@ export function AdminProjectsPage() {
         {projects.data && projects.data.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Noch keine Projekte angelegt.
+              {t('projects.none')}
             </CardContent>
           </Card>
         )}
@@ -184,7 +198,10 @@ export function AdminProjectsPage() {
         />
       )}
       {reportProject && (
-        <ProjectReportDialog project={reportProject} onClose={() => setReportProject(null)} />
+        <ProjectReportDialog
+          project={reportProject}
+          onClose={() => setReportProject(null)}
+        />
       )}
     </div>
   );
@@ -197,14 +214,22 @@ interface ProjectCardProps {
   onChanged: () => void;
 }
 
-function ProjectCard({ project, onEdit, onReport, onChanged }: ProjectCardProps) {
+function ProjectCard({
+  project,
+  onEdit,
+  onReport,
+  onChanged,
+}: ProjectCardProps) {
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
 
   const remove = useMutation({
     mutationFn: () => api.deleteProject(project.id),
     onSuccess: onChanged,
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Projekt konnte nicht gelöscht werden'),
+      setError(
+        e instanceof Error ? e.message : 'Projekt konnte nicht gelöscht werden',
+      ),
   });
 
   return (
@@ -213,14 +238,25 @@ function ProjectCard({ project, onEdit, onReport, onChanged }: ProjectCardProps)
         <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
           <span className="font-mono text-base">{project.code}</span>
           {project.name}
-          {!project.isActive && <Badge variant="secondary">Inaktiv</Badge>}
-          <Badge variant="outline">{project.assignedEmployeeCount} Mitarbeiter:innen</Badge>
+          {!project.isActive && (
+            <Badge variant="secondary">{t('common.inactive')}</Badge>
+          )}
+          <Badge variant="outline">
+            {t('schedules.employees', {
+              count: project.assignedEmployeeCount,
+            })}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        {project.description && <p className="text-muted-foreground">{project.description}</p>}
+        {project.description && (
+          <p className="text-muted-foreground">{project.description}</p>
+        )}
 
-        <PlanBar planHours={project.planHours} bookedMinutes={project.bookedMinutes} />
+        <PlanBar
+          planHours={project.planHours}
+          bookedMinutes={project.bookedMinutes}
+        />
 
         <ServiceOrderList project={project} onChanged={onChanged} />
 
@@ -232,10 +268,10 @@ function ProjectCard({ project, onEdit, onReport, onChanged }: ProjectCardProps)
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onReport}>
-            <FileBarChart className="mr-1 h-4 w-4" /> Auswertung
+            <FileBarChart className="mr-1 h-4 w-4" /> {t('projects.report')}
           </Button>
           <Button variant="ghost" size="sm" onClick={onEdit}>
-            <Pencil className="mr-1 h-4 w-4" /> Bearbeiten
+            <Pencil className="mr-1 h-4 w-4" /> {t('common.edit')}
           </Button>
           <Button
             variant="destructive"
@@ -247,7 +283,7 @@ function ProjectCard({ project, onEdit, onReport, onChanged }: ProjectCardProps)
             }}
             title="Löschen ist nur möglich, solange keine Zeiten gebucht sind"
           >
-            <Trash2 className="mr-1 h-4 w-4" /> Löschen
+            <Trash2 className="mr-1 h-4 w-4" /> {t('common.delete')}
           </Button>
         </div>
       </CardContent>
@@ -255,7 +291,14 @@ function ProjectCard({ project, onEdit, onReport, onChanged }: ProjectCardProps)
   );
 }
 
-function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChanged: () => void }) {
+function ServiceOrderList({
+  project,
+  onChanged,
+}: {
+  project: ProjectDto;
+  onChanged: () => void;
+}) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState({ orderNo: '', title: '', planHours: '' });
   const [error, setError] = useState<string | null>(null);
 
@@ -271,20 +314,28 @@ function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChang
       setError(null);
       onChanged();
     },
-    onError: (e) => setError(e instanceof Error ? e.message : 'Anlegen fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Anlegen fehlgeschlagen'),
   });
 
   return (
     <div className="rounded-md border bg-muted/30 p-3">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Service-Aufträge
+        {t('projects.serviceOrders')}
       </p>
       {project.serviceOrders.length === 0 ? (
-        <p className="mt-2 text-xs text-muted-foreground">Keine Service-Aufträge.</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {t('projects.noServiceOrders')}
+        </p>
       ) : (
         <ul className="mt-2 space-y-2">
           {project.serviceOrders.map((o) => (
-            <ServiceOrderRow key={o.id} projectId={project.id} order={o} onChanged={onChanged} />
+            <ServiceOrderRow
+              key={o.id}
+              projectId={project.id}
+              order={o}
+              onChanged={onChanged}
+            />
           ))}
         </ul>
       )}
@@ -329,7 +380,9 @@ function ServiceOrderList({ project, onChanged }: { project: ProjectDto; onChang
         <Button
           size="sm"
           variant="outline"
-          disabled={!draft.orderNo.trim() || !draft.title.trim() || create.isPending}
+          disabled={
+            !draft.orderNo.trim() || !draft.title.trim() || create.isPending
+          }
           onClick={() => create.mutate()}
         >
           <Plus className="mr-1 h-4 w-4" /> Hinzufügen
@@ -373,12 +426,14 @@ function ServiceOrderRow({
       setError(null);
       onChanged();
     },
-    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
   });
   const remove = useMutation({
     mutationFn: () => api.deleteServiceOrder(projectId, order.id),
     onSuccess: onChanged,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Löschen fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Löschen fehlgeschlagen'),
   });
 
   if (editing) {
@@ -406,7 +461,9 @@ function ServiceOrderRow({
         <Button
           size="sm"
           variant="outline"
-          disabled={!draft.orderNo.trim() || !draft.title.trim() || update.isPending}
+          disabled={
+            !draft.orderNo.trim() || !draft.title.trim() || update.isPending
+          }
           onClick={() =>
             update.mutate({
               orderNo: draft.orderNo,
@@ -421,7 +478,9 @@ function ServiceOrderRow({
         <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
           Abbrechen
         </Button>
-        {error && <span className="w-full text-xs text-destructive">{error}</span>}
+        {error && (
+          <span className="w-full text-xs text-destructive">{error}</span>
+        )}
       </li>
     );
   }
@@ -430,7 +489,9 @@ function ServiceOrderRow({
     <li className="space-y-1 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-xs">{order.orderNo}</span>
-        <span className={order.isActive ? '' : 'line-through opacity-60'}>{order.title}</span>
+        <span className={order.isActive ? '' : 'line-through opacity-60'}>
+          {order.title}
+        </span>
         {!order.isActive && <Badge variant="secondary">Inaktiv</Badge>}
         <span className="ml-auto flex items-center gap-1">
           <Button
@@ -448,7 +509,12 @@ function ServiceOrderRow({
           >
             {order.isActive ? 'Deaktivieren' : 'Aktivieren'}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => setEditing(true)} aria-label="Bearbeiten">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setEditing(true)}
+            aria-label="Bearbeiten"
+          >
             <Pencil className="h-4 w-4" />
           </Button>
           <Button
@@ -464,7 +530,10 @@ function ServiceOrderRow({
           </Button>
         </span>
       </div>
-      <PlanBar planHours={order.planHours} bookedMinutes={order.bookedMinutes} />
+      <PlanBar
+        planHours={order.planHours}
+        bookedMinutes={order.bookedMinutes}
+      />
       {error && <p className="text-xs text-destructive">{error}</p>}
     </li>
   );
@@ -472,7 +541,12 @@ function ServiceOrderRow({
 
 interface MatrixProps {
   projects: ProjectDto[];
-  employees: { id: string; firstName: string; lastName: string; personalNo: string }[];
+  employees: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    personalNo: string;
+  }[];
   assignments: ProjectAssignmentDto[];
 }
 
@@ -490,19 +564,29 @@ function AssignmentMatrix({ projects, employees, assignments }: MatrixProps) {
     { previous?: ProjectAssignmentDto[] }
   >({
     mutationFn: ({ projectId, employeeId, assign }) =>
-      assign ? api.assignProject(projectId, employeeId) : api.unassignProject(projectId, employeeId),
+      assign
+        ? api.assignProject(projectId, employeeId)
+        : api.unassignProject(projectId, employeeId),
     onMutate: async ({ projectId, employeeId, assign }) => {
       await qc.cancelQueries({ queryKey: ['project-assignments'] });
-      const previous = qc.getQueryData<ProjectAssignmentDto[]>(['project-assignments']);
-      qc.setQueryData<ProjectAssignmentDto[]>(['project-assignments'], (old = []) =>
-        assign
-          ? [...old, { employeeId, projectId }]
-          : old.filter((a) => !(a.employeeId === employeeId && a.projectId === projectId)),
+      const previous = qc.getQueryData<ProjectAssignmentDto[]>([
+        'project-assignments',
+      ]);
+      qc.setQueryData<ProjectAssignmentDto[]>(
+        ['project-assignments'],
+        (old = []) =>
+          assign
+            ? [...old, { employeeId, projectId }]
+            : old.filter(
+                (a) =>
+                  !(a.employeeId === employeeId && a.projectId === projectId),
+              ),
       );
       return { previous };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) qc.setQueryData(['project-assignments'], context.previous);
+      if (context?.previous)
+        qc.setQueryData(['project-assignments'], context.previous);
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['project-assignments'] });
@@ -517,7 +601,8 @@ function AssignmentMatrix({ projects, employees, assignments }: MatrixProps) {
       <CardHeader>
         <CardTitle className="text-lg">Zuweisungsmatrix</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Nur zugewiesene Mitarbeiter:innen können Zeiten auf ein Projekt buchen.
+          Nur zugewiesene Mitarbeiter:innen können Zeiten auf ein Projekt
+          buchen.
         </p>
       </CardHeader>
       <CardContent className="overflow-x-auto">
@@ -543,7 +628,9 @@ function AssignmentMatrix({ projects, employees, assignments }: MatrixProps) {
               <tr key={emp.id} className="border-b last:border-0">
                 <td className="py-2 pr-4">
                   {emp.firstName} {emp.lastName}
-                  <span className="ml-1 text-xs text-muted-foreground">({emp.personalNo})</span>
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    ({emp.personalNo})
+                  </span>
                 </td>
                 {projects.map((p) => {
                   const isAssigned = assigned.has(`${emp.id}:${p.id}`);
@@ -580,6 +667,7 @@ interface ProjectEditorProps {
 }
 
 function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<ProjectDraft>(state.draft);
   const [error, setError] = useState<string | null>(null);
 
@@ -592,10 +680,13 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
         isActive: draft.isActive,
         planHours: parsePlanHours(draft.planHours),
       };
-      return state.id ? api.updateProject(state.id, payload) : api.createProject(payload);
+      return state.id
+        ? api.updateProject(state.id, payload)
+        : api.createProject(payload);
     },
     onSuccess: onSaved,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : t('common.saveFailed')),
   });
 
   const valid = draft.code.trim().length > 0 && draft.name.trim().length > 0;
@@ -604,10 +695,11 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{state.id ? 'Projekt bearbeiten' : 'Neues Projekt'}</DialogTitle>
+          <DialogTitle>
+            {state.id ? t('projects.edit') : t('projects.new')}
+          </DialogTitle>
           <DialogDescription>
-            Der Projekt-Code ist eindeutig und erscheint im ERP-Export. Die PLAN-Zeit deckelt die
-            Summe der Auftrags-PLAN-Zeiten.
+            {t('projects.editorDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -622,7 +714,7 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="p-name">Name</Label>
+            <Label htmlFor="p-name">{t('common.name')}</Label>
             <Input
               id="p-name"
               value={draft.name}
@@ -630,30 +722,38 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="p-desc">Beschreibung</Label>
+            <Label htmlFor="p-desc">{t('common.description')}</Label>
             <Input
               id="p-desc"
               value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              onChange={(e) =>
+                setDraft({ ...draft, description: e.target.value })
+              }
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="p-plan">PLAN-Zeit (Stunden, leer = kein Plan)</Label>
+            <Label htmlFor="p-plan">
+              PLAN-Zeit (Stunden, leer = kein Plan)
+            </Label>
             <Input
               id="p-plan"
               value={draft.planHours}
               inputMode="decimal"
               placeholder="120"
-              onChange={(e) => setDraft({ ...draft, planHours: e.target.value })}
+              onChange={(e) =>
+                setDraft({ ...draft, planHours: e.target.value })
+              }
             />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={draft.isActive}
-              onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
+              onChange={(e) =>
+                setDraft({ ...draft, isActive: e.target.checked })
+              }
             />
-            Aktiv (buchbar für zugewiesene Mitarbeiter:innen)
+            {t('projects.activeHint')}
           </label>
 
           {error && (
@@ -665,7 +765,7 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             disabled={!valid || save.isPending}
@@ -674,7 +774,7 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
               save.mutate();
             }}
           >
-            {save.isPending ? 'Speichere…' : 'Speichern'}
+            {save.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -687,7 +787,13 @@ function csvEscape(value: string): string {
 }
 
 function reportToCsv(report: ProjectReportDto): string {
-  const header = ['Datum', 'Mitarbeiter:in', 'Service-Auftrag', 'Stunden', 'Tätigkeit'];
+  const header = [
+    'Datum',
+    'Mitarbeiter:in',
+    'Service-Auftrag',
+    'Stunden',
+    'Tätigkeit',
+  ];
   const lines = report.rows.map((r) =>
     [
       r.date,
@@ -699,12 +805,24 @@ function reportToCsv(report: ProjectReportDto): string {
       .map(csvEscape)
       .join(';'),
   );
-  const total = ['Gesamt', '', '', (report.totalGrossMinutes / 60).toFixed(2).replace('.', ','), ''];
+  const total = [
+    'Gesamt',
+    '',
+    '',
+    (report.totalGrossMinutes / 60).toFixed(2).replace('.', ','),
+    '',
+  ];
   // BOM so Excel detects UTF-8; semicolons for the German locale.
   return '﻿' + [header.join(';'), ...lines, total.join(';')].join('\r\n');
 }
 
-function ProjectReportDialog({ project, onClose }: { project: ProjectDto; onClose: () => void }) {
+function ProjectReportDialog({
+  project,
+  onClose,
+}: {
+  project: ProjectDto;
+  onClose: () => void;
+}) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
@@ -717,7 +835,9 @@ function ProjectReportDialog({ project, onClose }: { project: ProjectDto; onClos
 
   const downloadCsv = () => {
     if (!report.data) return;
-    const blob = new Blob([reportToCsv(report.data)], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([reportToCsv(report.data)], {
+      type: 'text/csv;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -734,7 +854,8 @@ function ProjectReportDialog({ project, onClose }: { project: ProjectDto; onClos
             Auswertung {project.code} · {project.name}
           </DialogTitle>
           <DialogDescription>
-            Gebuchte Zeiten mit Tätigkeiten — zur Weitergabe an den Kunden als CSV exportierbar.
+            Gebuchte Zeiten mit Tätigkeiten — zur Weitergabe an den Kunden als
+            CSV exportierbar.
           </DialogDescription>
         </DialogHeader>
 
@@ -787,7 +908,9 @@ function ProjectReportDialog({ project, onClose }: { project: ProjectDto; onClos
                     <td className="py-2 pr-3 whitespace-nowrap">{r.date}</td>
                     <td className="py-2 pr-3">{r.employeeName}</td>
                     <td className="py-2 pr-3">{r.orderNo ?? '—'}</td>
-                    <td className="py-2 pr-3 text-right">{fmtHours(r.grossMinutes)}</td>
+                    <td className="py-2 pr-3 text-right">
+                      {fmtHours(r.grossMinutes)}
+                    </td>
                     <td className="py-2">{r.activity ?? '—'}</td>
                   </tr>
                 ))}
@@ -804,7 +927,9 @@ function ProjectReportDialog({ project, onClose }: { project: ProjectDto; onClos
             </table>
           ) : (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              {report.isLoading ? 'Lädt …' : 'Keine Buchungen im gewählten Zeitraum.'}
+              {report.isLoading
+                ? 'Lädt …'
+                : 'Keine Buchungen im gewählten Zeitraum.'}
             </p>
           )}
         </div>

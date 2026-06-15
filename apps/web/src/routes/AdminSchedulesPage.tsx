@@ -15,11 +15,21 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, type CoreTimeWindowDto, type WorkScheduleDto } from '../api/client';
+import {
+  api,
+  type CoreTimeWindowDto,
+  type WorkScheduleDto,
+} from '../api/client';
 import { useCurrentUser } from '../app/auth';
+import { useI18n } from '../app/i18n';
 
 const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
-const TIME_MODELS = ['Vollzeit', 'Teilzeit', 'Gleitzeit', 'Vertrauensarbeitszeit'] as const;
+const TIME_MODELS = [
+  'Vollzeit',
+  'Teilzeit',
+  'Gleitzeit',
+  'Vertrauensarbeitszeit',
+] as const;
 
 interface CoreDraft {
   label: string;
@@ -70,19 +80,24 @@ function weekdayLabel(mask: number): string {
   if (mask === 31) return 'Mo–Fr';
   if (mask === 127) return 'Mo–So';
   const out: string[] = [];
-  for (let i = 0; i < 7; i += 1) if (mask & (1 << i)) out.push(WEEKDAY_LABELS[i]);
+  for (let i = 0; i < 7; i += 1)
+    if (mask & (1 << i)) out.push(WEEKDAY_LABELS[i]);
   return out.join(', ');
 }
 
 function describeCores(cores: CoreTimeWindowDto[]): string {
   if (cores.length === 0) return 'keine Kernzeit';
   return cores
-    .map((c) => `${c.label ? c.label + ' ' : ''}${c.start}–${c.end} (${weekdayLabel(c.weekdays)})`)
+    .map(
+      (c) =>
+        `${c.label ? c.label + ' ' : ''}${c.start}–${c.end} (${weekdayLabel(c.weekdays)})`,
+    )
     .join(' · ');
 }
 
 export function AdminSchedulesPage() {
   const user = useCurrentUser();
+  const { t } = useI18n();
   const isAuthorized = user.role === 'HRAdmin';
 
   const qc = useQueryClient();
@@ -97,12 +112,15 @@ export function AdminSchedulesPage() {
     enabled: isAuthorized,
   });
 
-  const [editing, setEditing] = useState<{ id: string | null; draft: FormDraft } | null>(null);
+  const [editing, setEditing] = useState<{
+    id: string | null;
+    draft: FormDraft;
+  } | null>(null);
 
   if (!isAuthorized) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>Diese Seite ist HR-Admins vorbehalten.</AlertDescription>
+        <AlertDescription>{t('common.hrOnly')}</AlertDescription>
       </Alert>
     );
   }
@@ -111,14 +129,15 @@ export function AdminSchedulesPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Arbeitszeitpläne</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t('schedules.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Rahmenarbeitszeit + Kernzeiten pro Plan, Zuweisung an Mitarbeiter:innen oder ganze
-            Zeitmodelle.
+            {t('schedules.description')}
           </p>
         </div>
         <Button onClick={() => setEditing({ id: null, draft: EMPTY_DRAFT })}>
-          <Plus className="mr-2 h-4 w-4" /> Neuer Plan
+          <Plus className="mr-2 h-4 w-4" /> {t('schedules.new')}
         </Button>
       </div>
 
@@ -128,14 +147,16 @@ export function AdminSchedulesPage() {
             key={s.id}
             schedule={s}
             onEdit={() => setEditing({ id: s.id, draft: fromSchedule(s) })}
-            onDeleted={() => qc.invalidateQueries({ queryKey: ['work-schedules'] })}
+            onDeleted={() =>
+              qc.invalidateQueries({ queryKey: ['work-schedules'] })
+            }
             employees={employees.data ?? []}
           />
         ))}
         {schedules.data && schedules.data.length === 0 && (
           <Card>
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Noch keine Arbeitszeitpläne angelegt.
+              {t('schedules.none')}
             </CardContent>
           </Card>
         )}
@@ -159,12 +180,24 @@ interface ScheduleCardProps {
   schedule: WorkScheduleDto;
   onEdit: () => void;
   onDeleted: () => void;
-  employees: { id: string; firstName: string; lastName: string; role: string }[];
+  employees: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+  }[];
 }
 
-function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardProps) {
+function ScheduleCard({
+  schedule,
+  onEdit,
+  onDeleted,
+  employees,
+}: ScheduleCardProps) {
   const qc = useQueryClient();
-  const [bulkModel, setBulkModel] = useState<(typeof TIME_MODELS)[number]>('Vollzeit');
+  const { t, enumLabel } = useI18n();
+  const [bulkModel, setBulkModel] =
+    useState<(typeof TIME_MODELS)[number]>('Vollzeit');
   const [override, setOverride] = useState(false);
   const [bulkResult, setBulkResult] = useState<string | null>(null);
 
@@ -186,34 +219,43 @@ function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardPr
         <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
           {schedule.name}
           {schedule.isDefault && <Badge variant="secondary">Default</Badge>}
-          <Badge variant="outline">{schedule.employeeCount} Mitarbeiter:innen</Badge>
+          <Badge variant="outline">
+            {t('schedules.employees', { count: schedule.employeeCount })}
+          </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
-        {schedule.description && <p className="text-muted-foreground">{schedule.description}</p>}
+        {schedule.description && (
+          <p className="text-muted-foreground">{schedule.description}</p>
+        )}
         <p>
-          <span className="font-medium">Rahmen:</span> {schedule.frameStart}–{schedule.frameEnd}
+          <span className="font-medium">Rahmen:</span> {schedule.frameStart}–
+          {schedule.frameEnd}
         </p>
         <p>
-          <span className="font-medium">Arbeitstage:</span> {weekdayLabel(schedule.workingDays)}
+          <span className="font-medium">Arbeitstage:</span>{' '}
+          {weekdayLabel(schedule.workingDays)}
         </p>
         <p>
-          <span className="font-medium">Kernzeiten:</span> {describeCores(schedule.coreTimes)}
+          <span className="font-medium">Kernzeiten:</span>{' '}
+          {describeCores(schedule.coreTimes)}
         </p>
 
         <div className="rounded-md border bg-muted/30 p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Zuweisen
+            {t('schedules.assign')}
           </p>
           <div className="mt-2 flex flex-wrap items-end gap-2">
             <div>
               <Label htmlFor={`tm-${schedule.id}`} className="text-xs">
-                Zeitmodell
+                {t('schedules.timeModel')}
               </Label>
               <select
                 id={`tm-${schedule.id}`}
                 value={bulkModel}
-                onChange={(e) => setBulkModel(e.target.value as (typeof TIME_MODELS)[number])}
+                onChange={(e) =>
+                  setBulkModel(e.target.value as (typeof TIME_MODELS)[number])
+                }
                 className="mt-1 flex h-9 rounded-md border border-input bg-background px-2 text-sm"
               >
                 {TIME_MODELS.map((tm) => (
@@ -229,7 +271,7 @@ function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardPr
                 checked={override}
                 onChange={(e) => setOverride(e.target.checked)}
               />
-              Bestehende Zuweisungen überschreiben
+              {t('schedules.override')}
             </label>
             <Button
               size="sm"
@@ -239,10 +281,14 @@ function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardPr
             >
               {bulkAssign.isPending ? 'Weise zu…' : 'Bulk zuweisen'}
             </Button>
-            {bulkResult && <span className="text-xs text-muted-foreground">{bulkResult}</span>}
+            {bulkResult && (
+              <span className="text-xs text-muted-foreground">
+                {bulkResult}
+              </span>
+            )}
           </div>
           <div className="mt-3">
-            <Label className="text-xs">Einzelnen Mitarbeiter zuweisen</Label>
+            <Label className="text-xs">{t('schedules.assignEmployee')}</Label>
             <select
               onChange={(e) => {
                 if (!e.target.value) return;
@@ -254,10 +300,10 @@ function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardPr
               className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               defaultValue=""
             >
-              <option value="">— wählen —</option>
+              <option value="">{t('common.select')}</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.id}>
-                  {emp.firstName} {emp.lastName} ({emp.role})
+                  {emp.firstName} {emp.lastName} ({enumLabel(emp.role)})
                 </option>
               ))}
             </select>
@@ -266,7 +312,7 @@ function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardPr
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" onClick={onEdit}>
-            Bearbeiten
+            {t('common.edit')}
           </Button>
           <Button
             variant="destructive"
@@ -279,7 +325,7 @@ function ScheduleCard({ schedule, onEdit, onDeleted, employees }: ScheduleCardPr
                 : 'Plan löschen'
             }
           >
-            <Trash2 className="mr-1 h-4 w-4" /> Löschen
+            <Trash2 className="mr-1 h-4 w-4" /> {t('common.delete')}
           </Button>
         </div>
       </CardContent>
@@ -294,6 +340,7 @@ interface ScheduleEditorProps {
 }
 
 function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState<FormDraft>(state.draft);
   const [error, setError] = useState<string | null>(null);
 
@@ -317,16 +364,22 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
           weekdays: c.weekdays,
         })),
       };
-      return state.id ? api.updateWorkSchedule(state.id, payload) : api.createWorkSchedule(payload);
+      return state.id
+        ? api.updateWorkSchedule(state.id, payload)
+        : api.createWorkSchedule(payload);
     },
     onSuccess: onSaved,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : t('common.saveFailed')),
   });
 
   const addCore = () =>
     setDraft((d) => ({
       ...d,
-      cores: [...d.cores, { label: '', start: '10:00', end: '11:00', weekdays: 31 }],
+      cores: [
+        ...d.cores,
+        { label: '', start: '10:00', end: '11:00', weekdays: 31 },
+      ],
     }));
 
   const updateCore = (idx: number, patch: Partial<CoreDraft>) =>
@@ -356,13 +409,17 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>{state.id ? 'Plan bearbeiten' : 'Neuer Plan'}</DialogTitle>
-          <DialogDescription>Rahmen + beliebig viele Kernzeiten pro Wochentag</DialogDescription>
+          <DialogTitle>
+            {state.id ? t('schedules.edit') : t('schedules.new')}
+          </DialogTitle>
+          <DialogDescription>
+            {t('schedules.editorDescription')}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{t('common.name')}</Label>
             <Input
               id="name"
               value={draft.name}
@@ -370,11 +427,13 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="desc">Beschreibung</Label>
+            <Label htmlFor="desc">{t('common.description')}</Label>
             <Input
               id="desc"
               value={draft.description}
-              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              onChange={(e) =>
+                setDraft({ ...draft, description: e.target.value })
+              }
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -384,7 +443,9 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                 id="fs"
                 type="time"
                 value={draft.frameStart}
-                onChange={(e) => setDraft({ ...draft, frameStart: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, frameStart: e.target.value })
+                }
               />
             </div>
             <div className="space-y-2">
@@ -393,7 +454,9 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                 id="fe"
                 type="time"
                 value={draft.frameEnd}
-                onChange={(e) => setDraft({ ...draft, frameEnd: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...draft, frameEnd: e.target.value })
+                }
               />
             </div>
           </div>
@@ -401,16 +464,20 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
             <input
               type="checkbox"
               checked={draft.isDefault}
-              onChange={(e) => setDraft({ ...draft, isDefault: e.target.checked })}
+              onChange={(e) =>
+                setDraft({ ...draft, isDefault: e.target.checked })
+              }
             />
-            Als Default-Plan markieren (wird verwendet, wenn Mitarbeiter keinen eigenen Plan hat)
+            Als Default-Plan markieren (wird verwendet, wenn Mitarbeiter keinen
+            eigenen Plan hat)
           </label>
 
           <div className="space-y-2">
             <p className="text-sm font-medium">Arbeitstage</p>
             <p className="text-xs text-muted-foreground">
-              An Tagen außerhalb dieser Auswahl gilt der Mitarbeiter als nicht-anwesend
-              — keine Soll-Stunden, keine Urlaubsabrechnung. Default Mo–Fr.
+              An Tagen außerhalb dieser Auswahl gilt der Mitarbeiter als
+              nicht-anwesend — keine Soll-Stunden, keine Urlaubsabrechnung.
+              Default Mo–Fr.
             </p>
             <div className="flex flex-wrap gap-1 text-xs">
               {WEEKDAY_LABELS.map((label, i) => {
@@ -420,7 +487,12 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                   <button
                     key={label}
                     type="button"
-                    onClick={() => setDraft({ ...draft, workingDays: draft.workingDays ^ bit })}
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        workingDays: draft.workingDays ^ bit,
+                      })
+                    }
                     className={`rounded border px-3 py-1 ${
                       active
                         ? 'border-primary bg-primary text-primary-foreground'
@@ -436,14 +508,14 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Kernzeiten</p>
+              <p className="text-sm font-medium">{t('schedules.coreTimes')}</p>
               <Button size="sm" variant="outline" onClick={addCore}>
-                <Plus className="mr-1 h-4 w-4" /> Kernzeit hinzufügen
+                <Plus className="mr-1 h-4 w-4" /> {t('schedules.addCoreTime')}
               </Button>
             </div>
             {draft.cores.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Keine Kernzeiten — passt für Vertrauensarbeitszeit.
+                {t('schedules.noCoreTimes')}
               </p>
             ) : (
               <ul className="space-y-3">
@@ -454,7 +526,9 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                         <Label className="text-xs">Bezeichnung</Label>
                         <Input
                           value={c.label}
-                          onChange={(e) => updateCore(idx, { label: e.target.value })}
+                          onChange={(e) =>
+                            updateCore(idx, { label: e.target.value })
+                          }
                           placeholder="z. B. Vormittag"
                           className="mt-1 h-8 text-sm"
                         />
@@ -464,7 +538,9 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                         <Input
                           type="time"
                           value={c.start}
-                          onChange={(e) => updateCore(idx, { start: e.target.value })}
+                          onChange={(e) =>
+                            updateCore(idx, { start: e.target.value })
+                          }
                           className="mt-1 h-8 text-sm"
                         />
                       </div>
@@ -473,7 +549,9 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                         <Input
                           type="time"
                           value={c.end}
-                          onChange={(e) => updateCore(idx, { end: e.target.value })}
+                          onChange={(e) =>
+                            updateCore(idx, { end: e.target.value })
+                          }
                           className="mt-1 h-8 text-sm"
                         />
                       </div>
@@ -523,7 +601,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             disabled={!valid || save.isPending}
@@ -532,7 +610,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
               save.mutate();
             }}
           >
-            {save.isPending ? 'Speichere…' : 'Speichern'}
+            {save.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
