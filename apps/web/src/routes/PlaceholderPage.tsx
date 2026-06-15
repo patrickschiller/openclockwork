@@ -1,4 +1,11 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { useI18n } from '../app/i18n';
 
 interface PlaceholderPageProps {
   title: string;
@@ -6,6 +13,7 @@ interface PlaceholderPageProps {
 }
 
 export function PlaceholderPage({ title, hint }: PlaceholderPageProps) {
+  const { t } = useI18n();
   return (
     <Card>
       <CardHeader>
@@ -13,9 +21,7 @@ export function PlaceholderPage({ title, hint }: PlaceholderPageProps) {
         {hint && <CardDescription>{hint}</CardDescription>}
       </CardHeader>
       <CardContent className="text-sm text-muted-foreground">
-        Diese Seite wird im Rahmen der laufenden Migration nach OpenClockwork in einem späteren
-        Schritt portiert. Die alte Implementierung steht unter <code>legacy/frontend/</code> als
-        Referenz bereit.
+        {t('placeholder.description')}
       </CardContent>
     </Card>
   );

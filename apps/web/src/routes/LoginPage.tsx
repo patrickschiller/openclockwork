@@ -1,13 +1,22 @@
 import { useState, type FormEvent } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '../app/auth';
+import { LanguageToggle } from '../app/LanguageToggle';
+import { useI18n } from '../app/i18n';
 
 export function LoginPage() {
   const { login, loading } = useAuth();
+  const { t } = useI18n();
   const [email, setEmail] = useState('hannah.roth@openclockwork.test');
   const [password, setPassword] = useState('openclockwork');
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +27,7 @@ export function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : t('login.failed'));
     }
   };
 
@@ -26,8 +35,11 @@ export function LoginPage() {
     <div className="flex min-h-dvh items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>OpenClockwork</CardTitle>
-          <CardDescription>Anmeldung mit E-Mail und Passwort</CardDescription>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>OpenClockwork</CardTitle>
+            <LanguageToggle />
+          </div>
+          <CardDescription>{t('login.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
@@ -43,7 +55,7 @@ export function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Passwort</Label>
+              <Label htmlFor="password">{t('login.password')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -59,10 +71,11 @@ export function LoginPage() {
               </Alert>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Anmelden…' : 'Anmelden'}
+              {loading ? t('login.submitting') : t('login.submit')}
             </Button>
             <p className="text-xs text-muted-foreground">
-              Default-Seed: <code>hannah.roth@openclockwork.test</code> / <code>openclockwork</code>
+              Default-Seed: <code>hannah.roth@openclockwork.test</code> /{' '}
+              <code>openclockwork</code>
             </p>
           </form>
         </CardContent>
