@@ -3,7 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,11 +20,21 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, type BookableProjectDto, type ClockInPayload, type TimeEntryDto } from '../api/client';
+import {
+  api,
+  type BookableProjectDto,
+  type ClockInPayload,
+  type TimeEntryDto,
+} from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useOnline } from '../app/use-online';
+import { useI18n } from '../app/i18n';
 
-function captureGps(): Promise<{ latitude: number; longitude: number; accuracy: number } | null> {
+function captureGps(): Promise<{
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+} | null> {
   if (!('geolocation' in navigator)) return Promise.resolve(null);
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
@@ -41,8 +57,14 @@ function fmtDateTime(iso: string): string {
 function fmtSummary(entry: TimeEntryDto): string {
   if (!entry.summary) return '— offen';
   const { grossMinutes, breakMinutes, netMinutes } = entry.summary;
-  const h = (n: number) => `${Math.floor(n / 60)}h ${(n % 60).toString().padStart(2, '0')}min`;
+  const h = (n: number) =>
+    `${Math.floor(n / 60)}h ${(n % 60).toString().padStart(2, '0')}min`;
   return `Brutto ${h(grossMinutes)} · Pause ${breakMinutes}min · Netto ${h(netMinutes)}`;
+}
+
+function fmtDate(date: string): string {
+  const [year, month, day] = date.split('-');
+  return `${day}.${month}.${year}`;
 }
 
 /** ISO timestamp → value for <input type="datetime-local"> in local time. */
@@ -54,7 +76,9 @@ function toLocalInputValue(iso: string): string {
 
 function entryBadge(e: TimeEntryDto): string | null {
   if (!e.projectCode) return null;
-  return e.serviceOrderNo ? `${e.projectCode} · ${e.serviceOrderNo}` : e.projectCode;
+  return e.serviceOrderNo
+    ? `${e.projectCode} · ${e.serviceOrderNo}`
+    : e.projectCode;
 }
 
 /**
@@ -68,14 +92,24 @@ interface BookingTargetState {
   activity: string;
 }
 
-const EMPTY_TARGET: BookingTargetState = { projectId: '', serviceOrderId: '', activity: '' };
+const EMPTY_TARGET: BookingTargetState = {
+  projectId: '',
+  serviceOrderId: '',
+  activity: '',
+};
 
-function targetNeedsOrder(projects: BookableProjectDto[], target: BookingTargetState): boolean {
+function targetNeedsOrder(
+  projects: BookableProjectDto[],
+  target: BookingTargetState,
+): boolean {
   const project = projects.find((p) => p.id === target.projectId);
   return !!project && project.serviceOrders.length > 0;
 }
 
-function targetIsValid(projects: BookableProjectDto[], target: BookingTargetState): boolean {
+function targetIsValid(
+  projects: BookableProjectDto[],
+  target: BookingTargetState,
+): boolean {
   return !targetNeedsOrder(projects, target) || target.serviceOrderId !== '';
 }
 
@@ -84,7 +118,7 @@ function BookingTargetFields({
   projects,
   target,
   onChange,
-  noProjectLabel = '— ohne Projekt —',
+  noProjectLabel,
 }: {
   idPrefix: string;
   projects: BookableProjectDto[];
@@ -92,21 +126,27 @@ function BookingTargetFields({
   onChange: (next: BookingTargetState) => void;
   noProjectLabel?: string;
 }) {
+  const { t } = useI18n();
+  const resolvedNoProjectLabel = noProjectLabel ?? t('booking.noProject');
   const project = projects.find((p) => p.id === target.projectId);
   const needsOrder = !!project && project.serviceOrders.length > 0;
   return (
     <div className="space-y-3">
       <div className="space-y-1">
-        <Label htmlFor={`${idPrefix}-project`}>Projekt</Label>
+        <Label htmlFor={`${idPrefix}-project`}>{t('common.project')}</Label>
         <select
           id={`${idPrefix}-project`}
           value={target.projectId}
           onChange={(e) =>
-            onChange({ projectId: e.target.value, serviceOrderId: '', activity: target.activity })
+            onChange({
+              projectId: e.target.value,
+              serviceOrderId: '',
+              activity: target.activity,
+            })
           }
           className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
         >
-          <option value="">{noProjectLabel}</option>
+          <option value="">{resolvedNoProjectLabel}</option>
           {projects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.code} · {p.name}
@@ -116,14 +156,18 @@ function BookingTargetFields({
       </div>
       {needsOrder && (
         <div className="space-y-1">
-          <Label htmlFor={`${idPrefix}-order`}>Service-Auftrag (Pflicht)</Label>
+          <Label htmlFor={`${idPrefix}-order`}>
+            {t('booking.serviceOrderRequired')}
+          </Label>
           <select
             id={`${idPrefix}-order`}
             value={target.serviceOrderId}
-            onChange={(e) => onChange({ ...target, serviceOrderId: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...target, serviceOrderId: e.target.value })
+            }
             className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
           >
-            <option value="">— Auftrag wählen —</option>
+            <option value="">{t('booking.chooseOrder')}</option>
             {project?.serviceOrders.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.orderNo} · {o.title}
@@ -134,12 +178,14 @@ function BookingTargetFields({
       )}
       {target.projectId !== '' && (
         <div className="space-y-1">
-          <Label htmlFor={`${idPrefix}-activity`}>Tätigkeit (für die Kundenauswertung)</Label>
+          <Label htmlFor={`${idPrefix}-activity`}>
+            {t('booking.activityForReport')}
+          </Label>
           <Input
             id={`${idPrefix}-activity`}
             value={target.activity}
             maxLength={500}
-            placeholder="z. B. Konzept für Startseite erstellt"
+            placeholder={t('booking.activityPlaceholder')}
             onChange={(e) => onChange({ ...target, activity: e.target.value })}
           />
         </div>
@@ -150,33 +196,54 @@ function BookingTargetFields({
 
 export function BookingPage() {
   const user = useCurrentUser();
+  const { t, enumLabel } = useI18n();
   const employeeId = user.id;
   const qc = useQueryClient();
   const online = useOnline();
   const [useGps, setUseGps] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [clockInTarget, setClockInTarget] = useState<BookingTargetState>(EMPTY_TARGET);
-  const [editDialogEntry, setEditDialogEntry] = useState<TimeEntryDto | null>(null);
-  const [splitDialogEntry, setSplitDialogEntry] = useState<TimeEntryDto | null>(null);
+  const [clockInTarget, setClockInTarget] =
+    useState<BookingTargetState>(EMPTY_TARGET);
+  const [editDialogEntry, setEditDialogEntry] = useState<TimeEntryDto | null>(
+    null,
+  );
+  const [splitDialogEntry, setSplitDialogEntry] = useState<TimeEntryDto | null>(
+    null,
+  );
   const [bookRangeOpen, setBookRangeOpen] = useState(false);
 
   const entriesKey = ['time-entries', employeeId];
+  const year = new Date().getFullYear();
+  const yearStart = new Date(year, 0, 1).toISOString();
   const entriesQuery = useQuery({
     queryKey: entriesKey,
     queryFn: () => api.timeEntries(employeeId),
+  });
+  const violationsQuery = useQuery({
+    queryKey: ['violations', employeeId, year],
+    queryFn: () => api.violations(employeeId, yearStart),
   });
   const bookableQuery = useQuery({
     queryKey: ['bookable-projects', employeeId],
     queryFn: () => api.bookableProjects(employeeId),
   });
-  const bookable = useMemo(() => bookableQuery.data ?? [], [bookableQuery.data]);
+  const bookable = useMemo(
+    () => bookableQuery.data ?? [],
+    [bookableQuery.data],
+  );
   const open = entriesQuery.data?.find((e) => !e.clockOut) ?? null;
   const clockInTargetValid = targetIsValid(bookable, clockInTarget);
 
-  const clockInMutation = useMutation<TimeEntryDto, Error, void, { previous?: TimeEntryDto[] }>({
+  const clockInMutation = useMutation<
+    TimeEntryDto,
+    Error,
+    void,
+    { previous?: TimeEntryDto[] }
+  >({
     mutationFn: async () => {
       const gps = useGps ? await captureGps() : null;
-      const project = bookable.find((p) => p.id === clockInTarget.projectId) ?? null;
+      const project =
+        bookable.find((p) => p.id === clockInTarget.projectId) ?? null;
       const payload: ClockInPayload = {
         employeeId,
         latitude: gps?.latitude ?? null,
@@ -191,9 +258,12 @@ export function BookingPage() {
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: entriesKey });
       const previous = qc.getQueryData<TimeEntryDto[]>(entriesKey);
-      const project = bookable.find((p) => p.id === clockInTarget.projectId) ?? null;
+      const project =
+        bookable.find((p) => p.id === clockInTarget.projectId) ?? null;
       const order =
-        project?.serviceOrders.find((o) => o.id === clockInTarget.serviceOrderId) ?? null;
+        project?.serviceOrders.find(
+          (o) => o.id === clockInTarget.serviceOrderId,
+        ) ?? null;
       const optimistic: TimeEntryDto = {
         id: `optimistic-${Date.now()}`,
         employeeId,
@@ -214,7 +284,10 @@ export function BookingPage() {
         activity: project ? clockInTarget.activity.trim() || null : null,
         summary: null,
       };
-      qc.setQueryData<TimeEntryDto[]>(entriesKey, (old) => [optimistic, ...(old ?? [])]);
+      qc.setQueryData<TimeEntryDto[]>(entriesKey, (old) => [
+        optimistic,
+        ...(old ?? []),
+      ]);
       return { previous };
     },
     onError: (e, _v, context) => {
@@ -224,7 +297,12 @@ export function BookingPage() {
     onSettled: () => qc.invalidateQueries({ queryKey: entriesKey }),
   });
 
-  const clockOutMutation = useMutation<TimeEntryDto, Error, void, { previous?: TimeEntryDto[] }>({
+  const clockOutMutation = useMutation<
+    TimeEntryDto,
+    Error,
+    void,
+    { previous?: TimeEntryDto[] }
+  >({
     mutationFn: () => api.clockOut(employeeId),
     onMutate: async () => {
       await qc.cancelQueries({ queryKey: entriesKey });
@@ -248,27 +326,26 @@ export function BookingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Buchung</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {t('booking.title')}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Kommen / Gehen mit optionalem GPS und optionaler Projektbuchung.
+          {t('booking.description')}
         </p>
       </div>
 
       {!online && (
         <Alert variant="destructive">
           <AlertTitle>Offline</AlertTitle>
-          <AlertDescription>
-            Keine Verbindung zum Server. Buchungen sind aktuell deaktiviert — sobald wieder online,
-            ist die Schaltfläche freigegeben.
-          </AlertDescription>
+          <AlertDescription>{t('booking.offlineDescription')}</AlertDescription>
         </Alert>
       )}
 
       {offHours && (
         <Alert>
-          <AlertTitle>Außerhalb der Regelzeit</AlertTitle>
+          <AlertTitle>{t('booking.offHours')}</AlertTitle>
           <AlertDescription>
-            Buchungen vor 07:00 oder nach 23:00 sind genehmigungspflichtig.
+            {t('booking.offHoursDescription')}
           </AlertDescription>
         </Alert>
       )}
@@ -281,11 +358,13 @@ export function BookingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{open ? 'Eingestempelt' : 'Nicht eingestempelt'}</CardTitle>
+          <CardTitle>
+            {open ? t('booking.clockedIn') : t('booking.notClockedIn')}
+          </CardTitle>
           <CardDescription>
             {open
               ? `Seit ${fmtDateTime(open.clockIn)}${entryBadge(open) ? ` · ${entryBadge(open)}` : ''}`
-              : 'Drücke „Kommen", um eine neue Session zu starten.'}
+              : t('booking.startHint')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -298,7 +377,7 @@ export function BookingPage() {
               onChange={(e) => setUseGps(e.target.checked)}
             />
             <Label htmlFor="use-gps" className="text-sm">
-              Standort beim Stempeln mitsenden (optional)
+              {t('booking.sendLocation')}
             </Label>
           </div>
           {bookable.length > 0 && !open && (
@@ -311,7 +390,7 @@ export function BookingPage() {
               />
               {!clockInTargetValid && (
                 <p className="mt-1 text-xs text-destructive">
-                  Dieses Projekt erfordert die Auswahl eines Service-Auftrags.
+                  {t('booking.orderRequired')}
                 </p>
               )}
             </div>
@@ -319,13 +398,20 @@ export function BookingPage() {
           <div className="flex flex-wrap gap-3">
             <Button
               size="lg"
-              disabled={!!open || clockInMutation.isPending || !online || !clockInTargetValid}
+              disabled={
+                !!open ||
+                clockInMutation.isPending ||
+                !online ||
+                !clockInTargetValid
+              }
               onClick={() => {
                 setError(null);
                 clockInMutation.mutate();
               }}
             >
-              {clockInMutation.isPending ? 'Buche…' : 'Kommen'}
+              {clockInMutation.isPending
+                ? t('common.saving')
+                : t('booking.clockIn')}
             </Button>
             <Button
               size="lg"
@@ -336,17 +422,65 @@ export function BookingPage() {
                 clockOutMutation.mutate();
               }}
             >
-              {clockOutMutation.isPending ? 'Buche…' : 'Gehen'}
+              {clockOutMutation.isPending
+                ? t('common.saving')
+                : t('booking.clockOut')}
             </Button>
           </div>
         </CardContent>
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle>
+            {t('booking.violations', {
+              count: violationsQuery.data?.length ?? 0,
+            })}
+          </CardTitle>
+          <CardDescription>{t('booking.violationDescription')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {violationsQuery.data && violationsQuery.data.length > 0 ? (
+            <ul className="divide-y text-sm">
+              {violationsQuery.data.map((violation) => (
+                <li
+                  key={`${violation.date}-${violation.boundary}-${violation.kind}`}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {fmtDate(violation.date)} ·{' '}
+                      {violation.windowLabel ?? t('booking.coreTime')}{' '}
+                      {violation.boundary}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {enumLabel(violation.kind)} ·{' '}
+                      {t('booking.minutesUncovered', {
+                        count: violation.deltaMinutes,
+                      })}
+                    </p>
+                  </div>
+                  <Badge variant="destructive">{t('booking.violation')}</Badge>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t('booking.noViolations')}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Letzte Buchungen</CardTitle>
+          <CardTitle>{t('booking.lastEntries')}</CardTitle>
           {bookable.length > 0 && (
-            <Button size="sm" variant="outline" onClick={() => setBookRangeOpen(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setBookRangeOpen(true)}
+            >
               Nachtragen
             </Button>
           )}
@@ -355,35 +489,65 @@ export function BookingPage() {
           {entriesQuery.data && entriesQuery.data.length > 0 ? (
             <ul className="divide-y text-sm">
               {entriesQuery.data.slice(0, 20).map((e) => (
-                <li key={e.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <li
+                  key={e.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
                   <div>
                     <p className="font-medium">
                       {fmtDateTime(e.clockIn)}
-                      {e.clockOut ? ` – ${fmtDateTime(e.clockOut)}` : ' – offen'}
+                      {e.clockOut
+                        ? ` – ${fmtDateTime(e.clockOut)}`
+                        : ' – offen'}
                     </p>
-                    <p className="text-xs text-muted-foreground">{fmtSummary(e)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {fmtSummary(e)}
+                    </p>
                     {e.activity && (
-                      <p className="text-xs italic text-muted-foreground">{e.activity}</p>
+                      <p className="text-xs italic text-muted-foreground">
+                        {e.activity}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
                     {entryBadge(e) && (
-                      <Badge variant="outline" title={e.serviceOrderTitle ?? e.projectName ?? undefined}>
+                      <Badge
+                        variant="outline"
+                        title={
+                          e.serviceOrderTitle ?? e.projectName ?? undefined
+                        }
+                      >
                         {entryBadge(e)}
                       </Badge>
                     )}
-                    {e.requiresApproval && <Badge variant="destructive">Genehmigung</Badge>}
-                    <Badge variant={e.status === 'Approved' ? 'default' : 'secondary'}>
-                      {e.status}
+                    {e.requiresApproval && (
+                      <Badge variant="destructive">
+                        {t('booking.approval')}
+                      </Badge>
+                    )}
+                    <Badge
+                      variant={
+                        e.status === 'Approved' ? 'default' : 'secondary'
+                      }
+                    >
+                      {enumLabel(e.status)}
                     </Badge>
                     {!e.id.startsWith('optimistic-') && (
                       <>
-                        <Button size="sm" variant="ghost" onClick={() => setEditDialogEntry(e)}>
-                          Projekt
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditDialogEntry(e)}
+                        >
+                          {t('common.project')}
                         </Button>
                         {e.clockOut && (
-                          <Button size="sm" variant="ghost" onClick={() => setSplitDialogEntry(e)}>
-                            Aufteilen
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSplitDialogEntry(e)}
+                          >
+                            {t('booking.splitAction')}
                           </Button>
                         )}
                       </>
@@ -393,7 +557,9 @@ export function BookingPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">Noch keine Buchungen.</p>
+            <p className="text-sm text-muted-foreground">
+              {t('booking.noEntries')}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -442,7 +608,13 @@ interface EntryDialogProps {
   onSaved: () => void;
 }
 
-function EntryEditDialog({ entry, projects, onClose, onSaved }: EntryDialogProps) {
+function EntryEditDialog({
+  entry,
+  projects,
+  onClose,
+  onSaved,
+}: EntryDialogProps) {
+  const { t, formatDateTime } = useI18n();
   const [target, setTarget] = useState<BookingTargetState>({
     projectId: entry.projectId ?? '',
     serviceOrderId: entry.serviceOrderId ?? '',
@@ -458,17 +630,20 @@ function EntryEditDialog({ entry, projects, onClose, onSaved }: EntryDialogProps
         activity: target.activity.trim() || null,
       }),
     onSuccess: onSaved,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : t('common.saveFailed')),
   });
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Buchung bearbeiten</DialogTitle>
+          <DialogTitle>{t('booking.edit')}</DialogTitle>
           <DialogDescription>
-            {fmtDateTime(entry.clockIn)}
-            {entry.clockOut ? ` – ${fmtDateTime(entry.clockOut)}` : ' (offen)'}
+            {formatDateTime(entry.clockIn)}
+            {entry.clockOut
+              ? ` – ${formatDateTime(entry.clockOut)}`
+              : ` (${t('booking.open')})`}
           </DialogDescription>
         </DialogHeader>
         <BookingTargetFields
@@ -484,7 +659,7 @@ function EntryEditDialog({ entry, projects, onClose, onSaved }: EntryDialogProps
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             disabled={save.isPending || !targetIsValid(projects, target)}
@@ -493,7 +668,7 @@ function EntryEditDialog({ entry, projects, onClose, onSaved }: EntryDialogProps
               save.mutate();
             }}
           >
-            {save.isPending ? 'Speichere…' : 'Speichern'}
+            {save.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -501,7 +676,13 @@ function EntryEditDialog({ entry, projects, onClose, onSaved }: EntryDialogProps
   );
 }
 
-function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProps) {
+function SplitEntryDialog({
+  entry,
+  projects,
+  onClose,
+  onSaved,
+}: EntryDialogProps) {
+  const { t, formatDateTime } = useI18n();
   // clockOut is guaranteed: the split action is only offered on closed entries.
   const clockOut = entry.clockOut as string;
   const midpoint = new Date(
@@ -519,13 +700,15 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
     atDate.getTime() > new Date(entry.clockIn).getTime() &&
     atDate.getTime() < new Date(clockOut).getTime();
   const targetValid =
-    mode !== 'project' || (target.projectId !== '' && targetIsValid(projects, target));
+    mode !== 'project' ||
+    (target.projectId !== '' && targetIsValid(projects, target));
 
   const save = useMutation({
     mutationFn: () => {
       const base = { at: atDate.toISOString() };
       if (mode === '') return api.splitTimeEntry(entry.id, base);
-      if (mode === 'none') return api.splitTimeEntry(entry.id, { ...base, projectId: null });
+      if (mode === 'none')
+        return api.splitTimeEntry(entry.id, { ...base, projectId: null });
       return api.splitTimeEntry(entry.id, {
         ...base,
         projectId: target.projectId,
@@ -534,7 +717,8 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
       });
     },
     onSuccess: onSaved,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Aufteilen fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Aufteilen fehlgeschlagen'),
   });
 
   const inheritLabel = entryBadge(entry)
@@ -545,10 +729,11 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Buchung aufteilen</DialogTitle>
+          <DialogTitle>{t('booking.split')}</DialogTitle>
           <DialogDescription>
-            {fmtDateTime(entry.clockIn)} – {fmtDateTime(clockOut)} wird am gewählten Zeitpunkt in
-            zwei Buchungen geteilt, z. B. für einen Projektwechsel.
+            {formatDateTime(entry.clockIn)} – {formatDateTime(clockOut)} wird am
+            gewählten Zeitpunkt in zwei Buchungen geteilt, z. B. für einen
+            Projektwechsel.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -580,7 +765,7 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
               className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             >
               <option value="">{inheritLabel}</option>
-              <option value="none">— ohne Projekt —</option>
+              <option value="none">{t('booking.noProject')}</option>
               <option value="project">Anderes Projekt wählen…</option>
             </select>
           </div>
@@ -590,7 +775,7 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
               projects={projects}
               target={target}
               onChange={setTarget}
-              noProjectLabel="— Projekt wählen —"
+              noProjectLabel={t('booking.chooseProject')}
             />
           )}
           {error && (
@@ -601,7 +786,7 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             disabled={!atValid || !targetValid || save.isPending}
@@ -610,7 +795,9 @@ function SplitEntryDialog({ entry, projects, onClose, onSaved }: EntryDialogProp
               save.mutate();
             }}
           >
-            {save.isPending ? 'Teile…' : 'Aufteilen'}
+            {save.isPending
+              ? t('booking.splitPending')
+              : t('booking.splitAction')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -629,10 +816,25 @@ function BookProjectDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const today = new Date();
-  const defaultFrom = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9, 0);
-  const defaultTo = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 10, 0);
-  const [from, setFrom] = useState(toLocalInputValue(defaultFrom.toISOString()));
+  const defaultFrom = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+    9,
+    0,
+  );
+  const defaultTo = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+    10,
+    0,
+  );
+  const [from, setFrom] = useState(
+    toLocalInputValue(defaultFrom.toISOString()),
+  );
   const [to, setTo] = useState(toLocalInputValue(defaultTo.toISOString()));
   const [target, setTarget] = useState<BookingTargetState>(EMPTY_TARGET);
   const [error, setError] = useState<string | null>(null);
@@ -643,7 +845,8 @@ function BookProjectDialog({
     !Number.isNaN(fromDate.getTime()) &&
     !Number.isNaN(toDate.getTime()) &&
     fromDate.getTime() < toDate.getTime();
-  const targetValid = target.projectId !== '' && targetIsValid(projects, target);
+  const targetValid =
+    target.projectId !== '' && targetIsValid(projects, target);
 
   const save = useMutation({
     mutationFn: () =>
@@ -656,24 +859,25 @@ function BookProjectDialog({
         activity: target.activity.trim() || null,
       }),
     onSuccess: onSaved,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Nachtrag fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Nachtrag fehlgeschlagen'),
   });
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Projektzeit nachtragen</DialogTitle>
+          <DialogTitle>{t('booking.bookProjectTime')}</DialogTitle>
           <DialogDescription>
-            Bucht ein Zeitintervall nachträglich auf ein Projekt. Voraussetzung: Du warst im
-            gesamten Intervall eingestempelt — die bestehenden Buchungen werden entsprechend
-            aufgeteilt.
+            Bucht ein Zeitintervall nachträglich auf ein Projekt. Voraussetzung:
+            Du warst im gesamten Intervall eingestempelt — die bestehenden
+            Buchungen werden entsprechend aufgeteilt.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label htmlFor="range-from">Von</Label>
+              <Label htmlFor="range-from">{t('common.from')}</Label>
               <Input
                 id="range-from"
                 type="datetime-local"
@@ -682,7 +886,7 @@ function BookProjectDialog({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="range-to">Bis</Label>
+              <Label htmlFor="range-to">{t('common.to')}</Label>
               <Input
                 id="range-to"
                 type="datetime-local"
@@ -692,14 +896,16 @@ function BookProjectDialog({
             </div>
           </div>
           {!rangeValid && (
-            <p className="text-xs text-destructive">„Von" muss vor „Bis" liegen.</p>
+            <p className="text-xs text-destructive">
+              „Von" muss vor „Bis" liegen.
+            </p>
           )}
           <BookingTargetFields
             idPrefix="range"
             projects={projects}
             target={target}
             onChange={setTarget}
-            noProjectLabel="— Projekt wählen —"
+            noProjectLabel={t('booking.chooseProject')}
           />
           {error && (
             <Alert variant="destructive">
@@ -709,7 +915,7 @@ function BookProjectDialog({
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             disabled={!rangeValid || !targetValid || save.isPending}

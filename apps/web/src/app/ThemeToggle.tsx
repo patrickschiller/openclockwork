@@ -4,13 +4,14 @@ import { Monitor, Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api, type ThemePreference } from '../api/client';
 import { useAuth } from './auth';
+import { useI18n } from './i18n';
 
 const ORDER: ThemePreference[] = ['Light', 'Dark', 'System'];
 
-const META: Record<ThemePreference, { label: string; Icon: typeof Sun }> = {
-  Light: { label: 'Hell', Icon: Sun },
-  Dark: { label: 'Dunkel', Icon: Moon },
-  System: { label: 'Systemeinstellung', Icon: Monitor },
+const META: Record<ThemePreference, { Icon: typeof Sun }> = {
+  Light: { Icon: Sun },
+  Dark: { Icon: Moon },
+  System: { Icon: Monitor },
 };
 
 function nextPreference(current: ThemePreference): ThemePreference {
@@ -25,6 +26,7 @@ function nextPreference(current: ThemePreference): ThemePreference {
  */
 export function ThemeToggle() {
   const { user, patchUser } = useAuth();
+  const { t } = useI18n();
   const current = user?.themePreference ?? 'System';
 
   const mutation = useMutation({
@@ -47,7 +49,8 @@ export function ThemeToggle() {
   }, [current, mutation]);
 
   if (!user) return null;
-  const { label, Icon } = META[current];
+  const { Icon } = META[current];
+  const label = t(`theme.${current}`);
 
   return (
     <Button
@@ -55,8 +58,8 @@ export function ThemeToggle() {
       size="icon"
       onClick={onClick}
       disabled={mutation.isPending}
-      title={`Design: ${label} (klicken zum Wechseln)`}
-      aria-label={`Design wechseln. Aktuell: ${label}`}
+      title={t('theme.title', { label })}
+      aria-label={t('theme.aria', { label })}
     >
       <Icon className="h-4 w-4" aria-hidden="true" />
     </Button>

@@ -9,6 +9,7 @@ const bookableProjectsMock = vi.fn().mockResolvedValue([]);
 const updateTimeEntryMock = vi.fn();
 const splitTimeEntryMock = vi.fn();
 const bookProjectRangeMock = vi.fn();
+const violationsMock = vi.fn().mockResolvedValue([]);
 
 vi.mock('../api/client', () => ({
   api: {
@@ -19,6 +20,7 @@ vi.mock('../api/client', () => ({
     updateTimeEntry: (...args: unknown[]) => updateTimeEntryMock(...args),
     splitTimeEntry: (...args: unknown[]) => splitTimeEntryMock(...args),
     bookProjectRange: (...args: unknown[]) => bookProjectRangeMock(...args),
+    violations: (...args: unknown[]) => violationsMock(...args),
   },
 }));
 
@@ -30,7 +32,12 @@ vi.mock('../app/auth', () => ({
     lastName: 'User',
     role: 'Employee',
   }),
-  useAuth: () => ({ user: null, login: vi.fn(), logout: vi.fn(), loading: false }),
+  useAuth: () => ({
+    user: null,
+    login: vi.fn(),
+    logout: vi.fn(),
+    loading: false,
+  }),
 }));
 
 let onlineState = true;
@@ -78,12 +85,15 @@ const PROJECTS = [
 describe('BookingPage', () => {
   beforeEach(() => {
     timeEntriesMock.mockClear().mockResolvedValue([]);
-    clockInMock.mockClear().mockResolvedValue(entryFixture({ clockOut: null, status: 'Open' }));
+    clockInMock
+      .mockClear()
+      .mockResolvedValue(entryFixture({ clockOut: null, status: 'Open' }));
     clockOutMock.mockClear();
     bookableProjectsMock.mockClear().mockResolvedValue([]);
     updateTimeEntryMock.mockClear();
     splitTimeEntryMock.mockClear();
     bookProjectRangeMock.mockClear();
+    violationsMock.mockClear().mockResolvedValue([]);
     onlineState = true;
   });
 
@@ -111,7 +121,9 @@ describe('BookingPage', () => {
     const { BookingPage } = await import('./BookingPage');
     renderWithProviders(<BookingPage />);
     expect(screen.getByText(/Offline/i)).toBeDefined();
-    expect(screen.getByText(/Buchungen sind aktuell deaktiviert/i)).toBeDefined();
+    expect(
+      screen.getByText(/Buchungen sind aktuell deaktiviert/i),
+    ).toBeDefined();
     const buttons = screen.getAllByRole('button');
     const kommen = buttons.find((b) => /Kommen/.test(b.textContent ?? ''));
     const gehen = buttons.find((b) => /Gehen/.test(b.textContent ?? ''));
@@ -132,7 +144,9 @@ describe('BookingPage', () => {
       target: { value: 'Daten migriert' },
     });
 
-    const kommen = screen.getAllByRole('button').find((b) => /Kommen/.test(b.textContent ?? ''));
+    const kommen = screen
+      .getAllByRole('button')
+      .find((b) => /Kommen/.test(b.textContent ?? ''));
     fireEvent.click(kommen as HTMLElement);
 
     await waitFor(() => {
@@ -155,11 +169,17 @@ describe('BookingPage', () => {
     const projectSelect = await screen.findByLabelText('Projekt');
     fireEvent.change(projectSelect, { target: { value: 'p-2' } });
 
-    const kommen = screen.getAllByRole('button').find((b) => /Kommen/.test(b.textContent ?? ''));
+    const kommen = screen
+      .getAllByRole('button')
+      .find((b) => /Kommen/.test(b.textContent ?? ''));
     expect(kommen?.hasAttribute('disabled')).toBe(true);
-    expect(screen.getByText(/erfordert die Auswahl eines Service-Auftrags/i)).toBeDefined();
+    expect(
+      screen.getByText(/erfordert die Auswahl eines Service-Auftrags/i),
+    ).toBeDefined();
 
-    fireEvent.change(screen.getByLabelText(/Service-Auftrag/i), { target: { value: 'so-2' } });
+    fireEvent.change(screen.getByLabelText(/Service-Auftrag/i), {
+      target: { value: 'so-2' },
+    });
     await waitFor(() => {
       expect(kommen?.hasAttribute('disabled')).toBe(false);
     });
@@ -194,6 +214,31 @@ describe('BookingPage', () => {
     });
   });
 
+  it('shows core-time violation details for the current year', async () => {
+    violationsMock.mockResolvedValue([
+      {
+        employeeId: 'emp-1',
+        date: '2026-06-12',
+        kind: 'LateArrival',
+        boundary: '10:00–11:00',
+        deltaMinutes: 60,
+        windowLabel: 'Vormittag',
+      },
+    ]);
+    const { BookingPage } = await import('./BookingPage');
+    renderWithProviders(<BookingPage />);
+
+    expect(
+      await screen.findByText(/Kernzeitverstöße im laufenden Jahr \(1\)/i),
+    ).toBeDefined();
+    expect(
+      screen.getByText(/12\.06\.2026 · Vormittag 10:00–11:00/i),
+    ).toBeDefined();
+    expect(
+      screen.getByText(/Kernzeit zu spät begonnen · 60 Minuten/i),
+    ).toBeDefined();
+  });
+
   it('splits a closed entry via the dialog (object payload)', async () => {
     bookableProjectsMock.mockResolvedValue(PROJECTS);
     timeEntriesMock.mockResolvedValue([entryFixture()]);
@@ -204,13 +249,17 @@ describe('BookingPage', () => {
     const { BookingPage } = await import('./BookingPage');
     renderWithProviders(<BookingPage />);
 
-    const splitButton = await screen.findByRole('button', { name: 'Aufteilen' });
+    const splitButton = await screen.findByRole('button', {
+      name: 'Aufteilen',
+    });
     fireEvent.click(splitButton);
     const confirm = await screen.findByRole('button', { name: /^Aufteilen$/ });
     fireEvent.click(confirm);
 
     await waitFor(() => {
-      expect(splitTimeEntryMock).toHaveBeenCalledWith('t-1', { at: expect.any(String) });
+      expect(splitTimeEntryMock).toHaveBeenCalledWith('t-1', {
+        at: expect.any(String),
+      });
     });
   });
 
@@ -219,7 +268,7 @@ describe('BookingPage', () => {
     const { BookingPage } = await import('./BookingPage');
     renderWithProviders(<BookingPage />);
     await waitFor(() => {
-      expect(screen.getByText('Approved')).toBeDefined();
+      expect(screen.getByText('Genehmigt')).toBeDefined();
     });
     expect(screen.getByRole('button', { name: 'Projekt' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Aufteilen' })).toBeDefined();
