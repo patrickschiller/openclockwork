@@ -46,15 +46,15 @@ provides role-aware navigation for employees, managers, and HR administrators.
 | Request lifecycle                 | View requests, workflow state, decisions, and cancellation state                                                            |
 | Substitute inbox                  | Accept or decline requests when named as a substitute                                                                       |
 | Absence records                   | Record sickness, training, and flextime days                                                                                |
-| Multilingual interface            | Complete German and English UI with a persistent language switcher on the login screen and in the application header        |
+| Multilingual interface            | German and English UI with a persistent language switcher on the login screen and in the application header                 |
 | Role-aware mobile navigation      | Bottom navigation plus an overflow menu that keeps manager and HR areas, including approval inboxes, reachable on phones    |
 | Theme preference                  | Light, dark, or operating-system theme                                                                                      |
 
 ## Languages and Localisation
 
-OpenClockwork ships with a complete German and English user interface. The
-selected language is stored in the browser and applies across employee,
-manager, and HR views.
+OpenClockwork ships with a German and English user interface across the core
+employee, manager, and HR workflows. The selected language is stored in the
+browser.
 
 - Central translation catalogue shared by navigation, pages, dialogs, actions,
   validation hints, and empty states
