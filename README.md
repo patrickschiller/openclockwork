@@ -117,6 +117,28 @@ automatically before starting.
 
 Stop the stack with `docker compose -f docker-compose.dev.yml down`. Add `-v` to also remove persistent volumes.
 
+## Public demo deployment
+
+The Azure reference deployment can run as an ephemeral public demo in West
+Europe. Set `environment = 'demo'` and `enableDemoReset = true` in the Bicep
+parameters. A scheduled Container Apps job then deletes all application rows
+and uploaded attachment blobs every night before recreating the seed data.
+The checked-in example keeps the reset disabled. Copy
+`infra/azure/main.example.bicepparam` to the gitignored
+`infra/azure/main.bicepparam`, replace every `CHANGE-ME-*` placeholder locally,
+and never commit that file.
+
+The reset is intentionally destructive and guarded by two explicit environment
+variables. Never enable it for staging or production. A public demo must also
+carry a visible notice that visitors must not enter real personal data:
+
+- Database backups can retain deleted rows for the configured Azure PostgreSQL
+  backup-retention period.
+- Logs and browser caches may outlive the nightly reset.
+- Use synthetic demo accounts only; do not connect production integrations.
+
+The reset schedule uses UTC. The example configuration runs at `03:00 UTC`.
+
 ## Contributing
 
 Contributions are very welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and the [Developer Certificate of Origin](https://developercertificate.org/) requirement (every commit must be `Signed-off-by:` your real name).

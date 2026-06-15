@@ -89,6 +89,9 @@ const de: Catalog = {
   'login.submit': 'Anmelden',
   'login.submitting': 'Anmelden…',
   'login.failed': 'Anmeldung fehlgeschlagen',
+  'demo.title': 'Öffentliche Demo-Umgebung',
+  'demo.description':
+    'Bitte keine echten personenbezogenen Daten eingeben. Alle eingegebenen Daten und Anhänge werden jede Nacht zurückgesetzt.',
   'theme.Light': 'Hell',
   'theme.Dark': 'Dunkel',
   'theme.System': 'Systemeinstellung',
@@ -399,6 +402,9 @@ const en: Catalog = {
   'login.submit': 'Sign in',
   'login.submitting': 'Signing in…',
   'login.failed': 'Sign-in failed',
+  'demo.title': 'Public demo environment',
+  'demo.description':
+    'Do not enter real personal data. All entered data and attachments are reset every night.',
   'theme.Light': 'Light',
   'theme.Dark': 'Dark',
   'theme.System': 'System setting',

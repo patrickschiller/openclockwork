@@ -18,6 +18,7 @@ import { visibleNavItems, type NavItem } from './navigation';
 import { ThemeToggle } from './ThemeToggle';
 import { LanguageToggle } from './LanguageToggle';
 import { useI18n } from './i18n';
+import { DemoNotice } from './DemoNotice';
 
 export function AppShell() {
   const { user, logout } = useAuth();
@@ -101,6 +102,8 @@ export function AppShell() {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
+
+        <DemoNotice className="mx-4 mt-4 md:mx-6" />
 
         {install.available && (
           <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-2 text-sm md:px-6">

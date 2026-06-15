@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '../app/auth';
 import { LanguageToggle } from '../app/LanguageToggle';
 import { useI18n } from '../app/i18n';
+import { DemoNotice } from '../app/DemoNotice';
 
 export function LoginPage() {
   const { login, loading } = useAuth();
@@ -32,8 +33,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-dvh items-center justify-center bg-muted/30 px-4 py-8">
+      <div className="w-full max-w-md space-y-4">
+        <DemoNotice />
+        <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <CardTitle>OpenClockwork</CardTitle>
@@ -79,7 +82,8 @@ export function LoginPage() {
             </p>
           </form>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
