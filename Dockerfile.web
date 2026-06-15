@@ -32,7 +32,8 @@ COPY ops/nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # Compose default — overridden in ACA to https://<api>.internal.<env-domain>.
 ENV API_UPSTREAM=http://api:3000 \
-    NGINX_ENVSUBST_FILTER=^API_UPSTREAM$
+    DEMO_MODE=false \
+    NGINX_ENVSUBST_FILTER=^(API_UPSTREAM|DEMO_MODE)$
 
 EXPOSE 8080
 

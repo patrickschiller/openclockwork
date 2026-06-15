@@ -4,6 +4,8 @@
 param name string
 param location string
 param containerName string = 'requestattachments'
+@description('Retain deleted blobs for seven days. Disable for ephemeral demo environments that reset nightly.')
+param enableDeleteRetention bool = true
 
 resource account 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: name
@@ -13,7 +15,8 @@ resource account 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
-    allowSharedKeyAccess: true // ACA's Blob adapter uses managed identity
+    // Every workload uses managed identity; shared account keys are unnecessary.
+    allowSharedKeyAccess: false
     supportsHttpsTrafficOnly: true
     accessTier: 'Hot'
     networkAcls: { defaultAction: 'Allow', bypass: 'AzureServices' }
@@ -22,7 +25,9 @@ resource account 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   resource blobService 'blobServices' = {
     name: 'default'
     properties: {
-      deleteRetentionPolicy: { enabled: true, days: 7 }
+      deleteRetentionPolicy: enableDeleteRetention
+        ? { enabled: true, days: 7 }
+        : { enabled: false }
     }
 
     resource container 'containers' = {
