@@ -38,6 +38,7 @@ prisma/.env
 .env
 .env.*
 !.env.example
+!.env.dev.example
 
 # --- Editors / IDEs ---
 .vscode/*
