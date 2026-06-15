@@ -27,9 +27,15 @@ import {
   type WorkScheduleDto,
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
+import { useI18n } from '../app/i18n';
 
 const ROLES: EmployeeRole[] = ['Employee', 'Manager', 'HRAdmin'];
-const TIME_MODELS: TimeModel[] = ['Vollzeit', 'Teilzeit', 'Gleitzeit', 'Vertrauensarbeitszeit'];
+const TIME_MODELS: TimeModel[] = [
+  'Vollzeit',
+  'Teilzeit',
+  'Gleitzeit',
+  'Vertrauensarbeitszeit',
+];
 
 function formatHm(minutes: number): string {
   if (minutes === 0) return '0:00';
@@ -50,6 +56,7 @@ interface EditorState {
 
 export function AdminEmployeesPage() {
   const user = useCurrentUser();
+  const { t, enumLabel, formatDate } = useI18n();
   const isAuthorized = user.role === 'HRAdmin';
 
   const qc = useQueryClient();
@@ -79,20 +86,28 @@ export function AdminEmployeesPage() {
     onSuccess: refresh,
   });
   const changeSchedule = useMutation({
-    mutationFn: ({ id, scheduleId }: { id: string; scheduleId: string | null }) =>
-      api.updateEmployee(id, { workScheduleId: scheduleId }),
+    mutationFn: ({
+      id,
+      scheduleId,
+    }: {
+      id: string;
+      scheduleId: string | null;
+    }) => api.updateEmployee(id, { workScheduleId: scheduleId }),
     onSuccess: refresh,
   });
 
   const managerOptions = useMemo(
-    () => (employees.data ?? []).filter((e) => (e.role === 'Manager' || e.role === 'HRAdmin') && e.isActive),
+    () =>
+      (employees.data ?? []).filter(
+        (e) => (e.role === 'Manager' || e.role === 'HRAdmin') && e.isActive,
+      ),
     [employees.data],
   );
 
   if (!isAuthorized) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>Diese Seite ist HR-Admins vorbehalten.</AlertDescription>
+        <AlertDescription>{t('common.hrOnly')}</AlertDescription>
       </Alert>
     );
   }
@@ -101,9 +116,11 @@ export function AdminEmployeesPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Mitarbeiter</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t('employees.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Stammdaten, Rollen, Manager-Zuordnung, Arbeitszeitplan, Aktivierung.
+            {t('employees.description')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -113,17 +130,19 @@ export function AdminEmployeesPage() {
               checked={includeInactive}
               onChange={(e) => setIncludeInactive(e.target.checked)}
             />
-            inaktive einblenden
+            {t('employees.showInactive')}
           </label>
           <Button onClick={() => setEditor({ mode: 'create' })}>
-            <Plus className="mr-2 h-4 w-4" /> Neu anlegen
+            <Plus className="mr-2 h-4 w-4" /> {t('common.create')}
           </Button>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>{employees.data?.length ?? 0} Mitarbeiter:innen</CardTitle>
+          <CardTitle>
+            {t('employees.count', { count: employees.data?.length ?? 0 })}
+          </CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
@@ -148,22 +167,38 @@ export function AdminEmployeesPage() {
               </thead>
               <tbody className="divide-y">
                 {employees.data?.map((e) => {
-                  const manager = (employees.data ?? []).find((m) => m.id === e.managerId);
+                  const manager = (employees.data ?? []).find(
+                    (m) => m.id === e.managerId,
+                  );
                   return (
                     <tr key={e.id} className={e.isActive ? '' : 'opacity-50'}>
-                      <td className="px-4 py-2 font-mono text-xs">{e.personalNo}</td>
+                      <td className="px-4 py-2 font-mono text-xs">
+                        {e.personalNo}
+                      </td>
                       <td className="px-4 py-2">
                         {e.lastName}, {e.firstName}
                       </td>
                       <td className="px-4 py-2 text-xs">{e.email}</td>
                       <td className="px-4 py-2">
-                        <Badge variant={e.role === 'HRAdmin' ? 'default' : 'secondary'}>{e.role}</Badge>
+                        <Badge
+                          variant={
+                            e.role === 'HRAdmin' ? 'default' : 'secondary'
+                          }
+                        >
+                          {enumLabel(e.role)}
+                        </Badge>
                       </td>
-                      <td className="px-4 py-2 text-xs">{e.timeModel}</td>
-                      <td className="px-4 py-2 text-right text-xs">{e.weeklyHours}</td>
-                      <td className="px-4 py-2 text-right text-xs">{e.annualLeaveDays}</td>
                       <td className="px-4 py-2 text-xs">
-                        {new Date(e.startDate).toLocaleDateString('de-DE')}
+                        {enumLabel(e.timeModel)}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs">
+                        {e.weeklyHours}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs">
+                        {e.annualLeaveDays}
+                      </td>
+                      <td className="px-4 py-2 text-xs">
+                        {formatDate(e.startDate)}
                       </td>
                       <td
                         className="px-4 py-2 text-right text-xs"
@@ -178,7 +213,9 @@ export function AdminEmployeesPage() {
                         {e.bundesland}
                       </td>
                       <td className="px-4 py-2 text-xs text-muted-foreground">
-                        {manager ? `${manager.firstName} ${manager.lastName}` : '—'}
+                        {manager
+                          ? `${manager.firstName} ${manager.lastName}`
+                          : '—'}
                       </td>
                       <td className="px-4 py-2">
                         <select
@@ -191,7 +228,7 @@ export function AdminEmployeesPage() {
                           }
                           className="h-7 rounded border border-input bg-background px-2 text-xs"
                         >
-                          <option value="">— kein Plan —</option>
+                          <option value="">{t('employees.noSchedule')}</option>
                           {schedules.data?.map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.name}
@@ -201,9 +238,11 @@ export function AdminEmployeesPage() {
                       </td>
                       <td className="px-4 py-2">
                         {e.isActive ? (
-                          <Badge variant="outline">aktiv</Badge>
+                          <Badge variant="outline">{t('common.active')}</Badge>
                         ) : (
-                          <Badge variant="destructive">inaktiv</Badge>
+                          <Badge variant="destructive">
+                            {t('common.inactive')}
+                          </Badge>
                         )}
                       </td>
                       <td className="px-4 py-2 text-right">
@@ -211,15 +250,17 @@ export function AdminEmployeesPage() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            title="Bearbeiten"
-                            onClick={() => setEditor({ mode: 'edit', employee: e })}
+                            title={t('common.edit')}
+                            onClick={() =>
+                              setEditor({ mode: 'edit', employee: e })
+                            }
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            title="Passwort setzen"
+                            title={t('employees.password')}
                             onClick={() => setPasswordFor(e)}
                           >
                             <KeyRound className="h-4 w-4" />
@@ -228,12 +269,14 @@ export function AdminEmployeesPage() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              title="Deaktivieren"
+                              title={t('common.deactivate')}
                               disabled={deactivate.isPending}
                               onClick={() => {
                                 if (
                                   window.confirm(
-                                    `Mitarbeiter ${e.firstName} ${e.lastName} deaktivieren?`,
+                                    t('employees.deactivateConfirm', {
+                                      name: `${e.firstName} ${e.lastName}`,
+                                    }),
                                   )
                                 ) {
                                   deactivate.mutate(e.id);
@@ -246,7 +289,7 @@ export function AdminEmployeesPage() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              title="Reaktivieren"
+                              title={t('common.reactivate')}
                               disabled={reactivate.isPending}
                               onClick={() => reactivate.mutate(e.id)}
                             >
@@ -260,8 +303,11 @@ export function AdminEmployeesPage() {
                 })}
                 {employees.data && employees.data.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                      Keine Mitarbeiter:innen.
+                    <td
+                      colSpan={14}
+                      className="px-4 py-8 text-center text-sm text-muted-foreground"
+                    >
+                      {t('employees.none')}
                     </td>
                   </tr>
                 )}
@@ -302,7 +348,14 @@ interface EmployeeEditorProps {
   onSaved: () => void;
 }
 
-function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: EmployeeEditorProps) {
+function EmployeeEditor({
+  state,
+  managerOptions,
+  schedules,
+  onClose,
+  onSaved,
+}: EmployeeEditorProps) {
+  const { t, enumLabel } = useI18n();
   const isCreate = state.mode === 'create';
   const seed = state.employee;
   const [draft, setDraft] = useState({
@@ -338,7 +391,8 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
           weeklyHours: Number(draft.weeklyHours),
           annualLeaveDays: Number(draft.annualLeaveDays),
           startDate: draft.startDate,
-          overtimeOpeningBalanceMinutes: Number(draft.overtimeOpeningBalanceMinutes) || 0,
+          overtimeOpeningBalanceMinutes:
+            Number(draft.overtimeOpeningBalanceMinutes) || 0,
           bundesland: draft.bundesland,
           managerId: draft.managerId || null,
           workScheduleId: draft.workScheduleId || null,
@@ -357,7 +411,8 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
         weeklyHours: Number(draft.weeklyHours),
         annualLeaveDays: Number(draft.annualLeaveDays),
         startDate: draft.startDate,
-        overtimeOpeningBalanceMinutes: Number(draft.overtimeOpeningBalanceMinutes) || 0,
+        overtimeOpeningBalanceMinutes:
+          Number(draft.overtimeOpeningBalanceMinutes) || 0,
         managerId: draft.managerId || null,
         workScheduleId: draft.workScheduleId || null,
         isActive: draft.isActive,
@@ -365,7 +420,8 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
       return api.updateEmployee(id, payload);
     },
     onSuccess: onSaved,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : t('common.saveFailed')),
   });
 
   const valid =
@@ -381,16 +437,37 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{isCreate ? 'Neuer Mitarbeiter' : 'Mitarbeiter bearbeiten'}</DialogTitle>
+          <DialogTitle>
+            {isCreate ? t('employees.new') : t('employees.edit')}
+          </DialogTitle>
           <DialogDescription>
-            {isCreate ? 'Stammdaten + Initial-Passwort' : 'Stammdaten anpassen'}
+            {isCreate
+              ? t('employees.masterDataCreate')
+              : t('employees.masterDataEdit')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Personal-Nr" value={draft.personalNo} onChange={(v) => setDraft({ ...draft, personalNo: v })} />
-          <Field label="E-Mail" value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} type="email" />
-          <Field label="Vorname" value={draft.firstName} onChange={(v) => setDraft({ ...draft, firstName: v })} />
-          <Field label="Nachname" value={draft.lastName} onChange={(v) => setDraft({ ...draft, lastName: v })} />
+          <Field
+            label="Personal-Nr"
+            value={draft.personalNo}
+            onChange={(v) => setDraft({ ...draft, personalNo: v })}
+          />
+          <Field
+            label="E-Mail"
+            value={draft.email}
+            onChange={(v) => setDraft({ ...draft, email: v })}
+            type="email"
+          />
+          <Field
+            label="Vorname"
+            value={draft.firstName}
+            onChange={(v) => setDraft({ ...draft, firstName: v })}
+          />
+          <Field
+            label="Nachname"
+            value={draft.lastName}
+            onChange={(v) => setDraft({ ...draft, lastName: v })}
+          />
           {isCreate && (
             <Field
               label="Initial-Passwort (≥ 8 Zeichen)"
@@ -403,13 +480,16 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
             label="Rolle"
             value={draft.role}
             onChange={(v) => setDraft({ ...draft, role: v as EmployeeRole })}
-            options={ROLES.map((r) => ({ value: r, label: r }))}
+            options={ROLES.map((r) => ({ value: r, label: enumLabel(r) }))}
           />
           <Select
             label="Zeitmodell"
             value={draft.timeModel}
             onChange={(v) => setDraft({ ...draft, timeModel: v as TimeModel })}
-            options={TIME_MODELS.map((t) => ({ value: t, label: t }))}
+            options={TIME_MODELS.map((model) => ({
+              value: model,
+              label: enumLabel(model),
+            }))}
           />
           <Field
             label="Wochenstunden"
@@ -432,27 +512,36 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
           <Field
             label="Übertrag Überstunden (Minuten, ± erlaubt)"
             value={String(draft.overtimeOpeningBalanceMinutes)}
-            onChange={(v) => setDraft({ ...draft, overtimeOpeningBalanceMinutes: Number(v) })}
+            onChange={(v) =>
+              setDraft({ ...draft, overtimeOpeningBalanceMinutes: Number(v) })
+            }
             type="number"
           />
           <Select
             label="Bundesland (Feiertage)"
             value={draft.bundesland}
-            onChange={(v) => setDraft({ ...draft, bundesland: v as Bundesland })}
-            options={(Object.keys(BUNDESLAND_LABEL) as Bundesland[]).map((c) => ({
-              value: c,
-              label: `${c} — ${BUNDESLAND_LABEL[c]}`,
-            }))}
+            onChange={(v) =>
+              setDraft({ ...draft, bundesland: v as Bundesland })
+            }
+            options={(Object.keys(BUNDESLAND_LABEL) as Bundesland[]).map(
+              (c) => ({
+                value: c,
+                label: `${c} — ${BUNDESLAND_LABEL[c]}`,
+              }),
+            )}
           />
           <Select
             label="Manager"
             value={draft.managerId}
             onChange={(v) => setDraft({ ...draft, managerId: v })}
             options={[
-              { value: '', label: '— keine —' },
+              { value: '', label: t('common.none') },
               ...managerOptions
                 .filter((m) => m.id !== seed?.id)
-                .map((m) => ({ value: m.id, label: `${m.firstName} ${m.lastName} (${m.role})` })),
+                .map((m) => ({
+                  value: m.id,
+                  label: `${m.firstName} ${m.lastName} (${enumLabel(m.role)})`,
+                })),
             ]}
           />
           <Select
@@ -460,7 +549,7 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
             value={draft.workScheduleId}
             onChange={(v) => setDraft({ ...draft, workScheduleId: v })}
             options={[
-              { value: '', label: '— Default —' },
+              { value: '', label: t('common.default') },
               ...schedules.map((s) => ({ value: s.id, label: s.name })),
             ]}
           />
@@ -469,7 +558,9 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
               <input
                 type="checkbox"
                 checked={draft.isActive}
-                onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
+                onChange={(e) =>
+                  setDraft({ ...draft, isActive: e.target.checked })
+                }
               />
               aktiv (deaktivierte Mitarbeiter:innen können sich nicht einloggen)
             </label>
@@ -482,7 +573,7 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Abbrechen
+            {t('common.cancel')}
           </Button>
           <Button
             disabled={!valid || save.isPending}
@@ -491,7 +582,7 @@ function EmployeeEditor({ state, managerOptions, schedules, onClose, onSaved }: 
               save.mutate();
             }}
           >
-            {save.isPending ? 'Speichere…' : 'Speichern'}
+            {save.isPending ? t('common.saving') : t('common.save')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -513,7 +604,11 @@ function Field({
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
-      <Input value={value} onChange={(e) => onChange(e.target.value)} type={type} />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        type={type}
+      />
     </div>
   );
 }
@@ -547,7 +642,14 @@ function Select({
   );
 }
 
-function PasswordDialog({ employee, onClose }: { employee: EmployeeDto; onClose: () => void }) {
+function PasswordDialog({
+  employee,
+  onClose,
+}: {
+  employee: EmployeeDto;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -555,26 +657,29 @@ function PasswordDialog({ employee, onClose }: { employee: EmployeeDto; onClose:
   const set = useMutation({
     mutationFn: () => api.setEmployeePassword(employee.id, password),
     onSuccess: () => setDone(true),
-    onError: (e) => setError(e instanceof Error ? e.message : 'Setzen fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Setzen fehlgeschlagen'),
   });
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Passwort setzen</DialogTitle>
+          <DialogTitle>{t('employees.password')}</DialogTitle>
           <DialogDescription>
             Für {employee.firstName} {employee.lastName} ({employee.email})
           </DialogDescription>
         </DialogHeader>
         {done ? (
           <Alert>
-            <AlertDescription>Passwort wurde aktualisiert.</AlertDescription>
+            <AlertDescription>
+              {t('employees.passwordUpdated')}
+            </AlertDescription>
           </Alert>
         ) : (
           <>
             <div className="space-y-2">
-              <Label htmlFor="pw">Neues Passwort (≥ 8 Zeichen)</Label>
+              <Label htmlFor="pw">{t('employees.newPassword')}</Label>
               <Input
                 id="pw"
                 type="password"
@@ -591,7 +696,7 @@ function PasswordDialog({ employee, onClose }: { employee: EmployeeDto; onClose:
         )}
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            {done ? 'Schließen' : 'Abbrechen'}
+            {done ? t('common.close') : t('common.cancel')}
           </Button>
           {!done && (
             <Button

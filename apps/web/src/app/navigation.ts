@@ -17,7 +17,7 @@ export type Role = EmployeeRole;
 
 export interface NavItem {
   to: string;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
   roles: Role[];
   showInBottomNav: boolean;
@@ -26,70 +26,70 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   {
     to: '/',
-    label: 'Dashboard',
+    labelKey: 'nav.dashboard',
     icon: LayoutDashboard,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: true,
   },
   {
     to: '/booking',
-    label: 'Buchen',
+    labelKey: 'nav.booking',
     icon: Clock,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: true,
   },
   {
     to: '/calendar',
-    label: 'Kalender',
+    labelKey: 'nav.calendar',
     icon: CalendarDays,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: true,
   },
   {
     to: '/requests',
-    label: 'Anträge',
+    labelKey: 'nav.requests',
     icon: ListChecks,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: true,
   },
   {
     to: '/substitute',
-    label: 'Vertretungen',
+    labelKey: 'nav.substitute',
     icon: Handshake,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: false,
   },
   {
     to: '/absences',
-    label: 'Abwesenheiten',
+    labelKey: 'nav.absences',
     icon: Stethoscope,
     roles: ['Employee', 'Manager', 'HRAdmin'],
     showInBottomNav: false,
   },
   {
     to: '/admin/requests',
-    label: 'Genehmigungen',
+    labelKey: 'nav.approvals',
     icon: Inbox,
     roles: ['Manager', 'HRAdmin'],
     showInBottomNav: false,
   },
   {
     to: '/admin/projects',
-    label: 'Projekte',
+    labelKey: 'nav.projects',
     icon: FolderKanban,
     roles: ['Manager', 'HRAdmin'],
     showInBottomNav: false,
   },
   {
     to: '/admin/schedules',
-    label: 'Arbeitszeitpläne',
+    labelKey: 'nav.schedules',
     icon: Settings,
     roles: ['HRAdmin'],
     showInBottomNav: false,
   },
   {
     to: '/admin/employees',
-    label: 'Mitarbeiter',
+    labelKey: 'nav.employees',
     icon: Users,
     roles: ['HRAdmin'],
     showInBottomNav: false,

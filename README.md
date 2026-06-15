@@ -29,9 +29,10 @@ The project is intentionally small in scope and opinionated in its choices, so a
 
 Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignore German labour law, or enterprise _Zeitwirtschaft_ suites priced for HR departments with budget. OpenClockwork sits in the middle:
 
-- **Lawful by construction.** Statutory break deduction, core-hour violation flags, and the 07:00 / 23:00 approval threshold are encoded in the domain layer, not bolted on by the customer.
+- **Lawful by construction.** Statutory break deduction, detailed core-hour violation reporting, and the 07:00 / 23:00 approval threshold are encoded in the domain layer, not bolted on by the customer.
 - **Self-hostable.** PostgreSQL + a Node backend + a static web client. No SaaS lock-in; your data stays on your infrastructure.
-- **PWA-first mobile experience.** Employees clock in and out from their phones with optional GPS — no app-store gatekeeper, no native build pipeline.
+- **PWA-first mobile experience.** Employees clock in and out from their phones with optional GPS, while role-aware mobile navigation keeps manager and HR approval workflows accessible — no app-store gatekeeper, no native build pipeline.
+- **Multilingual by design.** The complete user interface is available in German and English, with a persistent language switcher and a central translation catalogue that makes additional languages straightforward to maintain.
 - **API-first.** The web client is just one consumer of the public REST + WebSocket API. ERP integration is a first-class endpoint, not an afterthought.
 - **Open source under Apache 2.0.** Fork it, embed it, sell support around it. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for the terms.
 
@@ -42,7 +43,7 @@ See the [complete feature overview](FEATURES.md) for employee, manager, HR, inte
 | Layer     | Technology                              |
 | --------- | --------------------------------------- |
 | Workspace | Nx monorepo (pnpm)                      |
-| Frontend  | React 19, Vite, Tailwind CSS, shadcn/ui |
+| Frontend  | React 19, Vite, Tailwind CSS, shadcn/ui, central DE/EN i18n catalogue |
 | Backend   | NestJS (Node.js, TypeScript strict)     |
 | Database  | PostgreSQL with Prisma ORM              |
 | Realtime  | Socket.IO (NestJS WebSocket gateway)    |
@@ -86,6 +87,10 @@ pnpm nx run-many -t serve -p api,web
 ```
 
 The web client is then available at http://localhost:4200 and proxies API calls to http://localhost:3000.
+
+The interface starts in German by default. Use the language menu on the login
+screen or in the application header to switch between German and English. The
+selection is stored locally in the browser.
 
 ### Option B: Full local Docker stack (containerized everything)
 
