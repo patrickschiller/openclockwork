@@ -89,6 +89,25 @@ Employee submits
 | Absence administration      | Record and review sickness, training, and flextime entries for employees                                               |
 | Approval operations         | Role-aware manager and HR inboxes with bulk actions and workflow history                                               |
 
+## Project Management and Reporting
+
+Projects combine employee assignments, service orders, planned hours, actual
+bookings, and customer-facing activity reports in one administrative workflow.
+
+<p align="center">
+  <img src="assets/screenshots/projects.png" alt="Project overview with plan-versus-actual progress and service orders" width="100%">
+</p>
+
+- Create and maintain projects with project numbers, titles, and descriptions
+- Assign employees and control which projects they may book time to
+- Structure projects into service orders with separate active/inactive states
+- Maintain PLAN hours and compare them with booked IST hours at project and
+  service-order level
+- Review progress indicators and identify approaching or exceeded budgets
+- Edit, deactivate, or delete service orders, with protection for referenced
+  bookings
+- Open detailed project evaluations and export customer activity reports
+
 ## Compliance-Oriented Domain Logic
 
 OpenClockwork makes working-time rules visible in code and testable as domain
