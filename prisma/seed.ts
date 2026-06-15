@@ -138,11 +138,24 @@ async function ensureTimeEntry(
   clockIn: Date,
   clockOut: Date,
   booking: TimeEntryBookingSeed = {},
+  legacyClockIn?: Date,
 ) {
   const existing = await prisma.timeEntry.findFirst({
     where: { employeeId, clockIn },
   });
   if (existing) return;
+  if (legacyClockIn) {
+    const legacy = await prisma.timeEntry.findFirst({
+      where: { employeeId, clockIn: legacyClockIn },
+    });
+    if (legacy) {
+      await prisma.timeEntry.update({
+        where: { id: legacy.id },
+        data: { clockIn, clockOut },
+      });
+      return;
+    }
+  }
   await prisma.timeEntry.create({
     data: {
       employeeId,
@@ -391,10 +404,16 @@ async function main() {
     });
     for (let i = 1; i <= 5; i += 1) {
       const day = new Date();
-      day.setUTCDate(day.getUTCDate() - i);
-      // 09:00 → 17:30 UTC
-      const clockIn = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 9, 0, 0));
-      const clockOut = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 17, 30, 0));
+      day.setDate(day.getDate() - i);
+      const clockIn = new Date(day);
+      clockIn.setHours(9, 0, 0, 0);
+      const clockOut = new Date(day);
+      clockOut.setHours(17, 30, 0, 0);
+      // Migrate entries created by older seed versions that interpreted
+      // the intended local times as UTC.
+      const legacyClockIn = new Date(
+        Date.UTC(day.getFullYear(), day.getMonth(), day.getDate(), 9, 0, 0),
+      );
       await ensureTimeEntry(
         anna.id,
         clockIn,
@@ -406,6 +425,7 @@ async function main() {
               activity: 'Wireframes und Designsystem für den Relaunch erarbeitet',
             }
           : {},
+        legacyClockIn,
       );
     }
   }

@@ -2,11 +2,14 @@ import { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
 import { LoginPage } from '../routes/LoginPage';
+import { useI18n } from './i18n';
 
 // AppShell + the realtime hook + lucide icons are deferred until the
 // user is authenticated. An unauthenticated visit to / only loads
 // LoginPage + this router.
-const AppShell = lazy(() => import('./AppShell').then((m) => ({ default: m.AppShell })));
+const AppShell = lazy(() =>
+  import('./AppShell').then((m) => ({ default: m.AppShell })),
+);
 
 // Route-based code-splitting: each page becomes its own Vite chunk so
 // the initial bundle only carries the AppShell + Login + the lazy
@@ -24,41 +27,55 @@ const RequestsPage = lazy(() =>
   import('../routes/RequestsPage').then((m) => ({ default: m.RequestsPage })),
 );
 const SubstitutePage = lazy(() =>
-  import('../routes/SubstitutePage').then((m) => ({ default: m.SubstitutePage })),
+  import('../routes/SubstitutePage').then((m) => ({
+    default: m.SubstitutePage,
+  })),
 );
 const AbsencesPage = lazy(() =>
   import('../routes/AbsencesPage').then((m) => ({ default: m.AbsencesPage })),
 );
 const AdminRequestsPage = lazy(() =>
-  import('../routes/AdminRequestsPage').then((m) => ({ default: m.AdminRequestsPage })),
+  import('../routes/AdminRequestsPage').then((m) => ({
+    default: m.AdminRequestsPage,
+  })),
 );
 const AdminSchedulesPage = lazy(() =>
-  import('../routes/AdminSchedulesPage').then((m) => ({ default: m.AdminSchedulesPage })),
+  import('../routes/AdminSchedulesPage').then((m) => ({
+    default: m.AdminSchedulesPage,
+  })),
 );
 const AdminProjectsPage = lazy(() =>
-  import('../routes/AdminProjectsPage').then((m) => ({ default: m.AdminProjectsPage })),
+  import('../routes/AdminProjectsPage').then((m) => ({
+    default: m.AdminProjectsPage,
+  })),
 );
 const AdminEmployeesPage = lazy(() =>
-  import('../routes/AdminEmployeesPage').then((m) => ({ default: m.AdminEmployeesPage })),
+  import('../routes/AdminEmployeesPage').then((m) => ({
+    default: m.AdminEmployeesPage,
+  })),
 );
 const PlaceholderPage = lazy(() =>
-  import('../routes/PlaceholderPage').then((m) => ({ default: m.PlaceholderPage })),
+  import('../routes/PlaceholderPage').then((m) => ({
+    default: m.PlaceholderPage,
+  })),
 );
 
 function RouteFallback() {
+  const { t } = useI18n();
   return (
     <div
       className="flex h-64 items-center justify-center text-sm text-muted-foreground"
       role="status"
       aria-live="polite"
     >
-      Lädt …
+      {t('common.loading')}
     </div>
   );
 }
 
 export function App() {
   const { user } = useAuth();
+  const { t } = useI18n();
 
   if (!user) {
     return (
@@ -79,14 +96,22 @@ export function App() {
           <Route path="substitute" element={<SubstitutePage />} />
           <Route path="absences" element={<AbsencesPage />} />
           {/* Backwards-compat redirect from the old route name. */}
-          <Route path="sickness" element={<Navigate to="/absences" replace />} />
+          <Route
+            path="sickness"
+            element={<Navigate to="/absences" replace />}
+          />
           <Route path="admin/requests" element={<AdminRequestsPage />} />
           <Route path="admin/projects" element={<AdminProjectsPage />} />
           <Route path="admin/schedules" element={<AdminSchedulesPage />} />
           <Route path="admin/employees" element={<AdminEmployeesPage />} />
           <Route
             path="*"
-            element={<PlaceholderPage title="Nicht gefunden" hint="Diese Seite existiert nicht." />}
+            element={
+              <PlaceholderPage
+                title={t('app.notFound')}
+                hint={t('app.notFoundHint')}
+              />
+            }
           />
         </Route>
         <Route path="login" element={<Navigate to="/" replace />} />

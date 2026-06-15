@@ -12,21 +12,7 @@ import {
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { cn } from '@/lib/utils';
-
-const MONTHS = [
-  'Januar',
-  'Februar',
-  'März',
-  'April',
-  'Mai',
-  'Juni',
-  'Juli',
-  'August',
-  'September',
-  'Oktober',
-  'November',
-  'Dezember',
-];
+import { useI18n } from '../app/i18n';
 
 // TimeAdjustment is intentionally absent: a Zeitkorrektur is a booking
 // correction, not an absence state, and the spec's year-calendar legend
@@ -38,22 +24,10 @@ const TYPE_COLOR: Partial<Record<RequestType, string>> = {
   SpecialLeave: 'bg-violet-500',
 };
 
-const TYPE_LABEL: Partial<Record<RequestType, string>> = {
-  Vacation: 'Urlaub',
-  HomeOffice: 'Home-Office',
-  SpecialLeave: 'Sonderurlaub',
-};
-
 const ABSENCE_COLOR: Record<AbsenceKind, string> = {
   Sickness: 'bg-rose-500',
   Training: 'bg-indigo-500',
   Flextime: 'bg-yellow-500',
-};
-
-const ABSENCE_LABEL: Record<AbsenceKind, string> = {
-  Sickness: 'Krankheit',
-  Training: 'Schulung',
-  Flextime: 'Gleittag',
 };
 
 function daysInMonth(year: number, monthIdx0: number): number {
@@ -70,18 +44,29 @@ function utcRange(iso: string): number {
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-function requestsOnDay(year: number, monthIdx0: number, day: number, requests: RequestDto[]): RequestDto[] {
+function requestsOnDay(
+  year: number,
+  monthIdx0: number,
+  day: number,
+  requests: RequestDto[],
+): RequestDto[] {
   const ts = Date.UTC(year, monthIdx0, day);
   return requests.filter((r) => ts >= utcRange(r.from) && ts <= utcRange(r.to));
 }
 
-function absencesOnDay(year: number, monthIdx0: number, day: number, absences: AbsenceDto[]): AbsenceDto[] {
+function absencesOnDay(
+  year: number,
+  monthIdx0: number,
+  day: number,
+  absences: AbsenceDto[],
+): AbsenceDto[] {
   const ts = Date.UTC(year, monthIdx0, day);
   return absences.filter((a) => ts >= utcRange(a.from) && ts <= utcRange(a.to));
 }
 
 export function CalendarPage() {
   const user = useCurrentUser();
+  const { t, enumLabel, locale } = useI18n();
   const [year, setYear] = useState(new Date().getUTCFullYear());
 
   const requestsQuery = useQuery({
@@ -111,16 +96,28 @@ export function CalendarPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Kalender {year}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t('calendar.title', { year })}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Genehmigte und offene Anträge plus Abwesenheiten im Jahresüberblick
+            {t('calendar.description')}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setYear(year - 1)} aria-label="Vorheriges Jahr">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setYear(year - 1)}
+            aria-label={t('calendar.previousYear')}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setYear(year + 1)} aria-label="Nächstes Jahr">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setYear(year + 1)}
+            aria-label={t('calendar.nextYear')}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -129,26 +126,45 @@ export function CalendarPage() {
       <div className="flex flex-wrap items-center gap-4 text-xs">
         {(Object.keys(TYPE_COLOR) as RequestType[]).map((t) => (
           <span key={t} className="flex items-center gap-2">
-            <span className={cn('inline-block h-3 w-3 rounded-full', TYPE_COLOR[t])} aria-hidden />
-            {TYPE_LABEL[t]}
+            <span
+              className={cn('inline-block h-3 w-3 rounded-full', TYPE_COLOR[t])}
+              aria-hidden
+            />
+            {enumLabel(t)}
           </span>
         ))}
         {(Object.keys(ABSENCE_COLOR) as AbsenceKind[]).map((k) => (
           <span key={k} className="flex items-center gap-2">
-            <span className={cn('inline-block h-3 w-3 rounded-full', ABSENCE_COLOR[k])} aria-hidden />
-            {ABSENCE_LABEL[k]}
+            <span
+              className={cn(
+                'inline-block h-3 w-3 rounded-full',
+                ABSENCE_COLOR[k],
+              )}
+              aria-hidden
+            />
+            {enumLabel(k)}
           </span>
         ))}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {MONTHS.map((label, monthIdx0) => (
+        {Array.from({ length: 12 }, (_, monthIdx0) =>
+          new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-US', {
+            month: 'long',
+            timeZone: 'UTC',
+          }).format(new Date(Date.UTC(year, monthIdx0, 1))),
+        ).map((label, monthIdx0) => (
           <Card key={label}>
             <CardHeader>
               <CardTitle className="text-base">{label}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Month year={year} monthIdx0={monthIdx0} requests={requests} absences={absences} />
+              <Month
+                year={year}
+                monthIdx0={monthIdx0}
+                requests={requests}
+                absences={absences}
+              />
             </CardContent>
           </Card>
         ))}
@@ -165,6 +181,7 @@ interface MonthProps {
 }
 
 function Month({ year, monthIdx0, requests, absences }: MonthProps) {
+  const { t, enumLabel } = useI18n();
   const total = daysInMonth(year, monthIdx0);
   const startOffset = startWeekdayMon0(year, monthIdx0);
 
@@ -186,11 +203,14 @@ function Month({ year, monthIdx0, requests, absences }: MonthProps) {
         // Absences (sickness / training / flextime) win visually over requests.
         if (dayAbsences.length > 0) {
           const a = dayAbsences[0];
-          const titleSuffix = a.kind === 'Sickness' && a.certified ? ' (Attest)' : '';
+          const titleSuffix =
+            a.kind === 'Sickness' && a.certified
+              ? ` (${t('absences.certificateShort')})`
+              : '';
           return (
             <span
               key={i}
-              title={`${ABSENCE_LABEL[a.kind]}${a.note ? ' — ' + a.note : ''}${titleSuffix}`}
+              title={`${enumLabel(a.kind)}${a.note ? ' — ' + a.note : ''}${titleSuffix}`}
               className={cn(
                 'flex h-7 items-center justify-center rounded text-[11px] text-white',
                 ABSENCE_COLOR[a.kind],
@@ -208,7 +228,7 @@ function Month({ year, monthIdx0, requests, absences }: MonthProps) {
             key={i}
             title={
               main
-                ? `${TYPE_LABEL[main.type as RequestType]} (${main.workflowState})${main.reason ? ' — ' + main.reason : ''}`
+                ? `${enumLabel(main.type)} (${enumLabel(main.workflowState)})${main.reason ? ' — ' + main.reason : ''}`
                 : undefined
             }
             className={cn(
@@ -216,7 +236,9 @@ function Month({ year, monthIdx0, requests, absences }: MonthProps) {
               !main && 'text-muted-foreground',
               main && TYPE_COLOR[main.type as RequestType],
               main && 'text-white',
-              main && isPending && 'opacity-60 outline outline-1 outline-dashed outline-current',
+              main &&
+                isPending &&
+                'opacity-60 outline outline-1 outline-dashed outline-current',
             )}
           >
             {d}

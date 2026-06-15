@@ -31,6 +31,7 @@ provides role-aware navigation for employees, managers, and HR administrators.
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Personal dashboard                | Vacation balance, overtime account, and detected core-time violations at a glance                                           |
 | Clock in and out                  | PWA-based time booking with optional GPS coordinates and recent-booking history                                             |
+| Core-time violation details       | Booking-page list with violation date, affected core-time window, violation type, boundary, and uncovered minutes           |
 | Project and service-order booking | Book time to assigned active projects; active service orders become the required booking level                              |
 | Activity per booking              | Record a customer-facing description of the work performed                                                                  |
 | Retroactive booking changes       | Change a booking target or activity after the fact, including approved entries                                              |
@@ -45,7 +46,25 @@ provides role-aware navigation for employees, managers, and HR administrators.
 | Request lifecycle                 | View requests, workflow state, decisions, and cancellation state                                                            |
 | Substitute inbox                  | Accept or decline requests when named as a substitute                                                                       |
 | Absence records                   | Record sickness, training, and flextime days                                                                                |
+| Multilingual interface            | Complete German and English UI with a persistent language switcher on the login screen and in the application header        |
+| Role-aware mobile navigation      | Bottom navigation plus an overflow menu that keeps manager and HR areas, including approval inboxes, reachable on phones    |
 | Theme preference                  | Light, dark, or operating-system theme                                                                                      |
+
+## Languages and Localisation
+
+OpenClockwork ships with a complete German and English user interface. The
+selected language is stored in the browser and applies across employee,
+manager, and HR views.
+
+- Central translation catalogue shared by navigation, pages, dialogs, actions,
+  validation hints, and empty states
+- Localised workflow states, request and absence types, roles, time models, and
+  core-time violation labels
+- Locale-aware date and date-time formatting
+- Correct German labels for technical workflow values such as `Approved`,
+  `Pending`, `PendingManager`, and `TimeApproval`
+- Extensible catalogue architecture so another language can be added and
+  maintained in one central location
 
 ## Approval Workflows
 
@@ -60,7 +79,7 @@ Employee submits
   -> approved
 ```
 
-- Manager and HR approval inboxes
+- Manager and HR approval inboxes, reachable from desktop and mobile navigation
 - Substitute acceptance and rejection
 - Manager approval, rejection, and return-for-correction
 - HR confirmation and rejection
@@ -146,6 +165,7 @@ committed at [`apps/api/openapi.json`](apps/api/openapi.json).
 - Socket.IO events for real-time client refreshes
 - Health endpoint for deployment checks
 - Generated TypeScript client types for the web application
+- Language-neutral API values translated centrally by the web application
 
 ## Self-Hosting and Operations
 

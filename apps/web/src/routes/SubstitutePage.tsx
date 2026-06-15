@@ -7,25 +7,35 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, type RequestDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
+import { useI18n } from '../app/i18n';
 
 export function SubstitutePage() {
   const user = useCurrentUser();
+  const { t } = useI18n();
   const inboxQuery = useQuery({
     queryKey: ['requests', 'substitute-inbox', user.id],
-    queryFn: () => api.listRequests({ substituteId: user.id, workflowState: 'PendingSubstitute' }),
+    queryFn: () =>
+      api.listRequests({
+        substituteId: user.id,
+        workflowState: 'PendingSubstitute',
+      }),
   });
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Vertretungs-Inbox</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {t('substitute.title')}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Anträge, in denen Du als Vertretung benannt bist
+          {t('substitute.description')}
         </p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Offen ({inboxQuery.data?.length ?? 0})</CardTitle>
+          <CardTitle>
+            {t('substitute.open', { count: inboxQuery.data?.length ?? 0 })}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {inboxQuery.data && inboxQuery.data.length > 0 ? (
@@ -35,7 +45,9 @@ export function SubstitutePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">Aktuell keine Vertretungs-Anfragen.</p>
+            <p className="text-sm text-muted-foreground">
+              {t('substitute.none')}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -43,17 +55,26 @@ export function SubstitutePage() {
   );
 }
 
-function SubstituteRow({ request, actorId }: { request: RequestDto; actorId: string }) {
+function SubstituteRow({
+  request,
+  actorId,
+}: {
+  request: RequestDto;
+  actorId: string;
+}) {
+  const { t, enumLabel, formatDate } = useI18n();
   const qc = useQueryClient();
   const [note, setNote] = useState('');
   const refresh = () => qc.invalidateQueries({ queryKey: ['requests'] });
 
   const accept = useMutation({
-    mutationFn: () => api.substituteAccept(request.id, actorId, note || undefined),
+    mutationFn: () =>
+      api.substituteAccept(request.id, actorId, note || undefined),
     onSuccess: refresh,
   });
   const decline = useMutation({
-    mutationFn: () => api.substituteDecline(request.id, actorId, note || 'Abgelehnt'),
+    mutationFn: () =>
+      api.substituteDecline(request.id, actorId, note || 'Abgelehnt'),
     onSuccess: refresh,
   });
 
@@ -62,20 +83,19 @@ function SubstituteRow({ request, actorId }: { request: RequestDto; actorId: str
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-medium">
-            {new Date(request.from).toLocaleDateString('de-DE')} –{' '}
-            {new Date(request.to).toLocaleDateString('de-DE')}
+            {formatDate(request.from)} – {formatDate(request.to)}
           </p>
           <p className="text-xs text-muted-foreground">
             {Number(request.calculatedDays).toFixed(1)} Werktage
             {request.reason ? ` · ${request.reason}` : ''}
           </p>
         </div>
-        <Badge variant="secondary">{request.workflowState}</Badge>
+        <Badge variant="secondary">{enumLabel(request.workflowState)}</Badge>
       </div>
       <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 p-3">
         <div className="flex-1">
           <Label htmlFor={`note-${request.id}`} className="text-xs">
-            Notiz (Pflicht bei Ablehnung)
+            {t('substitute.noteRequired')}
           </Label>
           <Input
             id={`note-${request.id}`}
@@ -85,8 +105,12 @@ function SubstituteRow({ request, actorId }: { request: RequestDto; actorId: str
             className="mt-1 h-8 text-sm"
           />
         </div>
-        <Button size="sm" disabled={accept.isPending} onClick={() => accept.mutate()}>
-          Annehmen
+        <Button
+          size="sm"
+          disabled={accept.isPending}
+          onClick={() => accept.mutate()}
+        >
+          {t('substitute.accept')}
         </Button>
         <Button
           size="sm"
@@ -94,7 +118,7 @@ function SubstituteRow({ request, actorId }: { request: RequestDto; actorId: str
           disabled={decline.isPending || !note}
           onClick={() => decline.mutate()}
         >
-          Ablehnen
+          {t('common.reject')}
         </Button>
       </div>
     </li>
