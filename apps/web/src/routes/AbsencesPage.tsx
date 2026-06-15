@@ -4,7 +4,13 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -18,20 +24,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, type AbsenceKind, type EmployeeDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
+import { useI18n } from '../app/i18n';
 
 const KIND_OPTIONS: AbsenceKind[] = ['Sickness', 'Training', 'Flextime'];
 
-const KIND_LABEL: Record<AbsenceKind, string> = {
-  Sickness: 'Krankheit',
-  Training: 'Schulung',
-  Flextime: 'Gleittag',
-};
-
-const KIND_BADGE: Record<AbsenceKind, 'destructive' | 'secondary' | 'outline'> = {
-  Sickness: 'destructive',
-  Training: 'secondary',
-  Flextime: 'outline',
-};
+const KIND_BADGE: Record<AbsenceKind, 'destructive' | 'secondary' | 'outline'> =
+  {
+    Sickness: 'destructive',
+    Training: 'secondary',
+    Flextime: 'outline',
+  };
 
 function isoToday(): string {
   return new Date().toISOString().slice(0, 10);
@@ -48,6 +50,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 
 export function AbsencesPage() {
   const user = useCurrentUser();
+  const { t, enumLabel } = useI18n();
   const canManageOthers = user.role === 'Manager' || user.role === 'HRAdmin';
   const qc = useQueryClient();
 
@@ -79,16 +82,17 @@ export function AbsencesPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Abwesenheiten</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t('absences.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Krankheit, Schulungen, Gleittage — werden ohne Genehmigung als Tatsache eingetragen.
-            Manager:innen und HR können Einträge für betreute Mitarbeiter:innen anlegen.
+            {t('absences.description')}
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="mr-2 h-4 w-4" /> Eintragen
+              <Plus className="mr-2 h-4 w-4" /> {t('absences.create')}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
@@ -109,9 +113,7 @@ export function AbsencesPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Anzeigen</CardTitle>
-            <CardDescription>
-              Wähle eine Person — leer lassen heißt: alle Mitarbeiter:innen.
-            </CardDescription>
+            <CardDescription>{t('absences.employeeHint')}</CardDescription>
           </CardHeader>
           <CardContent>
             <select
@@ -119,10 +121,10 @@ export function AbsencesPage() {
               onChange={(e) => setEmployeeFilter(e.target.value)}
               className="flex h-10 w-full max-w-md rounded-md border border-input bg-background px-3 text-sm"
             >
-              <option value="">— alle —</option>
+              <option value="">{t('common.all')}</option>
               {employees.data?.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.firstName} {e.lastName} ({e.role})
+                  {e.firstName} {e.lastName} ({enumLabel(e.role)})
                 </option>
               ))}
             </select>
@@ -132,21 +134,26 @@ export function AbsencesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{absences.data?.length ?? 0} Einträge</CardTitle>
+          <CardTitle>
+            {t('absences.entries', { count: absences.data?.length ?? 0 })}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {absences.data && absences.data.length > 0 ? (
             <ul className="divide-y text-sm">
               {absences.data.map((a) => (
-                <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <li
+                  key={a.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
                   <div>
                     <p className="font-medium">
                       <Badge variant={KIND_BADGE[a.kind]} className="mr-2">
-                        {KIND_LABEL[a.kind]}
+                        {enumLabel(a.kind)}
                       </Badge>
                       {fmtDate(a.from)} – {fmtDate(a.to)}
                       <span className="ml-2 text-xs text-muted-foreground">
-                        {daysBetween(a.from, a.to)} Kalendertage
+                        {daysBetween(a.from, a.to)} {t('common.calendarDays')}
                       </span>
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -166,10 +173,10 @@ export function AbsencesPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      title="Löschen"
+                      title={t('common.delete')}
                       disabled={remove.isPending}
                       onClick={() => {
-                        if (window.confirm('Eintrag wirklich löschen?')) {
+                        if (window.confirm(t('absences.deleteConfirm'))) {
                           remove.mutate(a.id);
                         }
                       }}
@@ -181,7 +188,9 @@ export function AbsencesPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">Keine Einträge.</p>
+            <p className="text-sm text-muted-foreground">
+              {t('absences.none')}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -196,7 +205,13 @@ interface NewAbsenceFormProps {
   onClose: () => void;
 }
 
-function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }: NewAbsenceFormProps) {
+function NewAbsenceForm({
+  defaultEmployeeId,
+  employees,
+  canPickOther,
+  onClose,
+}: NewAbsenceFormProps) {
+  const { t, enumLabel } = useI18n();
   const [employeeId, setEmployeeId] = useState(defaultEmployeeId);
   const [kind, setKind] = useState<AbsenceKind>('Sickness');
   const [from, setFrom] = useState(isoToday);
@@ -218,19 +233,20 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
         note: note || null,
       }),
     onSuccess: onClose,
-    onError: (e) => setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : t('common.saveFailed')),
   });
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Abwesenheit eintragen</DialogTitle>
+        <DialogTitle>{t('absences.create')}</DialogTitle>
         <DialogDescription>Typ, Zeitraum, optionale Notiz</DialogDescription>
       </DialogHeader>
       <div className="space-y-4 py-2">
         {canPickOther && (
           <div className="space-y-2">
-            <Label htmlFor="emp">Mitarbeiter:in</Label>
+            <Label htmlFor="emp">{t('common.employee')}</Label>
             <select
               id="emp"
               value={employeeId}
@@ -239,14 +255,14 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
             >
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>
-                  {e.firstName} {e.lastName} ({e.role})
+                  {e.firstName} {e.lastName} ({enumLabel(e.role)})
                 </option>
               ))}
             </select>
           </div>
         )}
         <div className="space-y-2">
-          <Label htmlFor="kind">Typ</Label>
+          <Label htmlFor="kind">{t('common.type')}</Label>
           <select
             id="kind"
             value={kind}
@@ -255,37 +271,56 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
           >
             {KIND_OPTIONS.map((k) => (
               <option key={k} value={k}>
-                {KIND_LABEL[k]}
+                {enumLabel(k)}
               </option>
             ))}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label htmlFor="from">Von</Label>
-            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <Label htmlFor="from">{t('common.from')}</Label>
+            <Input
+              id="from"
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="to">Bis</Label>
-            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <Label htmlFor="to">{t('common.to')}</Label>
+            <Input
+              id="to"
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
           </div>
         </div>
         {kind === 'Sickness' && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={certified} onChange={(e) => setCertified(e.target.checked)} />
-            ärztliches Attest liegt vor
+            <input
+              type="checkbox"
+              checked={certified}
+              onChange={(e) => setCertified(e.target.checked)}
+            />
+            {t('absences.certificate')}
           </label>
         )}
         <div className="space-y-2">
           <Label htmlFor="note">Notiz (optional)</Label>
-          <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} />
+          <Input
+            id="note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
         </div>
         {kind === 'Flextime' && (
           <Alert>
             <AlertDescription>
-              Hinweis: Gleittage reduzieren das Überstundenkonto aktuell <strong>nicht</strong>{' '}
-              automatisch — die rechnerische Verrechnung kommt in einer späteren Iteration. Der
-              Kalender und die Liste zeigen den Eintrag korrekt.
+              Hinweis: Gleittage reduzieren das Überstundenkonto aktuell{' '}
+              <strong>nicht</strong> automatisch — die rechnerische Verrechnung
+              kommt in einer späteren Iteration. Der Kalender und die Liste
+              zeigen den Eintrag korrekt.
             </AlertDescription>
           </Alert>
         )}
@@ -297,7 +332,7 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
       </div>
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>
-          Abbrechen
+          {t('common.cancel')}
         </Button>
         <Button
           disabled={!valid || create.isPending}
@@ -306,7 +341,7 @@ function NewAbsenceForm({ defaultEmployeeId, employees, canPickOther, onClose }:
             create.mutate();
           }}
         >
-          {create.isPending ? 'Speichere…' : 'Speichern'}
+          {create.isPending ? t('common.saving') : t('common.save')}
         </Button>
       </DialogFooter>
     </>

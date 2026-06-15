@@ -17,27 +17,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, type RequestType } from '../api/client';
 import { useCurrentUser } from '../app/auth';
+import { useI18n } from '../app/i18n';
 
-const TYPES: RequestType[] = ['Vacation', 'HomeOffice', 'SpecialLeave', 'TimeAdjustment'];
-
-const TYPE_LABEL: Record<RequestType, string> = {
-  Vacation: 'Urlaub',
-  HomeOffice: 'Home-Office',
-  SpecialLeave: 'Sonderurlaub',
-  TimeAdjustment: 'Zeitkorrektur',
-};
+const TYPES: RequestType[] = [
+  'Vacation',
+  'HomeOffice',
+  'SpecialLeave',
+  'TimeAdjustment',
+];
 
 function isoDateOnly(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function formatRange(type: RequestType, fromIso: string, toIso: string): string {
+function formatRange(
+  type: RequestType,
+  fromIso: string,
+  toIso: string,
+  locale: string,
+): string {
   const f = new Date(fromIso);
   const t = new Date(toIso);
   if (type === 'TimeAdjustment') {
-    return `${f.toLocaleString('de-DE')} – ${t.toLocaleString('de-DE')}`;
+    return `${f.toLocaleString(locale)} – ${t.toLocaleString(locale)}`;
   }
-  return `${f.toLocaleDateString('de-DE')} – ${t.toLocaleDateString('de-DE')}`;
+  return `${f.toLocaleDateString(locale)} – ${t.toLocaleDateString(locale)}`;
 }
 
 function minutesBetween(fromIso: string, toIso: string): number {
@@ -47,6 +51,7 @@ function minutesBetween(fromIso: string, toIso: string): number {
 
 export function RequestsPage() {
   const user = useCurrentUser();
+  const { t, enumLabel, locale } = useI18n();
   const employeeId = user.id;
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -60,14 +65,16 @@ export function RequestsPage() {
     <div className="space-y-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Anträge</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t('requests.title')}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Urlaub, Home-Office, Sonderurlaub, Zeitkorrekturen
+            {t('requests.description')}
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button>Neuer Antrag</Button>
+            <Button>{t('requests.new')}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <NewRequestForm
@@ -82,16 +89,25 @@ export function RequestsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Eigene Anträge</CardTitle>
+          <CardTitle>{t('requests.own')}</CardTitle>
         </CardHeader>
         <CardContent>
           {requests.data && requests.data.length > 0 ? (
             <ul className="divide-y text-sm">
               {requests.data.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
                   <div>
                     <p className="font-medium">
-                      {TYPE_LABEL[r.type as RequestType]} · {formatRange(r.type as RequestType, r.from, r.to)}
+                      {enumLabel(r.type)} ·{' '}
+                      {formatRange(
+                        r.type as RequestType,
+                        r.from,
+                        r.to,
+                        locale === 'de' ? 'de-DE' : 'en-US',
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {r.type === 'TimeAdjustment'
@@ -101,15 +117,25 @@ export function RequestsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {r.requiresApproval && <Badge variant="destructive">Sondergenehmigung</Badge>}
-                    <Badge variant="secondary">{r.workflowState}</Badge>
+                    {r.requiresApproval && (
+                      <Badge variant="destructive">
+                        {t('requests.specialApproval')}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary">
+                      {enumLabel(r.workflowState)}
+                    </Badge>
                   </div>
-                  {r.type === 'SpecialLeave' && <AttachmentsList requestId={r.id} />}
+                  {r.type === 'SpecialLeave' && (
+                    <AttachmentsList requestId={r.id} />
+                  )}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">Noch keine Anträge.</p>
+            <p className="text-sm text-muted-foreground">
+              {t('requests.none')}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -130,6 +156,7 @@ function isoDateTimeLocalNow(): string {
 
 function NewRequestForm({ onClose }: NewRequestFormProps) {
   const user = useCurrentUser();
+  const { t, enumLabel } = useI18n();
   const employeeId = user.id;
   const today = isoDateOnly(new Date());
   const [type, setType] = useState<RequestType>('Vacation');
@@ -144,7 +171,10 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const employees = useQuery({ queryKey: ['employees'], queryFn: () => api.employees() });
+  const employees = useQuery({
+    queryKey: ['employees'],
+    queryFn: () => api.employees(),
+  });
 
   const fromDate = useMemo(() => new Date(`${from}T00:00:00.000Z`), [from]);
   const year = fromDate.getUTCFullYear();
@@ -163,7 +193,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
     const t = new Date(toDt);
     if (Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())) return false;
     if (f.getHours() < 7) return true;
-    if (t.getHours() > 23 || (t.getHours() === 23 && t.getMinutes() > 0)) return true;
+    if (t.getHours() > 23 || (t.getHours() === 23 && t.getMinutes() > 0))
+      return true;
     if (
       t.getFullYear() !== f.getFullYear() ||
       t.getMonth() !== f.getMonth() ||
@@ -175,7 +206,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   }, [isTimeAdjustment, fromDt, toDt]);
 
   const invalidRange = useMemo(() => {
-    if (isTimeAdjustment) return new Date(toDt).getTime() <= new Date(fromDt).getTime();
+    if (isTimeAdjustment)
+      return new Date(toDt).getTime() <= new Date(fromDt).getTime();
     return new Date(to).getTime() < new Date(from).getTime();
   }, [isTimeAdjustment, from, to, fromDt, toDt]);
 
@@ -213,7 +245,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
       return created;
     },
     onSuccess: () => onClose(),
-    onError: (e) => setError(e instanceof Error ? e.message : 'Antrag fehlgeschlagen'),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : 'Antrag fehlgeschlagen'),
   });
 
   const insufficientVacation =
@@ -224,12 +257,12 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Neuer Antrag</DialogTitle>
-        <DialogDescription>Wähle Typ und Zeitraum</DialogDescription>
+        <DialogTitle>{t('requests.new')}</DialogTitle>
+        <DialogDescription>{t('requests.chooseTypeRange')}</DialogDescription>
       </DialogHeader>
       <div className="space-y-4 py-2">
         <div className="space-y-2">
-          <Label htmlFor="type">Typ</Label>
+          <Label htmlFor="type">{t('common.type')}</Label>
           <select
             id="type"
             value={type}
@@ -238,14 +271,14 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
           >
             {TYPES.map((t) => (
               <option key={t} value={t}>
-                {TYPE_LABEL[t]}
+                {enumLabel(t)}
               </option>
             ))}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label htmlFor="from">Von</Label>
+            <Label htmlFor="from">{t('common.from')}</Label>
             {isTimeAdjustment ? (
               <Input
                 id="from"
@@ -254,11 +287,16 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
                 onChange={(e) => setFromDt(e.target.value)}
               />
             ) : (
-              <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input
+                id="from"
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+              />
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="to">Bis</Label>
+            <Label htmlFor="to">{t('common.to')}</Label>
             {isTimeAdjustment ? (
               <Input
                 id="to"
@@ -267,17 +305,28 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
                 onChange={(e) => setToDt(e.target.value)}
               />
             ) : (
-              <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+              <Input
+                id="to"
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+              />
             )}
           </div>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="reason">Begründung (optional)</Label>
-          <Input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <Label htmlFor="reason">{t('requests.reasonOptional')}</Label>
+          <Input
+            id="reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
         </div>
         {type === 'Vacation' && employees.data && (
           <div className="space-y-2">
-            <Label htmlFor="substitute">Vertretung (optional)</Label>
+            <Label htmlFor="substitute">
+              {t('requests.substituteOptional')}
+            </Label>
             <select
               id="substitute"
               value={substituteId}
@@ -289,7 +338,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
                 .filter((e) => e.id !== employeeId)
                 .map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.firstName} {e.lastName} ({e.role})
+                    {e.firstName} {e.lastName} ({enumLabel(e.role)})
                   </option>
                 ))}
             </select>
@@ -339,9 +388,10 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
         {type === 'Vacation' && balance.data && (
           <Alert>
             <AlertDescription>
-              <strong>{balance.data.remainingDays.toFixed(1)} Tage</strong> verfügbar (
-              {balance.data.totalEntitlement.toFixed(1)} gesamt − {balance.data.approvedDays.toFixed(1)} genehmigt
-              − {balance.data.pendingDays.toFixed(1)} eingereicht).
+              <strong>{balance.data.remainingDays.toFixed(1)} Tage</strong>{' '}
+              verfügbar ({balance.data.totalEntitlement.toFixed(1)} gesamt −{' '}
+              {balance.data.approvedDays.toFixed(1)} genehmigt −{' '}
+              {balance.data.pendingDays.toFixed(1)} eingereicht).
             </AlertDescription>
           </Alert>
         )}
@@ -349,10 +399,10 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
         {isOffHours && (
           <Alert variant="destructive">
             <AlertDescription>
-              Zeit liegt außerhalb der Rahmenarbeitszeit 07:00–23:00.
-              Der/die Vorgesetzte muss zuerst die <strong>Sondergenehmigung</strong> für die
-              Zeiten außerhalb erteilen, anschließend bestätigt HR die eigentliche
-              Zeitkorrektur (zweistufiger Workflow).
+              Zeit liegt außerhalb der Rahmenarbeitszeit 07:00–23:00. Der/die
+              Vorgesetzte muss zuerst die <strong>Sondergenehmigung</strong> für
+              die Zeiten außerhalb erteilen, anschließend bestätigt HR die
+              eigentliche Zeitkorrektur (zweistufiger Workflow).
             </AlertDescription>
           </Alert>
         )}
@@ -375,7 +425,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
       </div>
       <DialogFooter>
         <Button variant="ghost" onClick={onClose}>
-          Abbrechen
+          {t('common.cancel')}
         </Button>
         <Button
           disabled={create.isPending || insufficientVacation || invalidRange}
@@ -384,7 +434,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
             create.mutate();
           }}
         >
-          {create.isPending ? 'Speichere…' : 'Antrag stellen'}
+          {create.isPending ? t('common.saving') : t('requests.submit')}
         </Button>
       </DialogFooter>
     </>
@@ -392,6 +442,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
 }
 
 function AttachmentsList({ requestId }: { requestId: string }) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const attachments = useQuery({
     queryKey: ['attachments', requestId],
@@ -399,7 +450,8 @@ function AttachmentsList({ requestId }: { requestId: string }) {
   });
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteAttachment(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['attachments', requestId] }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ['attachments', requestId] }),
   });
   if (!attachments.data || attachments.data.length === 0) return null;
   return (
@@ -420,7 +472,7 @@ function AttachmentsList({ requestId }: { requestId: string }) {
             onClick={() => remove.mutate(a.id)}
             disabled={remove.isPending}
           >
-            Entfernen
+            {t('common.remove')}
           </button>
         </li>
       ))}
