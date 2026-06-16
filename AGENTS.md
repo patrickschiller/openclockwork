@@ -21,3 +21,15 @@
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
 
 <!-- nx configuration end-->
+
+# OpenClockwork Project Guidelines
+
+- OpenClockwork is a public Apache-2.0 project. Keep repository metadata, README, FEATURES, CONTRIBUTING, SECURITY, and NOTICE consistent with that public-facing posture.
+- Preserve the Contributor rules: external contributions require DCO sign-off (`Signed-off-by:`) and the DCO GitHub Action should remain active unless the project policy is intentionally changed.
+- Use `pnpm` for package-management commands and keep the pinned toolchain aligned with `package.json` (`Node 20+`, `pnpm 9+`).
+- Treat the Prisma schema and migrations as the source of truth for database changes. Add new migrations for schema changes; do not edit migrations that have already been merged to `main`.
+- The backend follows NestJS conventions: controllers stay thin, services own business logic, and API changes should keep the OpenAPI spec and generated web client in sync.
+- The frontend is a React/Vite/Tailwind PWA with German and English UI support. User-facing text should go through the existing i18n catalogue instead of hard-coded strings.
+- Time tracking, leave, approval, break deduction, and core-hour rules model real working-time behavior. Read the existing domain tests before changing these rules, and add focused tests for behavioral changes.
+- Never commit secrets, real personal data, production credentials, or local Azure parameter files. Keep demo data synthetic and make privacy implications explicit in public documentation.
+- Prefer small, reviewable changes that preserve the existing monorepo boundaries between `apps/api`, `apps/web`, `apps/*-e2e`, `libs/shared`, `prisma`, and `infra`.
