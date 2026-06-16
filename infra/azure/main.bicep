@@ -1,10 +1,11 @@
 // OpenClockwork — Azure reference deployment.
 // Scope: subscription (creates the resource group).
-// Implements ADR-0001 (docs/adr/0001-azure-hosting.md).
+// Reference topology: Container Apps + ACR + PostgreSQL Flexible Server +
+// Key Vault + Blob Storage + Log Analytics in a single resource group.
 
 targetScope = 'subscription'
 
-@description('Where to deploy. Default = West Europe per ADR-0001.')
+@description('Where to deploy. Default = West Europe for the reference topology.')
 param location string = 'westeurope'
 
 @description('Lowercase prefix used for all resource names. Keep short — storage account + ACR names cap at 24 chars including the env + hash suffix.')

@@ -1,9 +1,8 @@
 # Azure reference deployment
 
-Bicep templates that stand up the topology described in
-[ADR-0001](../../docs/adr/0001-azure-hosting.md): Container Apps + ACR +
-Postgres Flexible + Key Vault + Blob Storage + Log Analytics, all in a
-single West Europe resource group.
+Bicep templates that stand up the reference Azure topology: Container Apps +
+ACR + Postgres Flexible + Key Vault + Blob Storage + Log Analytics, all in a
+single West Europe resource group by default.
 
 This is **not** the only way to host OpenClockwork. The
 `docker-compose.prod.yml` path stays the canonical self-host story; this
@@ -159,9 +158,9 @@ The interesting ones:
 
 ## Cost envelope
 
-See ADR-0001 §"Cost envelope". Roughly 50 EUR/month with everything
-running 24/7 and Postgres in Burstable B1ms. ACA scales to zero when
-idle, which keeps real cost lower for an alpha.
+As a rough baseline, expect about 50 EUR/month with everything running 24/7
+and Postgres in Burstable B1ms. ACA scales to zero when idle, which keeps real
+cost lower for low-traffic evaluation deployments.
 
 ## Tearing down
 
