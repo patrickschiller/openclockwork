@@ -242,7 +242,7 @@ module migrateJob 'modules/container-app-job.bicep' = {
 // Scheduled job: nightly carry-over expiry. Uses a public curl image so
 // no ACR pull is required; talks to the api over the ACA env's internal
 // DNS and authenticates with X-Cron-Key.
-var cronJobName = '${namePrefix}-${environment}-cron-expire-carryover'
+var cronJobName = '${namePrefix}-${environment}-carry-expire'
 var apiInternalUrl = 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDomain}'
 
 module cronJob 'modules/container-app-job.bicep' = {
