@@ -25,8 +25,8 @@ If you forgot to sign off, fix the latest commit with `git commit --amend -s` or
 ## Working on a change
 
 1. Fork the repo and create a feature branch from `main`.
-2. Read [base-instructions.md](base-instructions.md) for the domain rules — OpenClockwork models a real working-time-tracking system, and the rules around break deduction, approval thresholds, etc. are not invented.
-3. Re-read [CLAUDE.md](CLAUDE.md) for the binding tech-stack decisions before introducing a new dependency.
+2. Review the [README](README.md), [feature overview](FEATURES.md), and existing code before changing domain rules — OpenClockwork models a real working-time-tracking system, and the rules around break deduction, approval thresholds, etc. are not invented.
+3. Keep new dependencies aligned with the existing TypeScript, Nx, NestJS, React, Prisma, and Tailwind stack unless the pull request clearly explains the reason for a change.
 4. Run `pnpm install` at the repo root, then use `pnpm nx run <project>:<target>` (e.g. `pnpm nx serve api`) for local dev.
 5. Add tests. New endpoints, business rules, or UI flows without tests will not be merged.
 6. Sign off your commits (`git commit -s`).

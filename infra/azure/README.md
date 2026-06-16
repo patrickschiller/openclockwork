@@ -102,9 +102,8 @@ az deployment sub show --name <deployment-name> \
   }' -o jsonc
 ```
 
-`AZURE_WEB_FQDN` is read by `.github/workflows/lighthouse.yml`, which
-runs a Lighthouse audit after each successful `deploy-azure` run.
-Budgets live in `.lighthouserc.json` at the repo root.
+Use `AZURE_WEB_FQDN` as the public web endpoint for smoke tests, monitoring,
+or any deployment workflow you add in your own hosting environment.
 
 ## First deployment (manual)
 
