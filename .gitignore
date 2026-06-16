@@ -62,18 +62,6 @@ Desktop.ini
 .stylelintcache
 .turbo/
 
-# --- Internal docs / automation kept out of the public repo ---
-docs/
-base-instructions.md
-CLAUDE.md
-AGENTS.md
-infra/azure/README.md
-.github/workflows/
-.github/skills/
-.github/agents/
-.github/prompts/
-.claude/
-
 # --- Docker ---
 docker-compose.override.yml
 

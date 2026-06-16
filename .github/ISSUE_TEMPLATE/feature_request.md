@@ -19,7 +19,7 @@ Any alternative approaches you considered, and why you preferred this one.
 
 ## Domain context
 
-Does this feature affect working-time, absence, approval, or payroll-adjacent rules? If so, describe the rule source or expected behaviour.
+Is this feature mentioned (or contradicted) in [base-instructions.md](../base-instructions.md)? If so, where?
 
 ## Additional context
 

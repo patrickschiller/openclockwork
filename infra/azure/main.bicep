@@ -1,9 +1,10 @@
 // OpenClockwork — Azure reference deployment.
 // Scope: subscription (creates the resource group).
+// Implements ADR-0001 (docs/adr/0001-azure-hosting.md).
 
 targetScope = 'subscription'
 
-@description('Where to deploy. Default = West Europe.')
+@description('Where to deploy. Default = West Europe per ADR-0001.')
 param location string = 'westeurope'
 
 @description('Lowercase prefix used for all resource names. Keep short — storage account + ACR names cap at 24 chars including the env + hash suffix.')
@@ -12,8 +13,14 @@ param location string = 'westeurope'
 param namePrefix string = 'oclock'
 
 @description('Environment slug — usually "dev", "staging", or "prod".')
-@allowed(['dev', 'staging', 'prod'])
+@allowed(['dev', 'demo', 'staging', 'prod'])
 param environment string = 'dev'
+
+@description('Enables the destructive nightly demo reset job. Never enable this for staging or production.')
+param enableDemoReset bool = false
+
+@description('UTC cron expression for the destructive demo reset job.')
+param demoResetCronExpression string = '0 3 * * *'
 
 @description('Postgres admin login. Cannot be "azure_superuser", "admin", or other reserved names.')
 param postgresAdminLogin string = 'ocadmin'
@@ -34,10 +41,10 @@ param erpApiKey string
 @description('Static API key for the unattended carry-over expiry cron job. Rotate by redeploying.')
 param cronApiKey string
 
-@description('Initial api image. Replace this with the image produced by your own build or deployment process.')
+@description('Initial api image. The deploy workflow updates this on every push to main.')
 param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
-@description('Initial web image. Replace this with the image produced by your own build or deployment process.')
+@description('Initial web image. The deploy workflow updates this on every push to main.')
 param webImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 // Naming convention: <prefix>-<env>-<resource-suffix>.
@@ -93,7 +100,12 @@ module kv 'modules/keyvault.bicep' = {
 module storage 'modules/storage.bicep' = {
   name: 'storage'
   scope: rg
-  params: { name: storageName, location: location }
+  params: {
+    name: storageName
+    location: location
+    // A demo reset should remove uploaded visitor files immediately.
+    enableDeleteRetention: !(enableDemoReset && environment == 'demo')
+  }
 }
 
 module acaEnv 'modules/container-app-env.bicep' = {
@@ -118,7 +130,12 @@ module uami 'modules/user-assigned-identity.bicep' = {
 module roles 'modules/role-assignments.bicep' = {
   name: 'roles'
   scope: rg
-  params: { uamiPrincipalId: uami.outputs.principalId }
+  params: {
+    uamiPrincipalId: uami.outputs.principalId
+    acrName: acr.outputs.name
+    keyVaultName: kv.outputs.name
+    storageAccountName: storage.outputs.accountName
+  }
 }
 
 var databaseUrl = 'postgresql://${postgresAdminLogin}:${postgresAdminPassword}@${pg.outputs.fqdn}:5432/${pg.outputs.databaseName}?schema=public&sslmode=require'
@@ -152,6 +169,7 @@ module apiApp 'modules/container-app.bicep' = {
     envVars: [
       { name: 'NODE_ENV', value: 'production' }
       { name: 'API_PORT', value: '3000' }
+      { name: 'SWAGGER_ENABLED', value: 'false' }
       // Wall-clock timezone — core-time + off-hours logic reasons in
       // local time, so the server must run in the deployment's zone.
       { name: 'TZ', value: 'Europe/Berlin' }
@@ -187,6 +205,7 @@ module webApp 'modules/container-app.bicep' = {
     envVars: [
       // nginx upstream — the internal-only api over the ACA env's HTTPS hop.
       { name: 'API_UPSTREAM', value: 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDomain}' }
+      { name: 'DEMO_MODE', value: enableDemoReset && environment == 'demo' ? 'true' : 'false' }
     ]
     secretRefs: []
   }
@@ -223,7 +242,7 @@ module migrateJob 'modules/container-app-job.bicep' = {
 // Scheduled job: nightly carry-over expiry. Uses a public curl image so
 // no ACR pull is required; talks to the api over the ACA env's internal
 // DNS and authenticates with X-Cron-Key.
-var cronJobName = '${namePrefix}-${environment}-cron-expire-carryover'
+var cronJobName = '${namePrefix}-${environment}-carry-expire'
 var apiInternalUrl = 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDomain}'
 
 module cronJob 'modules/container-app-job.bicep' = {
@@ -256,6 +275,46 @@ module cronJob 'modules/container-app-job.bicep' = {
   }
 }
 
+// Destructive nightly reset for a public demo. It removes all application
+// rows and uploaded attachments, then recreates the documented seed data.
+// The job contains two explicit guards so an accidental deployment cannot
+// reset a non-demo environment.
+var demoResetJobName = '${namePrefix}-${environment}-demo-reset'
+
+module demoResetJob 'modules/container-app-job.bicep' = if (enableDemoReset && environment == 'demo') {
+  name: 'demoResetJob'
+  scope: rg
+  dependsOn: [ roles, kvSecrets ]
+  params: {
+    name: demoResetJobName
+    location: location
+    environmentId: acaEnv.outputs.id
+    image: apiImage
+    command: ['/bin/sh', '-c']
+    args: ['node --import tsx prisma/demo-reset.ts']
+    triggerType: 'Schedule'
+    cronExpression: demoResetCronExpression
+    replicaTimeoutSeconds: 900
+    cpu: '0.5'
+    memory: '1.0Gi'
+    acrLoginServer: acr.outputs.loginServer
+    userAssignedIdentityId: uami.outputs.id
+    envVars: [
+      { name: 'NODE_ENV', value: 'production' }
+      { name: 'TZ', value: 'Europe/Berlin' }
+      { name: 'DEMO_RESET_ENABLED', value: 'true' }
+      { name: 'DEMO_RESET_CONFIRMATION', value: 'DELETE-AND-RESEED-OPENClockwork-DEMO' }
+      { name: 'STORAGE_BACKEND', value: 'azure-blob' }
+      { name: 'AZURE_BLOB_ACCOUNT', value: storage.outputs.accountName }
+      { name: 'AZURE_BLOB_CONTAINER', value: storage.outputs.containerName }
+      { name: 'AZURE_CLIENT_ID', value: uami.outputs.clientId }
+    ]
+    secretRefs: [
+      { name: 'database-url', envVarName: 'DATABASE_URL', keyVaultUrl: '${kv.outputs.uri}secrets/DATABASE-URL' }
+    ]
+  }
+}
+
 output resourceGroupName string = rg.name
 output acrLoginServer string = acr.outputs.loginServer
 output acrName string = acr.outputs.name
@@ -267,3 +326,4 @@ output postgresFqdn string = pg.outputs.fqdn
 output storageAccount string = storage.outputs.accountName
 output storageContainer string = storage.outputs.containerName
 output migrateJobName string = migrateJob.outputs.name
+output demoResetJobName string = enableDemoReset && environment == 'demo' ? demoResetJob!.outputs.name : ''

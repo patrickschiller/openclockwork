@@ -19,7 +19,7 @@
 ## Checklist
 
 - [ ] All commits are signed off (`git commit -s`) per the [DCO](../CONTRIBUTING.md#developer-certificate-of-origin-dco).
-- [ ] Lint, typecheck, and tests pass locally (`pnpm lint`, `pnpm typecheck`, `pnpm test`).
+- [ ] Lint, typecheck, and tests pass locally (`pnpm nx run-many -t lint typecheck test`).
 - [ ] New behaviour is covered by tests where appropriate.
-- [ ] Domain-rule changes explain the source or reasoning behind the rule.
+- [ ] If domain rules from `base-instructions.md` were touched, the relevant section was re-read.
 - [ ] No new third-party dependencies added without justification in this PR description.

@@ -4,6 +4,9 @@ import { renderWithProviders } from '../test-utils';
 import { LoginPage } from './LoginPage';
 
 const loginMock = vi.fn();
+const runtimeWindow = window as Window & {
+  __OPENClockwork_CONFIG__?: { demoMode?: boolean };
+};
 
 vi.mock('../app/auth', () => ({
   useAuth: () => ({ login: loginMock, loading: false, user: null, logout: vi.fn() }),
@@ -13,6 +16,7 @@ vi.mock('../app/auth', () => ({
 describe('LoginPage', () => {
   beforeEach(() => {
     loginMock.mockReset();
+    runtimeWindow.__OPENClockwork_CONFIG__ = undefined;
   });
 
   it('renders email + password fields and the submit button', () => {
@@ -40,5 +44,11 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Invalid credentials/)).toBeDefined();
     });
+  });
+
+  it('warns visitors not to enter personal data in demo mode', () => {
+    runtimeWindow.__OPENClockwork_CONFIG__ = { demoMode: true };
+    renderWithProviders(<LoginPage />);
+    expect(screen.getByText(/keine echten personenbezogenen Daten/i)).toBeDefined();
   });
 });

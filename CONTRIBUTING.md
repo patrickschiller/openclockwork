@@ -12,32 +12,31 @@ Sign off your commits with `git commit -s`. This appends a line to the commit me
 Signed-off-by: Your Name <your.email@example.com>
 ```
 
-Use your real name. Anonymous or pseudonymous sign-offs cannot be accepted. Pull requests with unsigned commits may be rejected until the sign-off is added.
+Use your real name. Anonymous or pseudonymous sign-offs cannot be accepted. The CI checks for this trailer on every commit in a pull request — unsigned commits will block the merge.
 
 If you forgot to sign off, fix the latest commit with `git commit --amend -s` or rebase and run `git rebase --signoff <base>` for older commits.
 
 ## Reporting issues
 
 - **Bugs:** open a GitHub issue with reproduction steps, expected vs. actual behaviour, environment details (OS, Node version, browser).
-- **Security vulnerabilities:** do _not_ open a public issue. See [SECURITY.md](SECURITY.md).
+- **Security vulnerabilities:** do *not* open a public issue. See [SECURITY.md](SECURITY.md).
 - **Feature ideas:** open a GitHub Discussion or a "proposal" issue first. We prefer to discuss design before code.
 
 ## Working on a change
 
 1. Fork the repo and create a feature branch from `main`.
-2. Run `pnpm install` at the repo root, then use `pnpm nx run <project>:<target>` (e.g. `pnpm nx serve api`) for local dev.
-3. Read the surrounding source and tests before changing domain rules. OpenClockwork models a real working-time-tracking system, and the rules around break deduction, approval thresholds, etc. are deliberate.
-4. Avoid new dependencies unless the benefit is clear and documented in the pull request.
+2. Read [base-instructions.md](base-instructions.md) for the domain rules — OpenClockwork models a real working-time-tracking system, and the rules around break deduction, approval thresholds, etc. are not invented.
+3. Re-read [CLAUDE.md](CLAUDE.md) for the binding tech-stack decisions before introducing a new dependency.
+4. Run `pnpm install` at the repo root, then use `pnpm nx run <project>:<target>` (e.g. `pnpm nx serve api`) for local dev.
 5. Add tests. New endpoints, business rules, or UI flows without tests will not be merged.
-6. Run the relevant local checks, typically `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
-7. Sign off your commits (`git commit -s`).
-8. Open a pull request against `main`.
+6. Sign off your commits (`git commit -s`).
+7. Open a pull request against `main`.
 
 ## Pull request expectations
 
-- One logical change per PR. If your branch fixes a bug _and_ refactors something, split it.
-- The PR description should explain _why_, not just _what_. Link to the issue or discussion.
-- The relevant local checks (lint, type-check, tests) should pass before review.
+- One logical change per PR. If your branch fixes a bug *and* refactors something, split it.
+- The PR description should explain *why*, not just *what*. Link to the issue or discussion.
+- All checks (lint, type-check, tests, DCO) must be green before review.
 - A reviewer will respond within a few days. Larger changes may take longer; please be patient.
 - We reserve the right to decline contributions that do not align with the project goals stated in the README.
 
