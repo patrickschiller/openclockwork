@@ -86,7 +86,7 @@ pnpm prisma migrate dev
 pnpm nx run-many -t serve -p api,web
 ```
 
-The web client is then available at http://localhost:4200 and proxies API calls to http://localhost:3000.
+The Vite web client is then available at http://localhost:4200 and proxies API calls to http://localhost:3000.
 
 The interface starts in German by default. Use the language menu on the login
 screen or in the application header to switch between German and English. The
@@ -109,11 +109,12 @@ automatically before starting.
 
 | Service  | URL                     | Port mapping        |
 | -------- | ----------------------- | ------------------- |
-| Frontend | `http://localhost:4200` | `4200:8080` (Nginx) |
+| Frontend | `http://localhost:8080` | `8080:8080` (Nginx) |
 | API      | `http://localhost:3001` | `3001:3001`         |
 | Database | `localhost:5432`        | internal (`5432`)   |
 
 > **Tip:** If a local PostgreSQL already binds to port `5432`, set `DB_PORT=5433` in `.env.dev` before starting the stack.
+> If port `8080` is already in use, set `WEB_PORT` to another host port in `.env.dev`.
 
 Stop the stack with `docker compose -f docker-compose.dev.yml down`. Add `-v` to also remove persistent volumes.
 

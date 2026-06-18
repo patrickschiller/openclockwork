@@ -6,7 +6,7 @@
 #   docker compose -f docker-compose.dev.yml down
 #
 # Access:
-#   Frontend → http://localhost:4200
+#   Frontend → http://localhost:8080
 #   API      → http://localhost:3001
 #   DB       → localhost:5432 (user: openclockwork / pass: openclockwork)
 # ============================================================
@@ -47,7 +47,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
       ERP_API_KEY: ${ERP_API_KEY:-dev-erp-key}
       CRON_API_KEY: ${CRON_API_KEY:-dev-cron-key}
-      API_CORS_ORIGINS: http://localhost,http://localhost:4200
+      API_CORS_ORIGINS: http://localhost,http://localhost:8080
       STORAGE_BACKEND: local
       ATTACHMENTS_DIR: data/attachments
     ports:
@@ -75,7 +75,7 @@ services:
     environment:
       API_UPSTREAM: http://api:3001
     ports:
-      - '${WEB_PORT:-4200}:8080'
+      - '${WEB_PORT:-8080}:8080'
 
 volumes:
   openclockwork-dev-db-data:
