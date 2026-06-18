@@ -8,7 +8,7 @@ import {
 
 const YEAR = new Date().getUTCFullYear();
 const FROM = `${YEAR}-08-03T00:00:00.000Z`; // Mon
-const TO = `${YEAR}-08-07T00:00:00.000Z`;   // Fri (5 working days)
+const TO = `${YEAR}-08-07T00:00:00.000Z`; // Fri (5 working days)
 
 interface Cast {
   hannah: { id: string; token: string };
@@ -51,7 +51,10 @@ async function setupOrgChart(ctx: TestContext): Promise<Cast> {
   await seedLeaveAllowance(ctx.prisma, erik.id, YEAR, 30);
 
   return {
-    hannah: { id: hannah.id, token: await login(ctx.http, 'hannah@test.local') },
+    hannah: {
+      id: hannah.id,
+      token: await login(ctx.http, 'hannah@test.local'),
+    },
     marc: { id: marc.id, token: await login(ctx.http, 'marc@test.local') },
     anna: { id: anna.id, token: await login(ctx.http, 'anna@test.local') },
     erik: { id: erik.id, token: await login(ctx.http, 'erik@test.local') },
@@ -96,21 +99,35 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
     const approved = await ctx.http
       .post(`/api/requests/${created.body.id}/manager-approve`)
       .set('Authorization', `Bearer ${cast.marc.token}`)
-      .send({ actorId: cast.marc.id, note: 'OK', requiresHrConfirmation: false })
+      .send({
+        actorId: cast.marc.id,
+        note: 'OK',
+        requiresHrConfirmation: false,
+      })
       .expect(201);
-    expect(approved.body).toMatchObject({ workflowState: 'Approved', status: 'Approved' });
+    expect(approved.body).toMatchObject({
+      workflowState: 'Approved',
+      status: 'Approved',
+    });
 
     const events = await ctx.http
       .get(`/api/requests/${created.body.id}/events`)
       .set('Authorization', `Bearer ${cast.marc.token}`)
       .expect(200);
-    expect(events.body.map((e: { kind: string }) => e.kind)).toEqual(['Submitted', 'ManagerApproved']);
+    expect(events.body.map((e: { kind: string }) => e.kind)).toEqual([
+      'Submitted',
+      'ManagerApproved',
+    ]);
 
     const balance = await ctx.http
       .get(`/api/accounts/${cast.anna.id}/vacation`)
       .set('Authorization', `Bearer ${cast.anna.token}`)
       .expect(200);
-    expect(balance.body).toMatchObject({ approvedDays: 5, pendingDays: 0, remainingDays: 25 });
+    expect(balance.body).toMatchObject({
+      approvedDays: 5,
+      pendingDays: 0,
+      remainingDays: 25,
+    });
   });
 
   it('with substitute: PendingSubstitute → PendingManager → PendingHr → Approved', async () => {
@@ -155,7 +172,10 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
       .set('Authorization', `Bearer ${cast.hannah.token}`)
       .send({ actorId: cast.hannah.id, note: 'final OK' })
       .expect(201);
-    expect(hrConfirmed.body).toMatchObject({ workflowState: 'Approved', status: 'Approved' });
+    expect(hrConfirmed.body).toMatchObject({
+      workflowState: 'Approved',
+      status: 'Approved',
+    });
 
     const events = await ctx.http
       .get(`/api/requests/${created.body.id}/events`)
@@ -174,7 +194,12 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
     const r = await ctx.http
       .post('/api/requests/vacation')
       .set('Authorization', `Bearer ${cast.anna.token}`)
-      .send({ employeeId: cast.anna.id, from: FROM, to: TO, substituteId: cast.erik.id })
+      .send({
+        employeeId: cast.anna.id,
+        from: FROM,
+        to: TO,
+        substituteId: cast.erik.id,
+      })
       .expect(201);
 
     const declined = await ctx.http
@@ -196,9 +221,40 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
     const res = await ctx.http
       .post('/api/requests/vacation')
       .set('Authorization', `Bearer ${cast.anna.token}`)
-      .send({ employeeId: cast.anna.id, from: FROM, to: TO, substituteId: null })
+      .send({
+        employeeId: cast.anna.id,
+        from: FROM,
+        to: TO,
+        substituteId: null,
+      })
       .expect(409);
     expect(res.body.message).toMatch(/Not enough vacation/i);
+  });
+
+  it('rejects overlapping active requests for the same employee', async () => {
+    const cast = await setupOrgChart(ctx);
+    await ctx.http
+      .post('/api/requests/vacation')
+      .set('Authorization', `Bearer ${cast.anna.token}`)
+      .send({
+        employeeId: cast.anna.id,
+        from: FROM,
+        to: TO,
+        substituteId: null,
+      })
+      .expect(201);
+
+    const overlapping = await ctx.http
+      .post('/api/requests')
+      .set('Authorization', `Bearer ${cast.anna.token}`)
+      .send({
+        employeeId: cast.anna.id,
+        type: 'HomeOffice',
+        from: `${YEAR}-08-05T00:00:00.000Z`,
+        to: `${YEAR}-08-05T00:00:00.000Z`,
+      })
+      .expect(409);
+    expect(overlapping.body.message).toMatch(/overlaps an active request/i);
   });
 
   it('non-vacation TimeAdjustment routes generically (single-stage when in-frame)', async () => {
@@ -236,7 +292,9 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
 
     // No booked time for that day yet.
     const before = await ctx.http
-      .get(`/api/timeentries?employeeId=${cast.anna.id}&from=${YEAR}-08-03T00:00:00.000Z&to=${YEAR}-08-03T23:59:59.000Z`)
+      .get(
+        `/api/timeentries?employeeId=${cast.anna.id}&from=${YEAR}-08-03T00:00:00.000Z&to=${YEAR}-08-03T23:59:59.000Z`,
+      )
       .set('Authorization', `Bearer ${cast.anna.token}`)
       .expect(200);
     expect(before.body).toEqual([]);
@@ -262,7 +320,9 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
     // The approval must have created a closed, Approved TimeEntry that
     // carries the corrected clock-in / clock-out.
     const after = await ctx.http
-      .get(`/api/timeentries?employeeId=${cast.anna.id}&from=${YEAR}-08-03T00:00:00.000Z&to=${YEAR}-08-03T23:59:59.000Z`)
+      .get(
+        `/api/timeentries?employeeId=${cast.anna.id}&from=${YEAR}-08-03T00:00:00.000Z&to=${YEAR}-08-03T23:59:59.000Z`,
+      )
       .set('Authorization', `Bearer ${cast.anna.token}`)
       .expect(200);
     expect(after.body).toHaveLength(1);

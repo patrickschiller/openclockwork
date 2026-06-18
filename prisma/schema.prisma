@@ -82,9 +82,6 @@ enum RequestEventKind {
   Cancelled
 }
 
-// Absences are recorded facts (Krankheit / Schulung / Gleittage etc.), not
-// approval workflows. The enum is open so additional kinds can be added in
-// future without changing the model.
 enum ThemePreference {
   Light
   Dark
@@ -92,6 +89,8 @@ enum ThemePreference {
 }
 
 enum AbsenceKind {
+  // Absence kinds are intentionally limited. Adding kinds requires a migration
+  // so API/UI/reporting stay explicit.
   Sickness
   Training
   Flextime
@@ -127,6 +126,7 @@ model Employee {
   timeEntries                   TimeEntry[]
   requests                      Request[]                @relation("RequestEmployee")
   approverRequests              Request[]                @relation("RequestApprover")
+  decidedRequests               Request[]                @relation("RequestDecider")
   substituteRequests            Request[]                @relation("RequestSubstitute")
   leaveAllowances               EmployeeLeaveAllowance[]
   events                        RequestEvent[]           @relation("EventActor")
@@ -143,14 +143,14 @@ model Employee {
 
 // Frame and core working hours. A schedule is assigned per Employee
 // (Employee.workScheduleId). Multiple core-time windows per schedule are
-// supported (e.g. 10:00–11:00 and 14:00–15:00). Times are stored as
-// "HH:mm" strings; weekdays as a 7-bit mask (Mon=1, Tue=2, ..., Sun=64).
+// supported (e.g. 10:00–11:00 and 14:00–15:00). Times are stored as checked
+// "HH:mm" strings; weekdays as a checked 7-bit mask (Mon=1, Tue=2, ..., Sun=64).
 model WorkSchedule {
   id          String                 @id @default(uuid()) @db.Uuid
   name        String                 @unique
   description String?
-  frameStart  String // "HH:mm" — start of permitted booking window
-  frameEnd    String // "HH:mm" — end of permitted booking window
+  frameStart  String                 @db.VarChar(5) // "HH:mm" — start of permitted booking window
+  frameEnd    String                 @db.VarChar(5) // "HH:mm" — end of permitted booking window
   isDefault   Boolean                @default(false)
   /// Working-days bitmask (Mon=1, Tue=2, ..., Sun=64). Default 31 = Mo–Fr.
   /// Days outside the mask are non-working for Soll/Vacation accounting.
@@ -166,8 +166,8 @@ model WorkScheduleCoreTime {
   scheduleId String       @db.Uuid
   schedule   WorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   label      String?
-  start      String // "HH:mm"
-  end        String // "HH:mm"
+  start      String       @db.VarChar(5) // "HH:mm"
+  end        String       @db.VarChar(5) // "HH:mm"
   weekdays   Int          @default(31) // bitmask Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64
 
   @@index([scheduleId])
@@ -176,7 +176,7 @@ model WorkScheduleCoreTime {
 model TimeEntry {
   id               String      @id @default(uuid()) @db.Uuid
   employeeId       String      @db.Uuid
-  employee         Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee         Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   clockIn          DateTime
   clockOut         DateTime?
   source           EntrySource @default(Manual)
@@ -189,7 +189,7 @@ model TimeEntry {
   projectId        String?     @db.Uuid
   project          Project?    @relation(fields: [projectId], references: [id], onDelete: Restrict)
   serviceOrderId   String?       @db.Uuid
-  serviceOrder     ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+  serviceOrder     ServiceOrder? @relation(fields: [projectId, serviceOrderId], references: [projectId, id], onDelete: Restrict)
   /// Customer-facing description of the work performed (Tätigkeit).
   activity         String?
   createdAt        DateTime    @default(now())
@@ -204,7 +204,7 @@ model TimeEntry {
 model Request {
   id                   String         @id @default(uuid()) @db.Uuid
   employeeId           String         @db.Uuid
-  employee             Employee       @relation("RequestEmployee", fields: [employeeId], references: [id], onDelete: Cascade)
+  employee             Employee       @relation("RequestEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
   type                 RequestType
   status               RequestStatus  @default(Submitted)
   workflowState        WorkflowState  @default(Submitted)
@@ -221,6 +221,7 @@ model Request {
   currentApproverId    String?        @db.Uuid
   currentApprover      Employee?      @relation("RequestApprover", fields: [currentApproverId], references: [id], onDelete: SetNull)
   approverId           String?        @db.Uuid
+  approver             Employee?      @relation("RequestDecider", fields: [approverId], references: [id], onDelete: SetNull)
   hrConfirmedAt        DateTime?
   cancelledAt          DateTime?
   decidedAt            DateTime?
@@ -232,6 +233,7 @@ model Request {
 
   @@index([employeeId, workflowState])
   @@index([currentApproverId])
+  @@index([approverId])
   @@index([substituteId])
 }
 
@@ -270,7 +272,7 @@ model RequestEvent {
 model Absence {
   id         String      @id @default(uuid()) @db.Uuid
   employeeId String      @db.Uuid
-  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   kind       AbsenceKind @default(Sickness)
   from       DateTime    @db.Date
   to         DateTime    @db.Date
@@ -321,6 +323,7 @@ model ServiceOrder {
   updatedAt   DateTime    @updatedAt
 
   @@unique([projectId, orderNo])
+  @@unique([projectId, id])
   @@index([projectId])
 }
 
@@ -330,7 +333,7 @@ model ServiceOrder {
 model ProjectAssignment {
   id         String   @id @default(uuid()) @db.Uuid
   employeeId String   @db.Uuid
-  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   projectId  String   @db.Uuid
   project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
@@ -342,7 +345,7 @@ model ProjectAssignment {
 model EmployeeLeaveAllowance {
   id                 String    @id @default(uuid()) @db.Uuid
   employeeId         String    @db.Uuid
-  employee           Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee           Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
   year               Int
   baseDays           Decimal   @db.Decimal(5, 2)
   carryOverDays      Decimal   @default(0) @db.Decimal(5, 2)

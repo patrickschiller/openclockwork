@@ -1,5 +1,14 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import type { TimeModel, WorkSchedule, WorkScheduleCoreTime } from '@prisma/client';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import type {
+  TimeModel,
+  WorkSchedule,
+  WorkScheduleCoreTime,
+} from '@prisma/client';
 import {
   BUNDESLAENDER,
   DEFAULT_FRAME,
@@ -39,7 +48,12 @@ function parseHm(value: string): { hour: number; minute: number } {
 export function toFrameRule(start: string, end: string): FrameTimeRule {
   const s = parseHm(start);
   const e = parseHm(end);
-  return { startHour: s.hour, startMinute: s.minute, endHour: e.hour, endMinute: e.minute };
+  return {
+    startHour: s.hour,
+    startMinute: s.minute,
+    endHour: e.hour,
+    endMinute: e.minute,
+  };
 }
 
 export function toCoreWindow(row: WorkScheduleCoreTime): CoreTimeWindow {
@@ -72,11 +86,14 @@ export class WorkSchedulesService {
 
   async getById(id: string): Promise<WorkScheduleResponse> {
     const row = await this.findOrThrow(id);
-    const count = await this.prisma.employee.count({ where: { workScheduleId: id } });
+    const count = await this.prisma.employee.count({
+      where: { workScheduleId: id },
+    });
     return toScheduleResponse(row, count);
   }
 
   async create(dto: UpsertWorkScheduleDto): Promise<WorkScheduleResponse> {
+    assertValidScheduleTimes(dto);
     return this.prisma.$transaction(async (tx) => {
       if (dto.isDefault) {
         await tx.workSchedule.updateMany({
@@ -107,15 +124,21 @@ export class WorkSchedulesService {
         return toScheduleResponse(created, 0);
       } catch (err) {
         if (isUniqueViolation(err)) {
-          throw new ConflictException(`A schedule named "${dto.name}" already exists`);
+          throw new ConflictException(
+            `A schedule named "${dto.name}" already exists`,
+          );
         }
         throw err;
       }
     });
   }
 
-  async update(id: string, dto: UpsertWorkScheduleDto): Promise<WorkScheduleResponse> {
+  async update(
+    id: string,
+    dto: UpsertWorkScheduleDto,
+  ): Promise<WorkScheduleResponse> {
     await this.findOrThrow(id);
+    assertValidScheduleTimes(dto);
     return this.prisma.$transaction(async (tx) => {
       if (dto.isDefault) {
         await tx.workSchedule.updateMany({
@@ -145,11 +168,15 @@ export class WorkSchedulesService {
           },
           include: { coreTimes: { orderBy: { start: 'asc' } } },
         });
-        const count = await tx.employee.count({ where: { workScheduleId: id } });
+        const count = await tx.employee.count({
+          where: { workScheduleId: id },
+        });
         return toScheduleResponse(updated, count);
       } catch (err) {
         if (isUniqueViolation(err)) {
-          throw new ConflictException(`A schedule named "${dto.name}" already exists`);
+          throw new ConflictException(
+            `A schedule named "${dto.name}" already exists`,
+          );
         }
         throw err;
       }
@@ -161,10 +188,16 @@ export class WorkSchedulesService {
     await this.prisma.workSchedule.delete({ where: { id } });
   }
 
-  async assignToEmployee(scheduleId: string, employeeId: string): Promise<void> {
+  async assignToEmployee(
+    scheduleId: string,
+    employeeId: string,
+  ): Promise<void> {
     await this.findOrThrow(scheduleId);
-    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
-    if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+    if (!employee)
+      throw new NotFoundException(`Employee ${employeeId} not found`);
     await this.prisma.employee.update({
       where: { id: employeeId },
       data: { workScheduleId: scheduleId },
@@ -172,8 +205,11 @@ export class WorkSchedulesService {
   }
 
   async unassignFromEmployee(employeeId: string): Promise<void> {
-    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
-    if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+    if (!employee)
+      throw new NotFoundException(`Employee ${employeeId} not found`);
     await this.prisma.employee.update({
       where: { id: employeeId },
       data: { workScheduleId: null },
@@ -216,10 +252,11 @@ export class WorkSchedulesService {
         workSchedule: { include: { coreTimes: { orderBy: { start: 'asc' } } } },
       },
     });
-    if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
-    const bundesland: Bundesland = (BUNDESLAENDER as readonly string[]).includes(
-      employee.bundesland,
-    )
+    if (!employee)
+      throw new NotFoundException(`Employee ${employeeId} not found`);
+    const bundesland: Bundesland = (
+      BUNDESLAENDER as readonly string[]
+    ).includes(employee.bundesland)
       ? (employee.bundesland as Bundesland)
       : 'NW';
     const holidayProvider = holidayProviderFor(bundesland);
@@ -268,6 +305,23 @@ function isUniqueViolation(err: unknown): boolean {
     err !== null &&
     (err as { code?: string }).code === 'P2002'
   );
+}
+
+function minutes(value: string): number {
+  const [hour, minute] = value.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+function assertValidScheduleTimes(dto: UpsertWorkScheduleDto): void {
+  if (minutes(dto.frameStart) >= minutes(dto.frameEnd)) {
+    throw new BadRequestException('frameStart must be before frameEnd');
+  }
+  const invalidCore = dto.coreTimes.find(
+    (c) => minutes(c.start) >= minutes(c.end),
+  );
+  if (invalidCore) {
+    throw new BadRequestException('core time start must be before end');
+  }
 }
 
 // Re-export for downstream services that need the Prisma row → domain conversions.
