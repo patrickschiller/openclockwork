@@ -1,4 +1,9 @@
-import { createTestApp, login, seedEmployee, type TestContext } from '../support/test-app';
+import {
+  createTestApp,
+  login,
+  seedEmployee,
+  type TestContext,
+} from '../support/test-app';
 
 describe('Absences — Sickness / Training / Flextime', () => {
   let ctx: TestContext;
@@ -23,11 +28,21 @@ describe('Absences — Sickness / Training / Flextime', () => {
 
     const today = new Date().toISOString();
     const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+    const dayAfterTomorrow = new Date(
+      Date.now() + 2 * 86_400_000,
+    ).toISOString();
+    const threeDaysOut = new Date(Date.now() + 3 * 86_400_000).toISOString();
 
     const sickness = await ctx.http
       .post('/api/absences')
       .set('Authorization', `Bearer ${token}`)
-      .send({ employeeId: anna.id, kind: 'Sickness', from: today, to: today, certified: true })
+      .send({
+        employeeId: anna.id,
+        kind: 'Sickness',
+        from: today,
+        to: today,
+        certified: true,
+      })
       .expect(201);
     expect(sickness.body).toMatchObject({ kind: 'Sickness', certified: true });
 
@@ -37,17 +52,25 @@ describe('Absences — Sickness / Training / Flextime', () => {
       .send({
         employeeId: anna.id,
         kind: 'Training',
-        from: today,
-        to: tomorrow,
+        from: tomorrow,
+        to: dayAfterTomorrow,
         note: 'NestJS Schulung',
       })
       .expect(201);
-    expect(training.body).toMatchObject({ kind: 'Training', note: 'NestJS Schulung' });
+    expect(training.body).toMatchObject({
+      kind: 'Training',
+      note: 'NestJS Schulung',
+    });
 
     const flextime = await ctx.http
       .post('/api/absences')
       .set('Authorization', `Bearer ${token}`)
-      .send({ employeeId: anna.id, kind: 'Flextime', from: tomorrow, to: tomorrow })
+      .send({
+        employeeId: anna.id,
+        kind: 'Flextime',
+        from: threeDaysOut,
+        to: threeDaysOut,
+      })
       .expect(201);
     expect(flextime.body).toMatchObject({ kind: 'Flextime' });
 
@@ -55,7 +78,9 @@ describe('Absences — Sickness / Training / Flextime', () => {
       .get(`/api/absences?employeeId=${anna.id}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    const kinds = (list.body as Array<{ kind: string }>).map((a) => a.kind).sort();
+    const kinds = (list.body as Array<{ kind: string }>)
+      .map((a) => a.kind)
+      .sort();
     expect(kinds).toEqual(['Flextime', 'Sickness', 'Training']);
   });
 
@@ -78,5 +103,37 @@ describe('Absences — Sickness / Training / Flextime', () => {
         to: new Date().toISOString(),
       })
       .expect(400);
+  });
+
+  it('rejects overlapping absences for the same employee', async () => {
+    const anna = await seedEmployee(ctx.prisma, {
+      personalNo: '1001',
+      firstName: 'Anna',
+      lastName: 'Mueller',
+      email: 'anna@test.local',
+    });
+    const token = await login(ctx.http, 'anna@test.local');
+    const first = {
+      employeeId: anna.id,
+      kind: 'Sickness',
+      from: '2026-09-07T00:00:00.000Z',
+      to: '2026-09-09T00:00:00.000Z',
+    };
+
+    await ctx.http
+      .post('/api/absences')
+      .set('Authorization', `Bearer ${token}`)
+      .send(first)
+      .expect(201);
+    await ctx.http
+      .post('/api/absences')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        employeeId: anna.id,
+        kind: 'Training',
+        from: '2026-09-09T00:00:00.000Z',
+        to: '2026-09-10T00:00:00.000Z',
+      })
+      .expect(409);
   });
 });

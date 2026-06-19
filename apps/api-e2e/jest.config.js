@@ -15,6 +15,10 @@ module.exports = {
   transform: {
     '^.+\\.[tj]s$': ['@swc/jest', swcJestConfig],
   },
+  moduleNameMapper: {
+    '^shared$': '<rootDir>/../../libs/shared/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   moduleFileExtensions: ['ts', 'js', 'html'],
   testTimeout: 30000,
   coverageDirectory: 'test-output/jest/coverage',

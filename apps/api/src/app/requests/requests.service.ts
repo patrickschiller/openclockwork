@@ -5,7 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Prisma, Request, RequestEventKind, RequestType, WorkflowState } from '@prisma/client';
+import type {
+  Prisma,
+  Request,
+  RequestEventKind,
+  RequestType,
+  WorkflowState,
+} from '@prisma/client';
 import {
   calculateVacationDays,
   calculateWorkingDays,
@@ -50,10 +56,14 @@ export class RequestsService {
   async list(filter: ListRequestsFilter): Promise<RequestDto[]> {
     const where: Prisma.RequestWhereInput = {};
     if (filter.employeeId) where.employeeId = filter.employeeId;
-    if (filter.status) where.status = filter.status as Prisma.RequestWhereInput['status'];
-    if (filter.workflowState) where.workflowState = filter.workflowState as Prisma.RequestWhereInput['workflowState'];
+    if (filter.status)
+      where.status = filter.status as Prisma.RequestWhereInput['status'];
+    if (filter.workflowState)
+      where.workflowState =
+        filter.workflowState as Prisma.RequestWhereInput['workflowState'];
     if (filter.approverId) where.approverId = filter.approverId;
-    if (filter.currentApproverId) where.currentApproverId = filter.currentApproverId;
+    if (filter.currentApproverId)
+      where.currentApproverId = filter.currentApproverId;
     if (filter.substituteId) where.substituteId = filter.substituteId;
     const rows = await this.prisma.request.findMany({
       where,
@@ -102,6 +112,7 @@ export class RequestsService {
     if (to.getTime() < from.getTime()) {
       throw new BadRequestException('"to" must be on/after "from"');
     }
+    await this.assertNoActiveOverlap(employee.id, from, to);
     const schedule = await this.schedules.resolveForEmployee(employee.id);
     let requires = false;
     if (dto.type === 'TimeAdjustment') {
@@ -127,7 +138,11 @@ export class RequestsService {
         },
       });
       await tx.requestEvent.create({
-        data: { requestId: request.id, kind: 'Submitted', actorId: employee.id },
+        data: {
+          requestId: request.id,
+          kind: 'Submitted',
+          actorId: employee.id,
+        },
       });
       return request;
     });
@@ -145,7 +160,9 @@ export class RequestsService {
       throw new BadRequestException('"to" must be on/after "from"');
     }
     if (from.getUTCFullYear() !== to.getUTCFullYear()) {
-      throw new BadRequestException('Vacation must lie within a single calendar year — split into two requests');
+      throw new BadRequestException(
+        'Vacation must lie within a single calendar year — split into two requests',
+      );
     }
     if (dto.substituteId && dto.substituteId === employee.id) {
       throw new BadRequestException('Substitute must be a different employee');
@@ -162,8 +179,12 @@ export class RequestsService {
     if (calculatedDays <= 0) {
       throw new BadRequestException('Vacation range covers no working days');
     }
+    await this.assertNoActiveOverlap(employee.id, from, to);
 
-    const balance = await this.vacationBalance.compute(employee.id, from.getUTCFullYear());
+    const balance = await this.vacationBalance.compute(
+      employee.id,
+      from.getUTCFullYear(),
+    );
     if (balance.remainingDays < calculatedDays) {
       throw new ConflictException(
         `Not enough vacation days remaining (${balance.remainingDays} < ${calculatedDays})`,
@@ -171,7 +192,9 @@ export class RequestsService {
     }
 
     const hasSubstitute = !!dto.substituteId;
-    const initialState: WorkflowState = hasSubstitute ? 'PendingSubstitute' : 'PendingManager';
+    const initialState: WorkflowState = hasSubstitute
+      ? 'PendingSubstitute'
+      : 'PendingManager';
 
     const created = await this.prisma.$transaction(async (tx) => {
       const request = await tx.request.create({
@@ -191,7 +214,11 @@ export class RequestsService {
         },
       });
       await tx.requestEvent.create({
-        data: { requestId: request.id, kind: 'Submitted', actorId: employee.id },
+        data: {
+          requestId: request.id,
+          kind: 'Submitted',
+          actorId: employee.id,
+        },
       });
       return request;
     });
@@ -201,7 +228,11 @@ export class RequestsService {
 
   // ----- Generic approve / reject (legacy path for non-Vacation) -----
 
-  async approve(id: string, actorId: string, note: string | null): Promise<RequestDto> {
+  async approve(
+    id: string,
+    actorId: string,
+    note: string | null,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.type === 'Vacation') {
       // Vacation must use the multi-stage workflow.
@@ -211,7 +242,12 @@ export class RequestsService {
       // Off-hours TimeAdjustment: manager approves the off-hours allowance,
       // then HR finalises the actual time correction.
       await this.assertApproverRole(actorId);
-      return this.transitionVacation(request, 'manager_approve_with_hr', actorId, note);
+      return this.transitionVacation(
+        request,
+        'manager_approve_with_hr',
+        actorId,
+        note,
+      );
     }
     await this.assertApproverRole(actorId);
     const alreadyApproved = request.workflowState === 'Approved';
@@ -239,7 +275,11 @@ export class RequestsService {
     return toRequestDto(updated);
   }
 
-  async reject(id: string, actorId: string, note: string | null): Promise<RequestDto> {
+  async reject(
+    id: string,
+    actorId: string,
+    note: string | null,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.type === 'Vacation') {
       return this.transitionVacation(request, 'manager_reject', actorId, note);
@@ -281,29 +321,47 @@ export class RequestsService {
     // then the actual time correction.
     const forced = requiresTwoStageApproval(request);
     const event: WorkflowEvent =
-      requiresHrConfirmation || forced ? 'manager_approve_with_hr' : 'manager_approve';
+      requiresHrConfirmation || forced
+        ? 'manager_approve_with_hr'
+        : 'manager_approve';
     return this.transitionVacation(request, event, actorId, note);
   }
 
-  async managerReject(id: string, actorId: string, note: string | null): Promise<RequestDto> {
+  async managerReject(
+    id: string,
+    actorId: string,
+    note: string | null,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertApproverRole(actorId);
     return this.transitionVacation(request, 'manager_reject', actorId, note);
   }
 
-  async hrConfirm(id: string, actorId: string, note: string | null): Promise<RequestDto> {
+  async hrConfirm(
+    id: string,
+    actorId: string,
+    note: string | null,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertHrAdminRole(actorId);
     return this.transitionVacation(request, 'hr_confirm', actorId, note);
   }
 
-  async hrReject(id: string, actorId: string, note: string): Promise<RequestDto> {
+  async hrReject(
+    id: string,
+    actorId: string,
+    note: string,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertHrAdminRole(actorId);
     return this.transitionVacation(request, 'hr_reject', actorId, note);
   }
 
-  async substituteAccept(id: string, actorId: string, note: string | null): Promise<RequestDto> {
+  async substituteAccept(
+    id: string,
+    actorId: string,
+    note: string | null,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.substituteId !== actorId) {
       throw new ForbiddenException('Only the chosen substitute can accept');
@@ -311,15 +369,28 @@ export class RequestsService {
     return this.transitionVacation(request, 'substitute_accept', actorId, note);
   }
 
-  async substituteDecline(id: string, actorId: string, note: string): Promise<RequestDto> {
+  async substituteDecline(
+    id: string,
+    actorId: string,
+    note: string,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.substituteId !== actorId) {
       throw new ForbiddenException('Only the chosen substitute can decline');
     }
-    return this.transitionVacation(request, 'substitute_decline', actorId, note);
+    return this.transitionVacation(
+      request,
+      'substitute_decline',
+      actorId,
+      note,
+    );
   }
 
-  async returnForRevision(id: string, actorId: string, note: string): Promise<RequestDto> {
+  async returnForRevision(
+    id: string,
+    actorId: string,
+    note: string,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertApproverRole(actorId);
     return this.transitionVacation(request, 'manager_return', actorId, note);
@@ -350,13 +421,35 @@ export class RequestsService {
           await this.assertApproverRole(actorId);
           const forced = requiresTwoStageApproval(request);
           const event: WorkflowEvent =
-            requiresHrConfirmation || forced ? 'manager_approve_with_hr' : 'manager_approve';
-          const updated = await this.transitionVacation(request, event, actorId, note);
-          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+            requiresHrConfirmation || forced
+              ? 'manager_approve_with_hr'
+              : 'manager_approve';
+          const updated = await this.transitionVacation(
+            request,
+            event,
+            actorId,
+            note,
+          );
+          out.push({
+            id,
+            ok: true,
+            workflowState: updated.workflowState,
+            status: updated.status,
+          });
         } else if (request.workflowState === 'PendingHr') {
           await this.assertHrAdminRole(actorId);
-          const updated = await this.transitionVacation(request, 'hr_confirm', actorId, note);
-          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+          const updated = await this.transitionVacation(
+            request,
+            'hr_confirm',
+            actorId,
+            note,
+          );
+          out.push({
+            id,
+            ok: true,
+            workflowState: updated.workflowState,
+            status: updated.status,
+          });
         } else {
           out.push({
             id,
@@ -365,7 +458,11 @@ export class RequestsService {
           });
         }
       } catch (err) {
-        out.push({ id, ok: false, error: err instanceof Error ? err.message : 'unknown error' });
+        out.push({
+          id,
+          ok: false,
+          error: err instanceof Error ? err.message : 'unknown error',
+        });
       }
     }
     return out;
@@ -376,19 +473,43 @@ export class RequestsService {
    * - `PendingManager` → manager_reject
    * - `PendingHr`      → hr_reject
    */
-  async bulkReject(actorId: string, ids: string[], note: string): Promise<BulkResult[]> {
+  async bulkReject(
+    actorId: string,
+    ids: string[],
+    note: string,
+  ): Promise<BulkResult[]> {
     const out: BulkResult[] = [];
     for (const id of ids) {
       try {
         const request = await this.assertRequest(id);
         if (request.workflowState === 'PendingManager') {
           await this.assertApproverRole(actorId);
-          const updated = await this.transitionVacation(request, 'manager_reject', actorId, note);
-          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+          const updated = await this.transitionVacation(
+            request,
+            'manager_reject',
+            actorId,
+            note,
+          );
+          out.push({
+            id,
+            ok: true,
+            workflowState: updated.workflowState,
+            status: updated.status,
+          });
         } else if (request.workflowState === 'PendingHr') {
           await this.assertHrAdminRole(actorId);
-          const updated = await this.transitionVacation(request, 'hr_reject', actorId, note);
-          out.push({ id, ok: true, workflowState: updated.workflowState, status: updated.status });
+          const updated = await this.transitionVacation(
+            request,
+            'hr_reject',
+            actorId,
+            note,
+          );
+          out.push({
+            id,
+            ok: true,
+            workflowState: updated.workflowState,
+            status: updated.status,
+          });
         } else {
           out.push({
             id,
@@ -397,19 +518,29 @@ export class RequestsService {
           });
         }
       } catch (err) {
-        out.push({ id, ok: false, error: err instanceof Error ? err.message : 'unknown error' });
+        out.push({
+          id,
+          ok: false,
+          error: err instanceof Error ? err.message : 'unknown error',
+        });
       }
     }
     return out;
   }
 
-  async cancel(id: string, actorId: string, note: string | null): Promise<RequestDto> {
+  async cancel(
+    id: string,
+    actorId: string,
+    note: string | null,
+  ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.employeeId !== actorId) {
       // HR/Manager may also cancel — check role.
       const actor = await this.employees.getById(actorId);
       if (actor.role !== 'Manager' && actor.role !== 'HRAdmin') {
-        throw new ForbiddenException('Only the requester or a Manager/HRAdmin may cancel');
+        throw new ForbiddenException(
+          'Only the requester or a Manager/HRAdmin may cancel',
+        );
       }
     }
     return this.transitionVacation(request, 'cancel', actorId, note);
@@ -452,7 +583,7 @@ export class RequestsService {
       data.currentApprover = { disconnect: true };
     }
     if (event === 'manager_approve' || event === 'manager_approve_with_hr') {
-      data.approverId = actorId;
+      data.approver = { connect: { id: actorId } };
       data.decidedAt = event === 'manager_approve' ? new Date() : null;
       data.decisionNote = event === 'manager_approve' ? note : null;
       if (event === 'manager_approve_with_hr') {
@@ -462,7 +593,7 @@ export class RequestsService {
       }
     }
     if (event === 'manager_reject' || event === 'manager_return') {
-      data.approverId = actorId;
+      data.approver = { connect: { id: actorId } };
       data.decidedAt = event === 'manager_reject' ? new Date() : null;
       data.decisionNote = note;
       data.currentApprover = { disconnect: true };
@@ -527,7 +658,9 @@ export class RequestsService {
   private async assertApproverRole(actorId: string): Promise<void> {
     const actor = await this.employees.getById(actorId);
     if (actor.role !== 'Manager' && actor.role !== 'HRAdmin') {
-      throw new ForbiddenException('Only Manager or HRAdmin may approve/reject');
+      throw new ForbiddenException(
+        'Only Manager or HRAdmin may approve/reject',
+      );
     }
   }
 
@@ -535,6 +668,27 @@ export class RequestsService {
     const actor = await this.employees.getById(actorId);
     if (actor.role !== 'HRAdmin') {
       throw new ForbiddenException('Only HRAdmin may HR-confirm/-reject');
+    }
+  }
+
+  private async assertNoActiveOverlap(
+    employeeId: string,
+    from: Date,
+    to: Date,
+  ): Promise<void> {
+    const overlap = await this.prisma.request.findFirst({
+      where: {
+        employeeId,
+        status: { notIn: ['Rejected', 'Cancelled'] },
+        from: { lte: to },
+        to: { gte: from },
+      },
+      select: { id: true },
+    });
+    if (overlap) {
+      throw new ConflictException(
+        'Request overlaps an active request for this employee',
+      );
     }
   }
 }
@@ -548,15 +702,24 @@ function requiresTwoStageApproval(request: Request): boolean {
 
 function mapEventToKind(event: WorkflowEvent): RequestEventKind {
   switch (event) {
-    case 'submit': return 'Submitted';
-    case 'substitute_accept': return 'SubstituteAccepted';
-    case 'substitute_decline': return 'SubstituteDeclined';
+    case 'submit':
+      return 'Submitted';
+    case 'substitute_accept':
+      return 'SubstituteAccepted';
+    case 'substitute_decline':
+      return 'SubstituteDeclined';
     case 'manager_approve':
-    case 'manager_approve_with_hr': return 'ManagerApproved';
-    case 'manager_reject': return 'ManagerRejected';
-    case 'manager_return': return 'Returned';
-    case 'hr_confirm': return 'HrConfirmed';
-    case 'hr_reject': return 'HrRejected';
-    case 'cancel': return 'Cancelled';
+    case 'manager_approve_with_hr':
+      return 'ManagerApproved';
+    case 'manager_reject':
+      return 'ManagerRejected';
+    case 'manager_return':
+      return 'Returned';
+    case 'hr_confirm':
+      return 'HrConfirmed';
+    case 'hr_reject':
+      return 'HrRejected';
+    case 'cancel':
+      return 'Cancelled';
   }
 }

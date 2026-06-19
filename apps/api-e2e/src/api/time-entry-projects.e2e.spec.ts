@@ -11,6 +11,7 @@ import {
 // 07:00–23:00 default frame in both CET and CEST.
 describe('TimeEntries × Projects — clock-in, retroactive assignment, split', () => {
   let ctx: TestContext;
+  let closedEntryDayOffset = 0;
   beforeAll(async () => {
     ctx = await createTestApp();
   });
@@ -18,6 +19,7 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
     await ctx.close();
   });
   beforeEach(async () => {
+    closedEntryDayOffset = 0;
     await ctx.reset();
   });
 
@@ -65,10 +67,19 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
         { orderNo: 'SA-2', title: 'Altauftrag', isActive: false },
       ],
     });
-    return { worker, other, manager, assigned, second, inactive, foreign, ordered };
+    return {
+      worker,
+      other,
+      manager,
+      assigned,
+      second,
+      inactive,
+      foreign,
+      ordered,
+    };
   }
 
-  /** Closed mid-day entry (always inside the 07:00–23:00 frame): 09:00Z–15:00Z today. */
+  /** Closed mid-day entry (always inside the 07:00–23:00 frame). */
   async function seedClosedEntry(
     employeeId: string,
     opts: {
@@ -79,11 +90,26 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
     } = {},
   ) {
     const now = new Date();
+    const day = closedEntryDayOffset++;
     const clockIn = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 9, 0, 0),
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + day,
+        9,
+        0,
+        0,
+      ),
     );
     const clockOut = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 15, 0, 0),
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + day,
+        15,
+        0,
+        0,
+      ),
     );
     return ctx.prisma.timeEntry.create({
       data: {
@@ -232,8 +258,12 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
     it('splits a closed entry into two seamless segments; omitted projectId inherits', async () => {
       const { worker, assigned } = await fixture();
       const token = await login(ctx.http, worker.email);
-      const entry = await seedClosedEntry(worker.id, { projectId: assigned.id });
-      const at = new Date(entry.clockIn.getTime() + 2 * 60 * 60 * 1000).toISOString();
+      const entry = await seedClosedEntry(worker.id, {
+        projectId: assigned.id,
+      });
+      const at = new Date(
+        entry.clockIn.getTime() + 2 * 60 * 60 * 1000,
+      ).toISOString();
 
       const res = await ctx.http
         .post(`/api/timeentries/${entry.id}/split`)
@@ -287,10 +317,24 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
         data: {
           employeeId: worker.id,
           clockIn: new Date(
-            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 9, 0, 0),
+            Date.UTC(
+              now.getUTCFullYear(),
+              now.getUTCMonth(),
+              now.getUTCDate(),
+              9,
+              0,
+              0,
+            ),
           ),
           clockOut: new Date(
-            Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 15, 0, 0),
+            Date.UTC(
+              now.getUTCFullYear(),
+              now.getUTCMonth(),
+              now.getUTCDate(),
+              15,
+              0,
+              0,
+            ),
           ),
           status: 'Pending',
           latitude: 50.94,
@@ -298,7 +342,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
           accuracyMeters: 12.5,
         },
       });
-      const at = new Date(entry.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+      const at = new Date(
+        entry.clockIn.getTime() + 60 * 60 * 1000,
+      ).toISOString();
       const res = await ctx.http
         .post(`/api/timeentries/${entry.id}/split`)
         .set('Authorization', `Bearer ${token}`)
@@ -341,7 +387,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
 
       // Approved entries can be split as well (lock removed with Epic 5.1).
       const approved = await seedClosedEntry(worker.id, { status: 'Approved' });
-      const at = new Date(approved.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+      const at = new Date(
+        approved.clockIn.getTime() + 60 * 60 * 1000,
+      ).toISOString();
       await ctx.http
         .post(`/api/timeentries/${approved.id}/split`)
         .set('Authorization', `Bearer ${token}`)
@@ -350,7 +398,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
 
       // Unassigned project for the second segment is rejected.
       const { foreign } = await (async () => ({
-        foreign: await ctx.prisma.project.create({ data: { code: 'P-LATE', name: 'P-LATE' } }),
+        foreign: await ctx.prisma.project.create({
+          data: { code: 'P-LATE', name: 'P-LATE' },
+        }),
       }))();
       const entry2 = await seedClosedEntry(worker.id);
       await ctx.http
@@ -369,11 +419,25 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       const now = new Date();
       // 04:00Z = 06:00 CEST / 05:00 CET — before the 07:00 frame start either way.
       const clockIn = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 4, 0, 0),
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+          4,
+          0,
+          0,
+        ),
       );
       // 14:00Z = 16:00 CEST / 15:00 CET — inside the frame.
       const clockOut = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 14, 0, 0),
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+          14,
+          0,
+          0,
+        ),
       );
       const entry = await ctx.prisma.timeEntry.create({
         data: {
@@ -386,7 +450,14 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       });
       // Split at 08:00Z = 10:00 CEST / 09:00 CET — after the frame start.
       const at = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 8, 0, 0),
+        Date.UTC(
+          now.getUTCFullYear(),
+          now.getUTCMonth(),
+          now.getUTCDate(),
+          8,
+          0,
+          0,
+        ),
       ).toISOString();
 
       const res = await ctx.http
@@ -404,7 +475,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       const { worker } = await fixture();
       const token = await login(ctx.http, worker.email);
       const entry = await seedClosedEntry(worker.id, { status: 'Rejected' });
-      const at = new Date(entry.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+      const at = new Date(
+        entry.clockIn.getTime() + 60 * 60 * 1000,
+      ).toISOString();
       const res = await ctx.http
         .post(`/api/timeentries/${entry.id}/split`)
         .set('Authorization', `Bearer ${token}`)
@@ -419,7 +492,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       const otherToken = await login(ctx.http, other.email);
       const managerToken = await login(ctx.http, manager.email);
       const entry = await seedClosedEntry(worker.id);
-      const at = new Date(entry.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+      const at = new Date(
+        entry.clockIn.getTime() + 60 * 60 * 1000,
+      ).toISOString();
 
       await ctx.http
         .post(`/api/timeentries/${entry.id}/split`)
@@ -448,12 +523,20 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       // Inactive orders are not bookable.
       await ctx.http
         .post('/api/timeentries/clock-in')
-        .send({ employeeId: worker.id, projectId: ordered.id, serviceOrderId: inactiveOrder?.id })
+        .send({
+          employeeId: worker.id,
+          projectId: ordered.id,
+          serviceOrderId: inactiveOrder?.id,
+        })
         .expect(400);
       // Orders of another project are rejected.
       await ctx.http
         .post('/api/timeentries/clock-in')
-        .send({ employeeId: worker.id, projectId: assigned.id, serviceOrderId: activeOrder?.id })
+        .send({
+          employeeId: worker.id,
+          projectId: assigned.id,
+          serviceOrderId: activeOrder?.id,
+        })
         .expect(404);
       // serviceOrderId without a project makes no sense.
       await ctx.http
@@ -475,12 +558,37 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       expect(ok.body.activity).toBe('Designsystem überarbeitet');
     });
 
+    it('database rejects a service order from a different project', async () => {
+      const { worker, assigned, ordered } = await fixture();
+      const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
+
+      await expect(
+        seedClosedEntry(worker.id, {
+          projectId: assigned.id,
+          serviceOrderId: activeOrder?.id,
+        }),
+      ).rejects.toMatchObject({ code: 'P2003' });
+    });
+
+    it('database restricts hard deletion of employees with booked time', async () => {
+      const { worker } = await fixture();
+      await seedClosedEntry(worker.id);
+
+      await expect(
+        ctx.prisma.employee.delete({ where: { id: worker.id } }),
+      ).rejects.toMatchObject({
+        code: 'P2003',
+      });
+    });
+
     it('PATCH edits the activity alone without re-validating legacy bookings', async () => {
       const { worker, ordered } = await fixture();
       const token = await login(ctx.http, worker.email);
       // Legacy entry: booked on an ordered project WITHOUT an order (predates
       // the rule). Editing only the activity must not trigger validation.
-      const legacy = await seedClosedEntry(worker.id, { projectId: ordered.id });
+      const legacy = await seedClosedEntry(worker.id, {
+        projectId: ordered.id,
+      });
 
       const res = await ctx.http
         .patch(`/api/timeentries/${legacy.id}`)
@@ -496,7 +604,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       const { worker, ordered, assigned } = await fixture();
       const token = await login(ctx.http, worker.email);
       const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
-      const entry = await seedClosedEntry(worker.id, { projectId: assigned.id });
+      const entry = await seedClosedEntry(worker.id, {
+        projectId: assigned.id,
+      });
 
       // Switching to the ordered project without an order → 400.
       await ctx.http
@@ -536,7 +646,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
         serviceOrderId: activeOrder?.id,
         activity: 'Konzeptphase',
       });
-      const at = new Date(entry.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+      const at = new Date(
+        entry.clockIn.getTime() + 60 * 60 * 1000,
+      ).toISOString();
 
       const res = await ctx.http
         .post(`/api/timeentries/${entry.id}/split`)
@@ -552,7 +664,9 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       const token = await login(ctx.http, worker.email);
       const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
       const entry = await seedClosedEntry(worker.id, { activity: 'Alt' });
-      const at = new Date(entry.clockIn.getTime() + 60 * 60 * 1000).toISOString();
+      const at = new Date(
+        entry.clockIn.getTime() + 60 * 60 * 1000,
+      ).toISOString();
 
       await ctx.http
         .post(`/api/timeentries/${entry.id}/split`)
@@ -562,7 +676,12 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       const res = await ctx.http
         .post(`/api/timeentries/${entry.id}/split`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ at, projectId: ordered.id, serviceOrderId: activeOrder?.id, activity: 'Neu' })
+        .send({
+          at,
+          projectId: ordered.id,
+          serviceOrderId: activeOrder?.id,
+          activity: 'Neu',
+        })
         .expect(201);
       expect(res.body.first.activity).toBe('Alt');
       expect(res.body.second.activity).toBe('Neu');

@@ -1,4 +1,9 @@
-import { createTestApp, login, seedEmployee, type TestContext } from '../support/test-app';
+import {
+  createTestApp,
+  login,
+  seedEmployee,
+  type TestContext,
+} from '../support/test-app';
 
 describe('WorkSchedules — CRUD + assignment', () => {
   let ctx: TestContext;
@@ -62,10 +67,10 @@ describe('WorkSchedules — CRUD + assignment', () => {
     expect(created.body.coreTimes.length).toBe(2);
     expect(created.body.workingDays).toBe(31);
 
-    const list = await ctx.http
-      .get('/api/work-schedules')
-      .expect(200);
-    expect(list.body.some((s: { id: string }) => s.id === created.body.id)).toBe(true);
+    const list = await ctx.http.get('/api/work-schedules').expect(200);
+    expect(
+      list.body.some((s: { id: string }) => s.id === created.body.id),
+    ).toBe(true);
 
     const got = await ctx.http
       .get(`/api/work-schedules/${created.body.id}`)
@@ -83,9 +88,33 @@ describe('WorkSchedules — CRUD + assignment', () => {
       .delete(`/api/work-schedules/${created.body.id}`)
       .set('Authorization', `Bearer ${token}`)
       .expect(204);
+    await ctx.http.get(`/api/work-schedules/${created.body.id}`).expect(404);
+  });
+
+  it('rejects schedules whose frame or core windows do not increase', async () => {
+    const token = await setupHR();
     await ctx.http
-      .get(`/api/work-schedules/${created.body.id}`)
-      .expect(404);
+      .post('/api/work-schedules')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        ...samplePayload,
+        name: 'Bad Frame',
+        frameStart: '17:00',
+        frameEnd: '09:00',
+      })
+      .expect(400);
+
+    await ctx.http
+      .post('/api/work-schedules')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        ...samplePayload,
+        name: 'Bad Core',
+        coreTimes: [
+          { label: 'Kernzeit', start: '11:00', end: '10:00', weekdays: 31 },
+        ],
+      })
+      .expect(400);
   });
 
   it('marking a schedule as default unsets the previous default', async () => {
@@ -125,7 +154,9 @@ describe('WorkSchedules — CRUD + assignment', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ employeeId: e.id })
       .expect(201);
-    const updatedEmployee = await ctx.prisma.employee.findUnique({ where: { id: e.id } });
+    const updatedEmployee = await ctx.prisma.employee.findUnique({
+      where: { id: e.id },
+    });
     expect(updatedEmployee?.workScheduleId).toBe(created.body.id);
   });
 });
