@@ -19,6 +19,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { LanguageToggle } from './LanguageToggle';
 import { useI18n } from './i18n';
 import { DemoNotice } from './DemoNotice';
+import { BrandMark } from './BrandMark';
 
 export function AppShell() {
   const { user, logout } = useAuth();
@@ -41,9 +42,7 @@ export function AppShell() {
     <div className="flex min-h-dvh bg-background text-foreground">
       <aside className="hidden w-64 shrink-0 border-r bg-card md:flex md:flex-col">
         <div className="flex h-16 items-center px-6">
-          <span className="text-lg font-semibold tracking-tight">
-            OpenClockwork
-          </span>
+          <BrandMark />
         </div>
         <nav className="flex-1 px-3 pb-6">
           <ul className="space-y-1">
@@ -58,9 +57,11 @@ export function AppShell() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-16 items-center gap-4 border-b bg-card/80 px-4 backdrop-blur md:px-6">
-          <span className="text-base font-semibold md:hidden">
-            OpenClockwork
-          </span>
+          <BrandMark
+            className="md:hidden"
+            iconClassName="h-8 w-8"
+            textClassName="text-base"
+          />
           <div className="flex-1" />
           <LanguageToggle />
           <ThemeToggle />

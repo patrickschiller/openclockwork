@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" role="img" aria-labelledby="title desc">
+  <title id="title">OpenClockwork digital board logo</title>
+  <desc id="desc">A digital chess clock icon with a checkerboard base next to the OpenClockwork wordmark.</desc>
+  <rect width="720" height="180" rx="24" fill="#ffffff"/>
+  <g transform="translate(31 29)">
+    <rect width="138" height="122" rx="26" fill="#16213e"/>
+    <path d="M24 35h90a13 13 0 0 1 13 13v48a13 13 0 0 1-13 13H24a13 13 0 0 1-13-13V48a13 13 0 0 1 13-13Z" fill="#f8fafc"/>
+    <path d="M30 22h24v13H30zM84 22h24v13H84z" fill="#22c55e"/>
+    <rect x="28" y="55" width="35" height="27" rx="7" fill="#16213e"/>
+    <rect x="75" y="55" width="35" height="27" rx="7" fill="#16213e"/>
+    <path d="M38 68h16M85 68h16" stroke="#a7f3d0" stroke-width="6" stroke-linecap="round"/>
+    <path d="M69 43v56" stroke="#cbd5e1" stroke-width="5" stroke-linecap="round"/>
+    <path d="M28 94h20v10H28zM48 94h20v10H48zM68 94h20v10H68zM88 94h20v10H88z" fill="#16213e"/>
+    <path d="M48 94h20v10H48zM88 94h20v10H88z" fill="#22c55e"/>
+  </g>
+  <g transform="translate(203 57)">
+    <text x="0" y="48" fill="#16213e" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="48" font-weight="780" letter-spacing="0">OpenClockwork</text>
+    <text x="3" y="84" fill="#475569" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="520" letter-spacing="0">digital time tracking for teams</text>
+    <path d="M0 102h52" stroke="#16213e" stroke-width="6" stroke-linecap="round"/>
+    <path d="M64 102h52" stroke="#22c55e" stroke-width="6" stroke-linecap="round"/>
+    <path d="M128 102h52" stroke="#16213e" stroke-width="6" stroke-linecap="round"/>
+    <path d="M192 102h52" stroke="#22c55e" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>

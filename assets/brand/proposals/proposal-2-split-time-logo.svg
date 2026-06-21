@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" role="img" aria-labelledby="title desc">
+  <title id="title">OpenClockwork split time logo</title>
+  <desc id="desc">A modern split-color chess clock icon next to the OpenClockwork wordmark.</desc>
+  <rect width="720" height="180" rx="24" fill="#f8fafc"/>
+  <g transform="translate(31 29)">
+    <rect width="138" height="122" rx="28" fill="#0f172a"/>
+    <path d="M26 39h86a12 12 0 0 1 12 12v45a12 12 0 0 1-12 12H26a12 12 0 0 1-12-12V51a12 12 0 0 1 12-12Z" fill="#e5e7eb"/>
+    <path d="M26 39h43v69H26a12 12 0 0 1-12-12V51a12 12 0 0 1 12-12Z" fill="#14b8a6"/>
+    <path d="M32 24h22v15H32zM84 24h22v15H84z" fill="#f59e0b"/>
+    <path d="M69 44v58" stroke="#0f172a" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="47" cy="73" r="22" fill="#0f172a"/>
+    <circle cx="91" cy="73" r="22" fill="#0f172a"/>
+    <path d="M47 73V60M47 73h11M91 73V58M91 73l-10 7" fill="none" stroke="#f8fafc" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="47" cy="73" r="3.5" fill="#f59e0b"/>
+    <circle cx="91" cy="73" r="3.5" fill="#14b8a6"/>
+    <path d="M32 103h74" stroke="#0f172a" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(203 57)">
+    <text x="0" y="48" fill="#0f172a" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="48" font-weight="780" letter-spacing="0">OpenClockwork</text>
+    <text x="3" y="84" fill="#64748b" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="520" letter-spacing="0">open workforce timekeeping</text>
+    <path d="M0 102h116" stroke="#14b8a6" stroke-width="6" stroke-linecap="round"/>
+    <path d="M128 102h82" stroke="#f59e0b" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>
