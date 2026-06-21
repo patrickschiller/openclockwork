@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 180" role="img" aria-labelledby="title desc">
+  <title id="title">OpenClockwork classic match clock logo</title>
+  <desc id="desc">A classic dual-face chess clock icon next to the OpenClockwork wordmark.</desc>
+  <rect width="720" height="180" rx="24" fill="#ffffff"/>
+  <g transform="translate(32 30)">
+    <rect width="136" height="120" rx="24" fill="#111827"/>
+    <path d="M26 35h84a13 13 0 0 1 13 13v46a13 13 0 0 1-13 13H26a13 13 0 0 1-13-13V48a13 13 0 0 1 13-13Z" fill="#f8fafc"/>
+    <path d="M30 21h22v14H30zM84 21h22v14H84z" fill="#10b981"/>
+    <path d="M58 21h20v10H58z" fill="#374151"/>
+    <circle cx="48" cy="70" r="27" fill="#111827"/>
+    <circle cx="88" cy="70" r="27" fill="#111827"/>
+    <circle cx="48" cy="70" r="19" fill="#f8fafc"/>
+    <circle cx="88" cy="70" r="19" fill="#f8fafc"/>
+    <path d="M48 70V57M48 70l10 8M88 70V55M88 70l-10 6" fill="none" stroke="#111827" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="48" cy="70" r="3.5" fill="#10b981"/>
+    <circle cx="88" cy="70" r="3.5" fill="#10b981"/>
+    <path d="M27 104h82" stroke="#10b981" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(200 57)">
+    <text x="0" y="48" fill="#111827" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="48" font-weight="760" letter-spacing="0">OpenClockwork</text>
+    <text x="3" y="84" fill="#475569" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="520" letter-spacing="0">time, attendance, and approvals</text>
+    <path d="M0 102h236" stroke="#10b981" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>

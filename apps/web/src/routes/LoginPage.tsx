@@ -14,6 +14,7 @@ import { useAuth } from '../app/auth';
 import { LanguageToggle } from '../app/LanguageToggle';
 import { useI18n } from '../app/i18n';
 import { DemoNotice } from '../app/DemoNotice';
+import { BrandMark } from '../app/BrandMark';
 
 export function LoginPage() {
   const { login, loading } = useAuth();
@@ -37,51 +38,53 @@ export function LoginPage() {
       <div className="w-full max-w-md space-y-4">
         <DemoNotice />
         <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle>OpenClockwork</CardTitle>
-            <LanguageToggle />
-          </div>
-          <CardDescription>{t('login.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-Mail</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="username"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>
+                <BrandMark iconClassName="h-10 w-10" />
+              </CardTitle>
+              <LanguageToggle />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">{t('login.password')}</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? t('login.submitting') : t('login.submit')}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Default-Seed: <code>hannah.roth@openclockwork.test</code> /{' '}
-              <code>openclockwork</code>
-            </p>
-          </form>
-        </CardContent>
+            <CardDescription>{t('login.description')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">E-Mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">{t('login.password')}</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? t('login.submitting') : t('login.submit')}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Default-Seed: <code>hannah.roth@openclockwork.test</code> /{' '}
+                <code>openclockwork</code>
+              </p>
+            </form>
+          </CardContent>
         </Card>
       </div>
     </div>
