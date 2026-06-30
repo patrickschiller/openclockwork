@@ -80,15 +80,15 @@
   "dependencies": {
     "@azure/identity": "^4.13.1",
     "@azure/storage-blob": "^12.31.0",
-    "@nestjs/common": "^11.0.0",
+    "@nestjs/common": "^11.1.27",
     "@nestjs/config": "^4.0.4",
-    "@nestjs/core": "^11.0.0",
-    "@nestjs/jwt": "*",
-    "@nestjs/passport": "*",
-    "@nestjs/platform-express": "^11.0.0",
-    "@nestjs/platform-socket.io": "^11.1.19",
-    "@nestjs/swagger": "^11.4.2",
-    "@nestjs/websockets": "^11.1.19",
+    "@nestjs/core": "^11.1.27",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.1.27",
+    "@nestjs/platform-socket.io": "^11.1.27",
+    "@nestjs/swagger": "^11.4.5",
+    "@nestjs/websockets": "^11.1.27",
     "@prisma/client": "^6.19.3",
     "bcrypt": "*",
     "class-transformer": "*",
@@ -102,6 +102,6 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@nestjs/testing": "^11.0.0"
+    "@nestjs/testing": "^11.1.27"
   }
 }
