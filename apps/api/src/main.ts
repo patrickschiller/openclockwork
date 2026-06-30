@@ -24,7 +24,7 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerEnabled = config.get<string>('SWAGGER_ENABLED', 'true') === 'true';
+  const swaggerEnabled = config.get<string>('SWAGGER_ENABLED', 'false') === 'true';
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('OpenClockwork API')
