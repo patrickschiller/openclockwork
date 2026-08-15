@@ -6,7 +6,7 @@
 [![DCO](https://img.shields.io/badge/DCO-required-blue)](CONTRIBUTING.md#developer-certificate-of-origin-dco)
 [![GitHub Release](https://img.shields.io/github/v/release/patrickschiller/openclockwork)](https://github.com/patrickschiller/openclockwork/releases/latest)
 
-OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. It models real-world German labour-law requirements (statutory break deduction, _Soll/Ist_ hour accounts, vacation balances, multi-stage approval workflows for _Urlaub_, _Home-Office_, _Sonderurlaub_, _Zeitanträge_) — but it is built to be useful anywhere that needs a credible alternative to commercial _Zeiterfassung_ products.
+OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. Employees can clock in and out or, when HR enables the option for them, book their contractual daily target as one completed and directly approved block. OpenClockwork models real-world German labour-law requirements (statutory break deduction, _Soll/Ist_ hour accounts, vacation balances, multi-stage approval workflows for _Urlaub_, _Home-Office_, _Sonderurlaub_, _Zeitanträge_) — but it is built to be useful anywhere that needs a credible alternative to commercial _Zeiterfassung_ products.
 
 The project is intentionally small in scope and opinionated in its choices, so a single developer or a small team can stand it up, run it, and trust the numbers.
 
@@ -37,6 +37,7 @@ and read [UPGRADING.md](UPGRADING.md) before changing an existing installation.
 Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignore German labour law, or enterprise _Zeitwirtschaft_ suites priced for HR departments with budget. OpenClockwork sits in the middle:
 
 - **Lawful by construction.** Statutory break deduction, detailed core-hour violation reporting, and the 07:00 / 23:00 approval threshold are encoded in the domain layer, not bolted on by the customer.
+- **Flexible time capture.** Employees can use the clock for their actual start and end times or, with an explicit per-employee permission, book the daily target as a single block without an approval request. The block still observes the work schedule, public holidays, absences, existing entries, frame times, and automatic break rules.
 - **Self-hostable.** PostgreSQL + a Node backend + a static web client. No SaaS lock-in; your data stays on your infrastructure.
 - **PWA-first mobile experience.** Employees clock in and out from their phones with optional GPS, while role-aware mobile navigation keeps manager and HR approval workflows accessible — no app-store gatekeeper, no native build pipeline.
 - **Multilingual by design.** The user interface is available in German and English, with a persistent language switcher and a central translation catalogue that makes additional languages straightforward to maintain.

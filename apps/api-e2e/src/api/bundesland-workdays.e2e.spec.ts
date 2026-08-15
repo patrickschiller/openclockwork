@@ -7,8 +7,6 @@ import {
 } from '../support/test-app';
 
 const YEAR = new Date().getUTCFullYear();
-const VOLLZEIT_DAILY_MIN = (40 / 5) * 60; // 480 min
-
 describe('Bundesland + workingDays — affect Soll calculation', () => {
   let ctx: TestContext;
   beforeAll(async () => {
@@ -43,7 +41,10 @@ describe('Bundesland + workingDays — affect Soll calculation', () => {
       email: 'by@test.local',
       startDate: new Date(Date.UTC(YEAR, 0, 1)),
     });
-    await ctx.prisma.employee.update({ where: { id: by.id }, data: { bundesland: 'BY' } });
+    await ctx.prisma.employee.update({
+      where: { id: by.id },
+      data: { bundesland: 'BY' },
+    });
     await seedLeaveAllowance(ctx.prisma, nw.id, YEAR, 30);
     await seedLeaveAllowance(ctx.prisma, by.id, YEAR, 30);
 
@@ -60,18 +61,13 @@ describe('Bundesland + workingDays — affect Soll calculation', () => {
     ]);
     // Both have no time entries, so overtime equals -sollMinutes. Bayern has
     // more holidays YTD ⇒ fewer Soll minutes ⇒ less negative overtime.
-    expect(byAcct.body.overtimeMinutes).toBeGreaterThan(nwAcct.body.overtimeMinutes);
+    expect(byAcct.body.overtimeMinutes).toBeGreaterThan(
+      nwAcct.body.overtimeMinutes,
+    );
     expect(hr).toBeDefined();
   });
 
-  it('Mo–Sa schedule (workingDays = 63) yields more Soll than Mo–Fr', async () => {
-    const hr = await seedEmployee(ctx.prisma, {
-      personalNo: '0001',
-      firstName: 'Hannah',
-      lastName: 'Roth',
-      email: 'hannah@test.local',
-      role: 'HRAdmin',
-    });
+  it('distributes the same weekly target over shorter Mo–Sa workdays', async () => {
     const employee = await seedEmployee(ctx.prisma, {
       personalNo: '1001',
       firstName: 'Sat',
@@ -79,7 +75,6 @@ describe('Bundesland + workingDays — affect Soll calculation', () => {
       email: 'sat@test.local',
       startDate: new Date(Date.UTC(YEAR, 0, 1)),
     });
-    await seedLeaveAllowance(ctx.prisma, employee.id, YEAR, 30);
 
     const standard = await ctx.prisma.workSchedule.create({
       data: {
@@ -99,31 +94,33 @@ describe('Bundesland + workingDays — affect Soll calculation', () => {
         isDefault: false,
       },
     });
-    const hrToken = await login(ctx.http, 'hannah@test.local');
+    const employeeToken = await login(ctx.http, 'sat@test.local');
 
     await ctx.prisma.employee.update({
       where: { id: employee.id },
       data: { workScheduleId: standard.id },
     });
-    const stdAcct = await ctx.http
-      .get(`/api/accounts/${employee.id}`)
-      .set('Authorization', `Bearer ${hrToken}`)
+    const standardOption = await ctx.http
+      .get('/api/timeentries/daily-block/option')
+      .set('Authorization', `Bearer ${employeeToken}`)
       .expect(200);
 
     await ctx.prisma.employee.update({
       where: { id: employee.id },
       data: { workScheduleId: monToSat.id },
     });
-    const satAcct = await ctx.http
-      .get(`/api/accounts/${employee.id}`)
-      .set('Authorization', `Bearer ${hrToken}`)
+    const monToSatOption = await ctx.http
+      .get('/api/timeentries/daily-block/option')
+      .set('Authorization', `Bearer ${employeeToken}`)
       .expect(200);
 
-    // More working days ⇒ more Soll ⇒ more negative overtime (no entries).
-    expect(satAcct.body.overtimeMinutes).toBeLessThan(stdAcct.body.overtimeMinutes);
-    // Difference should be roughly the number of Saturdays YTD × VOLLZEIT_DAILY_MIN.
-    const diff = stdAcct.body.overtimeMinutes - satAcct.body.overtimeMinutes;
-    expect(diff).toBeGreaterThan(VOLLZEIT_DAILY_MIN); // at least one Saturday
-    expect(hr).toBeDefined();
+    expect(standardOption.body).toMatchObject({
+      dailyNetMinutes: 480,
+      workdayCount: 5,
+    });
+    expect(monToSatOption.body).toMatchObject({
+      dailyNetMinutes: 400,
+      workdayCount: 6,
+    });
   });
 });

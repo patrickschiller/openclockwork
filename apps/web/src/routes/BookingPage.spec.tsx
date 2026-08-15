@@ -5,6 +5,8 @@ import { renderWithProviders } from '../test-utils';
 const timeEntriesMock = vi.fn().mockResolvedValue([]);
 const clockInMock = vi.fn();
 const clockOutMock = vi.fn();
+const dailyBlockOptionMock = vi.fn();
+const createDailyBlockMock = vi.fn();
 const bookableProjectsMock = vi.fn().mockResolvedValue([]);
 const updateTimeEntryMock = vi.fn();
 const splitTimeEntryMock = vi.fn();
@@ -16,6 +18,8 @@ vi.mock('../api/client', () => ({
     timeEntries: (...args: unknown[]) => timeEntriesMock(...args),
     clockIn: (...args: unknown[]) => clockInMock(...args),
     clockOut: (...args: unknown[]) => clockOutMock(...args),
+    dailyBlockOption: (...args: unknown[]) => dailyBlockOptionMock(...args),
+    createDailyBlock: (...args: unknown[]) => createDailyBlockMock(...args),
     bookableProjects: (...args: unknown[]) => bookableProjectsMock(...args),
     updateTimeEntry: (...args: unknown[]) => updateTimeEntryMock(...args),
     splitTimeEntry: (...args: unknown[]) => splitTimeEntryMock(...args),
@@ -89,6 +93,18 @@ describe('BookingPage', () => {
       .mockClear()
       .mockResolvedValue(entryFixture({ clockOut: null, status: 'Open' }));
     clockOutMock.mockClear();
+    dailyBlockOptionMock.mockClear().mockResolvedValue({
+      enabled: false,
+      dailyNetMinutes: 480,
+      grossMinutes: 510,
+      breakMinutes: 30,
+      workdayCount: 5,
+    });
+    createDailyBlockMock
+      .mockClear()
+      .mockResolvedValue(
+        entryFixture({ source: 'DailyBlock', status: 'Approved' }),
+      );
     bookableProjectsMock.mockClear().mockResolvedValue([]);
     updateTimeEntryMock.mockClear();
     splitTimeEntryMock.mockClear();
@@ -212,6 +228,79 @@ describe('BookingPage', () => {
       expect(screen.getByText('PRJ-002 · SA-1')).toBeDefined();
       expect(screen.getByText('Importskripte getestet')).toBeDefined();
     });
+  });
+
+  it('books the configured daily target without an approval request', async () => {
+    dailyBlockOptionMock.mockResolvedValue({
+      enabled: true,
+      dailyNetMinutes: 495,
+      grossMinutes: 525,
+      breakMinutes: 30,
+      workdayCount: 4,
+    });
+    const { BookingPage } = await import('./BookingPage');
+    renderWithProviders(<BookingPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Tagesblock buchen' }),
+    );
+    expect(screen.getByText(/8h 45min Anwesenheit/i)).toBeDefined();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Block verbindlich buchen' }),
+    );
+
+    await waitFor(() => {
+      expect(createDailyBlockMock).toHaveBeenCalledWith({
+        date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        start: '08:00',
+        projectId: null,
+        serviceOrderId: null,
+        activity: null,
+      });
+    });
+  });
+
+  it('shows an existing-entry conflict in German', async () => {
+    dailyBlockOptionMock.mockResolvedValue({
+      enabled: true,
+      dailyNetMinutes: 480,
+      grossMinutes: 510,
+      breakMinutes: 30,
+      workdayCount: 5,
+    });
+    createDailyBlockMock.mockRejectedValue(
+      Object.assign(new Error('Selected day already contains a time entry'), {
+        code: 'DAILY_BLOCK_TIME_ENTRY_CONFLICT',
+      }),
+    );
+    const { BookingPage } = await import('./BookingPage');
+    renderWithProviders(<BookingPage />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Tagesblock buchen' }),
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Block verbindlich buchen' }),
+    );
+
+    expect(
+      await screen.findByText(
+        /Für den ausgewählten Tag ist bereits eine Zeitbuchung vorhanden/i,
+      ),
+    ).toBeDefined();
+    expect(
+      screen.queryByText('Selected day already contains a time entry'),
+    ).toBeNull();
+  });
+
+  it('marks daily-block entries in the booking history', async () => {
+    timeEntriesMock.mockResolvedValue([
+      entryFixture({ source: 'DailyBlock', status: 'Approved' }),
+    ]);
+    const { BookingPage } = await import('./BookingPage');
+    renderWithProviders(<BookingPage />);
+
+    expect(await screen.findByText('Tagesblock')).toBeDefined();
   });
 
   it('shows core-time violation details for the current year', async () => {

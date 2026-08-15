@@ -5,12 +5,63 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
 import type { TimeEntry } from '@prisma/client';
 import { summarize, type TimeSummary } from 'shared';
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export class DailyBlockOptionDto {
+  @ApiProperty()
+  enabled!: boolean;
+
+  @ApiProperty({
+    description: 'Contractual net working minutes for one configured workday.',
+  })
+  dailyNetMinutes!: number;
+
+  @ApiProperty({
+    description: 'Attendance minutes including the automatic statutory break.',
+  })
+  grossMinutes!: number;
+
+  @ApiProperty()
+  breakMinutes!: number;
+
+  @ApiProperty()
+  workdayCount!: number;
+}
+
+export class CreateDailyBlockDto {
+  @ApiProperty({ example: '2026-08-13', pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
+  @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
+  date!: string;
+
+  @ApiProperty({ example: '08:00', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' })
+  @Matches(HHMM, { message: 'start must be HH:mm' })
+  start!: string;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  serviceOrderId?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 500 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  activity?: string | null;
+}
 
 export class ClockInDto {
   @ApiProperty({ format: 'uuid' })

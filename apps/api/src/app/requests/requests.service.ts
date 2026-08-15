@@ -116,6 +116,12 @@ export class RequestsService {
     const schedule = await this.schedules.resolveForEmployee(employee.id);
     let requires = false;
     if (dto.type === 'TimeAdjustment') {
+      if (to.getTime() <= from.getTime()) {
+        throw new BadRequestException(
+          'TimeAdjustment "to" must be after "from"',
+        );
+      }
+      await this.assertNoTimeEntryOverlap(employee.id, from, to);
       requires = requiresSpecialApproval(from, to, schedule.frame);
     }
     const calculatedDays = calculateWorkingDays(from, to, {
@@ -688,6 +694,31 @@ export class RequestsService {
     if (overlap) {
       throw new ConflictException(
         'Request overlaps an active request for this employee',
+      );
+    }
+  }
+
+  /**
+   * TimeAdjustment currently materialises a new entry on approval. Rejecting
+   * overlaps prevents a correction (or daily block) from being counted twice.
+   */
+  private async assertNoTimeEntryOverlap(
+    employeeId: string,
+    from: Date,
+    to: Date,
+  ): Promise<void> {
+    const overlap = await this.prisma.timeEntry.findFirst({
+      where: {
+        employeeId,
+        status: { not: 'Rejected' },
+        clockIn: { lt: to },
+        OR: [{ clockOut: null }, { clockOut: { gt: from } }],
+      },
+      select: { id: true },
+    });
+    if (overlap) {
+      throw new ConflictException(
+        'Time adjustment overlaps an existing time entry for this employee',
       );
     }
   }

@@ -420,6 +420,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/timeentries/daily-block/option": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["TimeEntriesController_dailyBlockOption"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/timeentries/daily-block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["TimeEntriesController_dailyBlock"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/timeentries/book-project": {
         parameters: {
             query?: never;
@@ -980,6 +1012,11 @@ export interface components {
              * @enum {string}
              */
             bundesland: "BW" | "BY" | "BE" | "BB" | "HB" | "HH" | "HE" | "MV" | "NI" | "NW" | "RP" | "SL" | "SN" | "ST" | "SH" | "TH";
+            /**
+             * @description Allow one self-approved fixed-duration block on a configured working day.
+             * @default false
+             */
+            allowDailyBlockBooking: boolean;
             /** Format: uuid */
             managerId?: Record<string, never> | null;
             /** Format: uuid */
@@ -1001,6 +1038,8 @@ export interface components {
             overtimeOpeningBalanceMinutes?: number;
             /** @enum {string} */
             bundesland?: "BW" | "BY" | "BE" | "BB" | "HB" | "HH" | "HE" | "MV" | "NI" | "NW" | "RP" | "SL" | "SN" | "ST" | "SH" | "TH";
+            /** @description Allow one self-approved fixed-duration block on a configured working day. */
+            allowDailyBlockBooking?: boolean;
             /** Format: uuid */
             managerId?: Record<string, never> | null;
             /** Format: uuid */
@@ -1115,6 +1154,26 @@ export interface components {
         ClockOutDto: {
             /** Format: uuid */
             employeeId: string;
+        };
+        DailyBlockOptionDto: {
+            enabled: boolean;
+            /** @description Contractual net working minutes for one configured workday. */
+            dailyNetMinutes: number;
+            /** @description Attendance minutes including the automatic statutory break. */
+            grossMinutes: number;
+            breakMinutes: number;
+            workdayCount: number;
+        };
+        CreateDailyBlockDto: {
+            /** @example 2026-08-13 */
+            date: string;
+            /** @example 08:00 */
+            start: string;
+            /** Format: uuid */
+            projectId?: Record<string, never> | null;
+            /** Format: uuid */
+            serviceOrderId?: Record<string, never> | null;
+            activity?: Record<string, never> | null;
         };
         BookProjectRangeDto: {
             /** Format: uuid */
@@ -2009,6 +2068,46 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ClockOutDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    TimeEntriesController_dailyBlockOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DailyBlockOptionDto"];
+                };
+            };
+        };
+    };
+    TimeEntriesController_dailyBlock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDailyBlockDto"];
             };
         };
         responses: {

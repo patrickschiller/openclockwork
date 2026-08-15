@@ -31,6 +31,7 @@ provides role-aware navigation for employees, managers, and HR administrators.
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | Personal dashboard                | Vacation balance, overtime account, and detected core-time violations at a glance                                           |
 | Clock in and out                  | PWA-based time booking with optional GPS coordinates and recent-booking history                                             |
+| Direct daily-block booking        | With per-employee HR permission, book the contractual daily target as one completed, directly approved block                |
 | Core-time violation details       | Booking-page list with violation date, affected core-time window, violation type, boundary, and uncovered minutes           |
 | Project and service-order booking | Book time to assigned active projects; active service orders become the required booking level                              |
 | Activity per booking              | Record a customer-facing description of the work performed                                                                  |
@@ -88,6 +89,8 @@ Employee submits
 - Audit trail of workflow events
 - Special approval flag for bookings and time adjustments outside configured
   working frames
+- Direct daily blocks bypass the request workflow only when HR has enabled the
+  option for that employee; conflicting or out-of-policy blocks are rejected
 - Request attachments with local-filesystem or Azure Blob storage adapters
 
 ## HR and Administration
@@ -95,6 +98,7 @@ Employee submits
 | Capability                  | What it provides                                                                                                       |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Employee management         | Create, edit, deactivate, reactivate, and reset employee passwords                                                     |
+| Daily-block permission      | Enable or disable direct daily-target block booking for each employee                                                  |
 | Roles                       | Employee, Manager, and HRAdmin access levels                                                                           |
 | Time models                 | Full-time, part-time, trust-based working time, and flextime                                                           |
 | Work schedules              | Configurable working days, permitted booking frames, and multiple core-time windows                                    |
@@ -141,8 +145,11 @@ logic. It is not a substitute for legal advice or organisation-specific policy
 configuration.
 
 - Statutory break calculation
-- Target-versus-actual hour accounting
+- Target-versus-actual hour accounting, including daily targets derived from
+  weekly hours and the configured number of working days
 - Configurable working days and core-time windows
+- Direct daily blocks validated against public holidays, absences, active
+  requests, existing time entries, and permitted working-time frames
 - Detection of core-time violations
 - Special approval handling for out-of-frame bookings
 - Vacation calculation using working days and public holidays
@@ -169,6 +176,8 @@ The NestJS REST API is documented through the generated OpenAPI specification
 committed at [`apps/api/openapi.json`](apps/api/openapi.json).
 
 - Paginated ERP time-entry export with project, service-order, and activity references
+- Authenticated endpoints for reading the current employee's daily-block option
+  and creating a directly approved daily block
 - Socket.IO events for real-time client refreshes
 - Health endpoint for deployment checks
 - Generated TypeScript client types for the web application

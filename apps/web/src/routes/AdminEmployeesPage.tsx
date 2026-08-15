@@ -161,6 +161,7 @@ export function AdminEmployeesPage() {
                   <th className="px-4 py-2">Land</th>
                   <th className="px-4 py-2">Manager</th>
                   <th className="px-4 py-2">Arbeitszeitplan</th>
+                  <th className="px-4 py-2">{t('employees.dailyBlock')}</th>
                   <th className="px-4 py-2">Status</th>
                   <th className="px-4 py-2 text-right">Aktionen</th>
                 </tr>
@@ -237,6 +238,15 @@ export function AdminEmployeesPage() {
                         </select>
                       </td>
                       <td className="px-4 py-2">
+                        {e.allowDailyBlockBooking ? (
+                          <Badge variant="outline">{t('common.active')}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
                         {e.isActive ? (
                           <Badge variant="outline">{t('common.active')}</Badge>
                         ) : (
@@ -304,7 +314,7 @@ export function AdminEmployeesPage() {
                 {employees.data && employees.data.length === 0 && (
                   <tr>
                     <td
-                      colSpan={14}
+                      colSpan={15}
                       className="px-4 py-8 text-center text-sm text-muted-foreground"
                     >
                       {t('employees.none')}
@@ -373,6 +383,7 @@ function EmployeeEditor({
     bundesland: (seed?.bundesland ?? 'NW') as Bundesland,
     managerId: seed?.managerId ?? '',
     workScheduleId: seed?.workScheduleId ?? '',
+    allowDailyBlockBooking: seed?.allowDailyBlockBooking ?? false,
     isActive: seed?.isActive ?? true,
   });
   const [error, setError] = useState<string | null>(null);
@@ -396,6 +407,7 @@ function EmployeeEditor({
           bundesland: draft.bundesland,
           managerId: draft.managerId || null,
           workScheduleId: draft.workScheduleId || null,
+          allowDailyBlockBooking: draft.allowDailyBlockBooking,
         };
         return api.createEmployee(payload);
       }
@@ -415,6 +427,7 @@ function EmployeeEditor({
           Number(draft.overtimeOpeningBalanceMinutes) || 0,
         managerId: draft.managerId || null,
         workScheduleId: draft.workScheduleId || null,
+        allowDailyBlockBooking: draft.allowDailyBlockBooking,
         isActive: draft.isActive,
       };
       return api.updateEmployee(id, payload);
@@ -553,6 +566,27 @@ function EmployeeEditor({
               ...schedules.map((s) => ({ value: s.id, label: s.name })),
             ]}
           />
+          <label className="col-span-2 mt-2 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4"
+              checked={draft.allowDailyBlockBooking}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  allowDailyBlockBooking: e.target.checked,
+                })
+              }
+            />
+            <span>
+              <span className="block font-medium">
+                {t('employees.dailyBlockBooking')}
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                {t('employees.dailyBlockBookingHint')}
+              </span>
+            </span>
+          </label>
           {!isCreate && (
             <label className="col-span-2 mt-2 flex items-center gap-2 text-sm">
               <input

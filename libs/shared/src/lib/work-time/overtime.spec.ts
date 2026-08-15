@@ -97,7 +97,7 @@ describe('calculateOvertimeMinutes', () => {
     const r = calculateOvertimeMinutes({
       startDate: utc(2026, 8, 1), // hires in August
       year: 2026,
-      now: utc(2026, 5, 4),       // today is May
+      now: utc(2026, 5, 4), // today is May
       weeklyHours: 40,
       netMinutesYtd: 0,
       openingBalanceMinutes: 250,
@@ -124,10 +124,14 @@ describe('calculateOvertimeMinutes', () => {
       openingBalanceMinutes: 0,
       excusedDays: 5,
     });
-    expect(noAbsence.sollMinutes - fiveDayVacation.sollMinutes).toBe(5 * VOLLZEIT_DAILY_MIN);
+    expect(noAbsence.sollMinutes - fiveDayVacation.sollMinutes).toBe(
+      5 * VOLLZEIT_DAILY_MIN,
+    );
     // No Ist means overtime mirrors -Soll; with five excused days the
     // employee is 5 * 480 = 2400 min "less negative".
-    expect(fiveDayVacation.overtimeMinutes - noAbsence.overtimeMinutes).toBe(5 * VOLLZEIT_DAILY_MIN);
+    expect(fiveDayVacation.overtimeMinutes - noAbsence.overtimeMinutes).toBe(
+      5 * VOLLZEIT_DAILY_MIN,
+    );
     expect(fiveDayVacation.excusedDays).toBe(5);
   });
 
@@ -189,5 +193,20 @@ describe('calculateOvertimeMinutes', () => {
       openingBalanceMinutes: 0,
     });
     expect(half.sollMinutes).toBe(Math.round(full.sollMinutes / 2));
+  });
+
+  it('distributes weekly hours across the configured four-day week', () => {
+    const result = calculateOvertimeMinutes({
+      startDate: utc(2026, 8, 10), // Monday
+      year: 2026,
+      now: utc(2026, 8, 14), // Friday; Mon-Thu are completed
+      weeklyHours: 33,
+      netMinutesYtd: 4 * 495,
+      openingBalanceMinutes: 0,
+      workingDays: 15, // Monday through Thursday
+    });
+
+    expect(result.sollMinutes).toBe(4 * 495);
+    expect(result.overtimeMinutes).toBe(0);
   });
 });

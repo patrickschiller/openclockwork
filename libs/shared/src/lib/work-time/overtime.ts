@@ -1,5 +1,6 @@
 import { calculateWorkingDays } from '../vacation/leave-calculator.js';
 import type { HolidayProvider } from '../vacation/holidays.js';
+import { calculateDailyTargetMinutes } from './daily-target.js';
 
 export interface OvertimeInput {
   /** Employee's first day under the system's bookkeeping. Soll-Stunden are counted from here. */
@@ -41,7 +42,9 @@ export interface OvertimeResult {
 }
 
 function utcMidnight(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  );
 }
 
 /**
@@ -54,9 +57,10 @@ function utcMidnight(d: Date): Date {
  */
 export function calculateOvertimeMinutes(input: OvertimeInput): OvertimeResult {
   const yearStart = new Date(Date.UTC(input.year, 0, 1));
-  const sollFromCandidate = utcMidnight(input.startDate).getTime() > yearStart.getTime()
-    ? utcMidnight(input.startDate)
-    : yearStart;
+  const sollFromCandidate =
+    utcMidnight(input.startDate).getTime() > yearStart.getTime()
+      ? utcMidnight(input.startDate)
+      : yearStart;
   // Soll only accrues for *completed* days. Today is in progress; counting
   // it would show every fresh hire as immediately one full day in deficit.
   const sollEnd = utcMidnight(input.now);
@@ -79,13 +83,20 @@ export function calculateOvertimeMinutes(input: OvertimeInput): OvertimeResult {
     holidayProvider: input.holidayProvider,
     workingDays: input.workingDays,
   });
-  const excusedDays = Math.max(0, Math.min(workingDays, input.excusedDays ?? 0));
+  const excusedDays = Math.max(
+    0,
+    Math.min(workingDays, input.excusedDays ?? 0),
+  );
   const sollDays = workingDays - excusedDays;
-  const dailyMinutes = (input.weeklyHours / 5) * 60;
+  const dailyMinutes = calculateDailyTargetMinutes(
+    input.weeklyHours,
+    input.workingDays ?? 31,
+  );
   const sollMinutes = Math.round(sollDays * dailyMinutes);
 
   return {
-    overtimeMinutes: input.openingBalanceMinutes + input.netMinutesYtd - sollMinutes,
+    overtimeMinutes:
+      input.openingBalanceMinutes + input.netMinutesYtd - sollMinutes,
     sollMinutes,
     netMinutes: input.netMinutesYtd,
     openingBalanceMinutes: input.openingBalanceMinutes,
