@@ -4,7 +4,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![DCO](https://img.shields.io/badge/DCO-required-blue)](CONTRIBUTING.md#developer-certificate-of-origin-dco)
-[![Status: beta](https://img.shields.io/badge/status-beta-blue)](#project-status)
+[![GitHub Release](https://img.shields.io/github/v/release/patrickschiller/openclockwork)](https://github.com/patrickschiller/openclockwork/releases/latest)
 
 OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. It models real-world German labour-law requirements (statutory break deduction, _Soll/Ist_ hour accounts, vacation balances, multi-stage approval workflows for _Urlaub_, _Home-Office_, _Sonderurlaub_, _Zeitanträge_) — but it is built to be useful anywhere that needs a credible alternative to commercial _Zeiterfassung_ products.
 
@@ -23,7 +23,14 @@ The project is intentionally small in scope and opinionated in its choices, so a
 
 ## Project status
 
-**Beta — feature-complete and tested for the current scope.** The core employee, manager, HR, approval, reporting, and self-hosting workflows are implemented and covered by automated tests. Before a production rollout, validate organisation-specific working-time rules, integrations, security requirements, and operating procedures.
+**Stable and ready for self-hosting.** The core employee, manager, HR,
+approval, reporting, and self-hosting workflows are covered by automated tests.
+Stable releases follow semantic versioning and include release notes and upgrade
+instructions. Operators must still validate organisation-specific working-time
+rules, integrations, security requirements, backups, and operating procedures.
+
+See the [latest GitHub Release](https://github.com/patrickschiller/openclockwork/releases/latest)
+and read [UPGRADING.md](UPGRADING.md) before changing an existing installation.
 
 ## Why another time tracker?
 
@@ -40,15 +47,15 @@ See the [complete feature overview](FEATURES.md) for employee, manager, HR, inte
 
 ## Tech stack
 
-| Layer     | Technology                              |
-| --------- | --------------------------------------- |
-| Workspace | Nx monorepo (pnpm)                      |
+| Layer     | Technology                                                            |
+| --------- | --------------------------------------------------------------------- |
+| Workspace | Nx monorepo (pnpm)                                                    |
 | Frontend  | React 19, Vite, Tailwind CSS, shadcn/ui, central DE/EN i18n catalogue |
-| Backend   | NestJS (Node.js, TypeScript strict)     |
-| Database  | PostgreSQL with Prisma ORM              |
-| Realtime  | Socket.IO (NestJS WebSocket gateway)    |
-| Tests     | Vitest (web), Jest (api), Playwright    |
-| Quality   | Nx lint, type-check, and test targets   |
+| Backend   | NestJS (Node.js, TypeScript strict)                                   |
+| Database  | PostgreSQL with Prisma ORM                                            |
+| Realtime  | Socket.IO (NestJS WebSocket gateway)                                  |
+| Tests     | Vitest (web), Jest (api), Playwright                                  |
+| Quality   | Nx lint, type-check, and test targets                                 |
 
 ## Repository layout
 
@@ -116,7 +123,52 @@ automatically before starting.
 > **Tip:** If a local PostgreSQL already binds to port `5432`, set `DB_PORT=5433` in `.env.dev` before starting the stack.
 > If port `8080` is already in use, set `WEB_PORT` to another host port in `.env.dev`.
 
-Stop the stack with `docker compose -f docker-compose.dev.yml down`. Add `-v` to also remove persistent volumes.
+Stop the stack with `docker compose -f docker-compose.dev.yml down`. The `-v`
+option also deletes persistent volumes and is only appropriate when you
+explicitly want to discard the local development database.
+
+## Production deployment
+
+Production deployments use versioned API and web images from the GitHub
+Container Registry. Pin every installation to a concrete version instead of
+using `latest`:
+
+```bash
+cp .env.prod.example .env.prod
+# Replace all change-me values and set the public API_CORS_ORIGINS URL.
+
+docker compose -f docker-compose.prod.yml --env-file .env.prod pull
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+The PostgreSQL database and locally stored request attachments use stable,
+named Docker volumes. On startup, the API runs `prisma migrate deploy`, which
+applies pending migrations without resetting the database. Never use
+`docker compose down -v`, `prisma migrate reset`, or `pnpm db:reset` for a
+production installation.
+
+Maintainers can build the same production-shaped stack from the current source
+tree with the local override:
+
+```bash
+docker compose \
+  -f docker-compose.prod.yml \
+  -f docker-compose.prod.build.yml \
+  --env-file .env.prod \
+  up -d --build
+```
+
+For an existing installation, follow the backup, migration, verification, and
+rollback procedure in [UPGRADING.md](UPGRADING.md).
+
+## Releases
+
+OpenClockwork uses [GitHub Releases](https://github.com/patrickschiller/openclockwork/releases)
+and [Semantic Versioning](https://semver.org/). Each release contains user-facing
+highlights, upgrade and database notes, breaking changes, known issues, and the
+matching Docker image tags. Release tags use the `vMAJOR.MINOR.PATCH` form;
+Docker images omit the leading `v`. Maintainers follow [RELEASING.md](RELEASING.md)
+to prepare and publish a release.
 
 ## Public demo deployment
 
