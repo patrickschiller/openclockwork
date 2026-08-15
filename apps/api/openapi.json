@@ -1095,6 +1095,61 @@
         ]
       }
     },
+    "/api/timeentries/daily-block/option": {
+      "get": {
+        "operationId": "TimeEntriesController_dailyBlockOption",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyBlockOptionDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "time-entries"
+        ]
+      }
+    },
+    "/api/timeentries/daily-block": {
+      "post": {
+        "operationId": "TimeEntriesController_dailyBlock",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDailyBlockDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "time-entries"
+        ]
+      }
+    },
     "/api/timeentries/book-project": {
       "post": {
         "operationId": "TimeEntriesController_bookProject",
@@ -2241,7 +2296,7 @@
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "0.1.0",
+    "version": "1.1.0",
     "contact": {}
   },
   "tags": [],
@@ -2400,6 +2455,11 @@
             "default": "NW",
             "description": "ISO-3166-2 code of the German state — drives the holiday calendar."
           },
+          "allowDailyBlockBooking": {
+            "type": "boolean",
+            "default": false,
+            "description": "Allow one self-approved fixed-duration block on a configured working day."
+          },
           "managerId": {
             "type": "object",
             "nullable": true,
@@ -2495,6 +2555,10 @@
               "SH",
               "TH"
             ]
+          },
+          "allowDailyBlockBooking": {
+            "type": "boolean",
+            "description": "Allow one self-approved fixed-duration block on a configured working day."
           },
           "managerId": {
             "type": "object",
@@ -2879,6 +2943,69 @@
         },
         "required": [
           "employeeId"
+        ]
+      },
+      "DailyBlockOptionDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "dailyNetMinutes": {
+            "type": "number",
+            "description": "Contractual net working minutes for one configured workday."
+          },
+          "grossMinutes": {
+            "type": "number",
+            "description": "Attendance minutes including the automatic statutory break."
+          },
+          "breakMinutes": {
+            "type": "number"
+          },
+          "workdayCount": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "enabled",
+          "dailyNetMinutes",
+          "grossMinutes",
+          "breakMinutes",
+          "workdayCount"
+        ]
+      },
+      "CreateDailyBlockDto": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "example": "2026-08-13",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "start": {
+            "type": "string",
+            "example": "08:00",
+            "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+          },
+          "projectId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "serviceOrderId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activity": {
+            "type": "object",
+            "nullable": true,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "date",
+          "start"
         ]
       },
       "BookProjectRangeDto": {

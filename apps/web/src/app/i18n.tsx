@@ -184,6 +184,43 @@ const de: Catalog = {
   'booking.serviceOrderRequired': 'Service-Auftrag (Pflicht)',
   'booking.activityForReport': 'Tätigkeit (für die Kundenauswertung)',
   'booking.activityPlaceholder': 'z. B. Konzept für Startseite erstellt',
+  'booking.dailyBlockHint':
+    'Alternativ kannst du dein Tages-Soll von {net} als abgeschlossenen Block buchen.',
+  'booking.dailyBlockAction': 'Tagesblock buchen',
+  'booking.dailyBlockSource': 'Tagesblock',
+  'booking.dailyBlockTitle': 'Arbeitszeit als Tagesblock buchen',
+  'booking.dailyBlockDescription':
+    'Der feste Tagesumfang wird direkt genehmigt gebucht. Nutze bei Abweichungen stattdessen Kommen und Gehen.',
+  'booking.dailyBlockDate': 'Arbeitstag',
+  'booking.dailyBlockStart': 'Beginn',
+  'booking.dailyBlockPreview': '{start}–{end}',
+  'booking.dailyBlockCalculation':
+    '{gross} Anwesenheit − {break} Pause = {net} Arbeitszeit',
+  'booking.dailyBlockSubmit': 'Block verbindlich buchen',
+  'booking.dailyBlockSaving': 'Buche…',
+  'booking.dailyBlockFailed': 'Tagesblock konnte nicht gebucht werden.',
+  'booking.dailyBlockErrorInvalidDateTime':
+    'Datum oder Startzeit sind ungültig.',
+  'booking.dailyBlockErrorDisabled':
+    'Die Tagesblockbuchung ist für dich nicht freigeschaltet.',
+  'booking.dailyBlockErrorFutureDate':
+    'Tagesblöcke können nicht im Voraus gebucht werden.',
+  'booking.dailyBlockErrorBeforeEmployment':
+    'Das Datum liegt vor deinem Beschäftigungsbeginn.',
+  'booking.dailyBlockErrorNoDailyTarget':
+    'Für dich ist kein gültiges tägliches Arbeitszeit-Soll hinterlegt.',
+  'booking.dailyBlockErrorNonWorkingDay':
+    'Der ausgewählte Tag ist laut Arbeitszeitplan kein Arbeitstag.',
+  'booking.dailyBlockErrorPublicHoliday':
+    'Der ausgewählte Tag ist ein gesetzlicher Feiertag.',
+  'booking.dailyBlockErrorOutsideFrame':
+    'Der Tagesblock muss vollständig innerhalb der hinterlegten Rahmenzeit liegen.',
+  'booking.dailyBlockErrorTimeEntryConflict':
+    'Für den ausgewählten Tag ist bereits eine Zeitbuchung vorhanden. Bitte wähle einen freien Arbeitstag.',
+  'booking.dailyBlockErrorAbsenceConflict':
+    'Für den ausgewählten Tag ist bereits eine Abwesenheit oder ein aktiver Antrag vorhanden.',
+  'booking.dailyBlockErrorAlreadyExists':
+    'Für den ausgewählten Tag wurde bereits ein Tagesblock gebucht.',
   'requests.title': 'Anträge',
   'requests.description': 'Urlaub, Home-Office, Sonderurlaub, Zeitkorrekturen',
   'requests.new': 'Neuer Antrag',
@@ -305,6 +342,10 @@ const de: Catalog = {
   'employees.masterDataCreate': 'Stammdaten + Initial-Passwort',
   'employees.masterDataEdit': 'Stammdaten anpassen',
   'employees.noSchedule': '— kein Plan —',
+  'employees.dailyBlock': 'Tagesblock',
+  'employees.dailyBlockBooking': 'Direkte Tagesblockbuchung erlauben',
+  'employees.dailyBlockBookingHint':
+    'Die feste Nettozeit wird aus Wochenstunden und den Arbeitstagen des zugewiesenen Plans berechnet.',
   'employees.deactivateConfirm': 'Mitarbeiter:in {name} deaktivieren?',
   'employees.passwordUpdated': 'Passwort wurde aktualisiert.',
   'employees.newPassword': 'Neues Passwort (≥ 8 Zeichen)',
@@ -517,6 +558,43 @@ const en: Catalog = {
   'booking.serviceOrderRequired': 'Service order (required)',
   'booking.activityForReport': 'Activity (for the customer report)',
   'booking.activityPlaceholder': 'e.g. created homepage concept',
+  'booking.dailyBlockHint':
+    'Alternatively, book your daily target of {net} as one completed block.',
+  'booking.dailyBlockAction': 'Book daily block',
+  'booking.dailyBlockSource': 'Daily block',
+  'booking.dailyBlockTitle': 'Book working time as a daily block',
+  'booking.dailyBlockDescription':
+    'The fixed daily target is booked as approved immediately. Use clock in and out instead when your hours differ.',
+  'booking.dailyBlockDate': 'Working day',
+  'booking.dailyBlockStart': 'Start',
+  'booking.dailyBlockPreview': '{start}–{end}',
+  'booking.dailyBlockCalculation':
+    '{gross} attendance − {break} break = {net} working time',
+  'booking.dailyBlockSubmit': 'Confirm block booking',
+  'booking.dailyBlockSaving': 'Booking…',
+  'booking.dailyBlockFailed': 'The daily block could not be booked.',
+  'booking.dailyBlockErrorInvalidDateTime':
+    'The date or start time is invalid.',
+  'booking.dailyBlockErrorDisabled':
+    'Daily-block booking is not enabled for your account.',
+  'booking.dailyBlockErrorFutureDate':
+    'Daily blocks cannot be booked in advance.',
+  'booking.dailyBlockErrorBeforeEmployment':
+    'The selected date is before your employment start date.',
+  'booking.dailyBlockErrorNoDailyTarget':
+    'No valid daily work target is configured for your account.',
+  'booking.dailyBlockErrorNonWorkingDay':
+    'The selected date is not a working day in your schedule.',
+  'booking.dailyBlockErrorPublicHoliday':
+    'The selected date is a public holiday.',
+  'booking.dailyBlockErrorOutsideFrame':
+    'The daily block must stay within the configured working-time frame.',
+  'booking.dailyBlockErrorTimeEntryConflict':
+    'The selected day already contains a time entry. Please choose a free working day.',
+  'booking.dailyBlockErrorAbsenceConflict':
+    'The selected day is covered by an absence or active request.',
+  'booking.dailyBlockErrorAlreadyExists':
+    'A daily block has already been booked for the selected day.',
   'requests.title': 'Requests',
   'requests.description':
     'Vacation, home office, special leave, time adjustments',
@@ -638,6 +716,10 @@ const en: Catalog = {
   'employees.masterDataCreate': 'Master data + initial password',
   'employees.masterDataEdit': 'Edit master data',
   'employees.noSchedule': '— no schedule —',
+  'employees.dailyBlock': 'Daily block',
+  'employees.dailyBlockBooking': 'Allow direct daily-block booking',
+  'employees.dailyBlockBookingHint':
+    'The fixed net duration is derived from weekly hours and the assigned schedule’s working days.',
   'employees.deactivateConfirm': 'Deactivate employee {name}?',
   'employees.passwordUpdated': 'Password has been updated.',
   'employees.newPassword': 'New password (at least 8 characters)',

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { calculateBreakMinutes, calculateNetMinutes, summarize } from './breaks.js';
+import {
+  calculateBreakMinutes,
+  calculateGrossMinutesForNet,
+  calculateNetMinutes,
+  summarize,
+} from './breaks.js';
 
 describe('calculateBreakMinutes', () => {
   it('no break under 6 h', () => {
@@ -28,13 +33,34 @@ describe('calculateNetMinutes', () => {
   });
 });
 
+describe('calculateGrossMinutesForNet', () => {
+  it('adds the automatic break needed for an 8:15 net working day', () => {
+    expect(calculateGrossMinutesForNet(495)).toBe(525);
+    expect(calculateNetMinutes(525)).toBe(495);
+  });
+
+  it('uses the smallest matching gross duration at break thresholds', () => {
+    expect(calculateGrossMinutesForNet(330)).toBe(330);
+    expect(calculateGrossMinutesForNet(360)).toBe(390);
+    expect(calculateGrossMinutesForNet(510)).toBe(555);
+  });
+});
+
 describe('summarize', () => {
   it('returns zero when clockOut missing', () => {
-    expect(summarize(new Date(), null)).toEqual({ grossMinutes: 0, breakMinutes: 0, netMinutes: 0 });
+    expect(summarize(new Date(), null)).toEqual({
+      grossMinutes: 0,
+      breakMinutes: 0,
+      netMinutes: 0,
+    });
   });
   it('computes gross/break/net for a regular 8h day', () => {
     const start = new Date('2026-05-04T09:00:00Z');
     const end = new Date('2026-05-04T17:00:00Z');
-    expect(summarize(start, end)).toEqual({ grossMinutes: 480, breakMinutes: 30, netMinutes: 450 });
+    expect(summarize(start, end)).toEqual({
+      grossMinutes: 480,
+      breakMinutes: 30,
+      netMinutes: 450,
+    });
   });
 });

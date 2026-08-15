@@ -2,8 +2,16 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export type EmployeeRole = 'Employee' | 'Manager' | 'HRAdmin';
 export type ThemePreference = 'Light' | 'Dark' | 'System';
-export type TimeModel = 'Teilzeit' | 'Vollzeit' | 'Vertrauensarbeitszeit' | 'Gleitzeit';
-export type RequestType = 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeAdjustment';
+export type TimeModel =
+  | 'Teilzeit'
+  | 'Vollzeit'
+  | 'Vertrauensarbeitszeit'
+  | 'Gleitzeit';
+export type RequestType =
+  | 'Vacation'
+  | 'HomeOffice'
+  | 'SpecialLeave'
+  | 'TimeAdjustment';
 export type RequestStatus = 'Submitted' | 'Approved' | 'Rejected' | 'Cancelled';
 export type WorkflowState =
   | 'Draft'
@@ -83,6 +91,7 @@ export interface EmployeeDto {
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes: number;
   bundesland: Bundesland;
+  allowDailyBlockBooking: boolean;
   managerId: string | null;
   workScheduleId: string | null;
   workScheduleName: string | null;
@@ -102,6 +111,7 @@ export interface CreateEmployeePayload {
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes?: number;
   bundesland?: Bundesland;
+  allowDailyBlockBooking?: boolean;
   managerId: string | null;
   workScheduleId: string | null;
 }
@@ -118,6 +128,7 @@ export interface UpdateEmployeePayload {
   startDate?: string;
   overtimeOpeningBalanceMinutes?: number;
   bundesland?: Bundesland;
+  allowDailyBlockBooking?: boolean;
   managerId?: string | null;
   workScheduleId?: string | null;
   isActive?: boolean;
@@ -179,6 +190,22 @@ export interface BookProjectRangePayload {
 
 export interface BookProjectRangeResult {
   entries: TimeEntryDto[];
+}
+
+export interface DailyBlockOptionDto {
+  enabled: boolean;
+  dailyNetMinutes: number;
+  grossMinutes: number;
+  breakMinutes: number;
+  workdayCount: number;
+}
+
+export interface CreateDailyBlockPayload {
+  date: string;
+  start: string;
+  projectId?: string | null;
+  serviceOrderId?: string | null;
+  activity?: string | null;
 }
 
 export interface ServiceOrderDto {
@@ -397,7 +424,7 @@ export interface AbsenceDto {
   employeeId: string;
   kind: AbsenceKind;
   from: string; // YYYY-MM-DD
-  to: string;   // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
   certified: boolean;
   note: string | null;
   createdAt: string;
@@ -447,7 +474,12 @@ export interface UpsertWorkSchedulePayload {
   frameEnd: string;
   isDefault: boolean;
   workingDays: number;
-  coreTimes: Array<{ label: string | null; start: string; end: string; weekdays: number }>;
+  coreTimes: Array<{
+    label: string | null;
+    start: string;
+    end: string;
+    weekdays: number;
+  }>;
 }
 
 export interface CreateRequestPayload {
@@ -557,7 +589,10 @@ async function tryRefreshOnce(): Promise<string | null> {
     try {
       const res = await fetch(`${baseUrl}/api/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
         body: JSON.stringify({ refreshToken }),
       });
       if (!res.ok) {
@@ -580,15 +615,22 @@ async function tryRefreshOnce(): Promise<string | null> {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
     this.name = 'ApiError';
   }
 }
 
-async function attempt(path: string, init: RequestInit | undefined, token: string | null): Promise<Response> {
-  const isFormData = typeof FormData !== 'undefined' && init?.body instanceof FormData;
+async function attempt(
+  path: string,
+  init: RequestInit | undefined,
+  token: string | null,
+): Promise<Response> {
+  const isFormData =
+    typeof FormData !== 'undefined' && init?.body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: 'application/json',
     // FormData sets its own multipart boundary — don't fight it.
@@ -615,15 +657,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
+    let code: string | undefined;
     try {
-      const body = (await response.json()) as { message?: string | string[]; error?: string };
+      const body = (await response.json()) as {
+        code?: string;
+        message?: string | string[];
+        error?: string;
+      };
+      code = body.code;
       if (Array.isArray(body?.message)) message = body.message.join('; ');
       else if (typeof body?.message === 'string') message = body.message;
       else if (body?.error) message = body.error;
     } catch {
       // body not JSON
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message, code);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
@@ -643,11 +691,19 @@ export const api = {
       body: JSON.stringify({ themePreference }),
     }),
   employees: (includeInactive = false) =>
-    request<EmployeeDto[]>(`/api/employees${includeInactive ? '?includeInactive=true' : ''}`),
+    request<EmployeeDto[]>(
+      `/api/employees${includeInactive ? '?includeInactive=true' : ''}`,
+    ),
   createEmployee: (payload: CreateEmployeePayload) =>
-    request<EmployeeDto>('/api/employees', { method: 'POST', body: JSON.stringify(payload) }),
+    request<EmployeeDto>('/api/employees', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   updateEmployee: (id: string, payload: UpdateEmployeePayload) =>
-    request<EmployeeDto>(`/api/employees/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    request<EmployeeDto>(`/api/employees/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
   setEmployeePassword: (id: string, password: string) =>
     request<void>(`/api/employees/${id}/password`, {
       method: 'POST',
@@ -657,7 +713,8 @@ export const api = {
     request<EmployeeDto>(`/api/employees/${id}`, { method: 'DELETE' }),
   reactivateEmployee: (id: string) =>
     request<EmployeeDto>(`/api/employees/${id}/reactivate`, { method: 'POST' }),
-  account: (employeeId: string) => request<AccountDto>(`/api/accounts/${employeeId}`),
+  account: (employeeId: string) =>
+    request<AccountDto>(`/api/accounts/${employeeId}`),
   timeEntries: (employeeId: string, from?: string, to?: string) => {
     const params = new URLSearchParams({ employeeId });
     if (from) params.set('from', from);
@@ -673,6 +730,13 @@ export const api = {
     request<TimeEntryDto>('/api/timeentries/clock-out', {
       method: 'POST',
       body: JSON.stringify({ employeeId }),
+    }),
+  dailyBlockOption: () =>
+    request<DailyBlockOptionDto>('/api/timeentries/daily-block/option'),
+  createDailyBlock: (payload: CreateDailyBlockPayload) =>
+    request<TimeEntryDto>('/api/timeentries/daily-block', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
   updateTimeEntry: (id: string, payload: UpdateTimeEntryPayload) =>
     request<TimeEntryDto>(`/api/timeentries/${id}`, {
@@ -710,31 +774,56 @@ export const api = {
       '/api/reports/working-times/employees',
     ),
   projects: (includeInactive = false) =>
-    request<ProjectDto[]>(`/api/projects${includeInactive ? '?includeInactive=true' : ''}`),
+    request<ProjectDto[]>(
+      `/api/projects${includeInactive ? '?includeInactive=true' : ''}`,
+    ),
   bookableProjects: (employeeId: string) =>
-    request<BookableProjectDto[]>(`/api/projects/bookable?employeeId=${employeeId}`),
-  projectAssignments: () => request<ProjectAssignmentDto[]>('/api/projects/assignments'),
+    request<BookableProjectDto[]>(
+      `/api/projects/bookable?employeeId=${employeeId}`,
+    ),
+  projectAssignments: () =>
+    request<ProjectAssignmentDto[]>('/api/projects/assignments'),
   createProject: (payload: UpsertProjectPayload) =>
-    request<ProjectDto>('/api/projects', { method: 'POST', body: JSON.stringify(payload) }),
+    request<ProjectDto>('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   updateProject: (id: string, payload: UpsertProjectPayload) =>
-    request<ProjectDto>(`/api/projects/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  deleteProject: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+    request<ProjectDto>(`/api/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteProject: (id: string) =>
+    request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
   createServiceOrder: (projectId: string, payload: UpsertServiceOrderPayload) =>
     request<ServiceOrderDto>(`/api/projects/${projectId}/service-orders`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  updateServiceOrder: (projectId: string, orderId: string, payload: UpsertServiceOrderPayload) =>
-    request<ServiceOrderDto>(`/api/projects/${projectId}/service-orders/${orderId}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
+  updateServiceOrder: (
+    projectId: string,
+    orderId: string,
+    payload: UpsertServiceOrderPayload,
+  ) =>
+    request<ServiceOrderDto>(
+      `/api/projects/${projectId}/service-orders/${orderId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      },
+    ),
   deleteServiceOrder: (projectId: string, orderId: string) =>
-    request<void>(`/api/projects/${projectId}/service-orders/${orderId}`, { method: 'DELETE' }),
+    request<void>(`/api/projects/${projectId}/service-orders/${orderId}`, {
+      method: 'DELETE',
+    }),
   assignProject: (projectId: string, employeeId: string) =>
-    request<void>(`/api/projects/${projectId}/assignments/${employeeId}`, { method: 'PUT' }),
+    request<void>(`/api/projects/${projectId}/assignments/${employeeId}`, {
+      method: 'PUT',
+    }),
   unassignProject: (projectId: string, employeeId: string) =>
-    request<void>(`/api/projects/${projectId}/assignments/${employeeId}`, { method: 'DELETE' }),
+    request<void>(`/api/projects/${projectId}/assignments/${employeeId}`, {
+      method: 'DELETE',
+    }),
   listRequests: (
     filters: {
       employeeId?: string;
@@ -746,16 +835,24 @@ export const api = {
     } = {},
   ) => {
     const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(filters)) if (v) params.set(k, String(v));
+    for (const [k, v] of Object.entries(filters))
+      if (v) params.set(k, String(v));
     const qs = params.toString();
     return request<RequestDto[]>(`/api/requests${qs ? `?${qs}` : ''}`);
   },
   getRequest: (id: string) => request<RequestDto>(`/api/requests/${id}`),
-  getRequestEvents: (id: string) => request<RequestEventDto[]>(`/api/requests/${id}/events`),
+  getRequestEvents: (id: string) =>
+    request<RequestEventDto[]>(`/api/requests/${id}/events`),
   createRequest: (payload: CreateRequestPayload) =>
-    request<RequestDto>('/api/requests', { method: 'POST', body: JSON.stringify(payload) }),
+    request<RequestDto>('/api/requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   createVacationRequest: (payload: CreateVacationPayload) =>
-    request<RequestDto>('/api/requests/vacation', { method: 'POST', body: JSON.stringify(payload) }),
+    request<RequestDto>('/api/requests/vacation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   approveRequest: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/approve`, {
       method: 'POST',
@@ -766,10 +863,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ actorId, note: note ?? null }),
     }),
-  managerApprove: (id: string, actorId: string, note?: string, requiresHrConfirmation = false) =>
+  managerApprove: (
+    id: string,
+    actorId: string,
+    note?: string,
+    requiresHrConfirmation = false,
+  ) =>
     request<RequestDto>(`/api/requests/${id}/manager-approve`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null, requiresHrConfirmation }),
+      body: JSON.stringify({
+        actorId,
+        note: note ?? null,
+        requiresHrConfirmation,
+      }),
     }),
   managerReject: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/manager-reject`, {
@@ -814,7 +920,12 @@ export const api = {
   ) =>
     request<BulkResult[]>('/api/requests/bulk-approve', {
       method: 'POST',
-      body: JSON.stringify({ actorId, ids, note: note ?? null, requiresHrConfirmation }),
+      body: JSON.stringify({
+        actorId,
+        ids,
+        note: note ?? null,
+        requiresHrConfirmation,
+      }),
     }),
   bulkRejectRequests: (actorId: string, ids: string[], note: string) =>
     request<BulkResult[]>('/api/requests/bulk-reject', {
@@ -823,22 +934,35 @@ export const api = {
     }),
   vacationBalance: (employeeId: string, year?: number) => {
     const qs = year ? `?year=${year}` : '';
-    return request<VacationBalanceDto>(`/api/accounts/${employeeId}/vacation${qs}`);
+    return request<VacationBalanceDto>(
+      `/api/accounts/${employeeId}/vacation${qs}`,
+    );
   },
   leaveAllowances: (employeeId: string) =>
-    request<LeaveAllowanceDto[]>(`/api/employees/${employeeId}/leave-allowances`),
-  upsertLeaveAllowance: (employeeId: string, year: number, payload: UpsertLeaveAllowancePayload) =>
-    request<LeaveAllowanceDto>(`/api/employees/${employeeId}/leave-allowances/${year}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
+    request<LeaveAllowanceDto[]>(
+      `/api/employees/${employeeId}/leave-allowances`,
+    ),
+  upsertLeaveAllowance: (
+    employeeId: string,
+    year: number,
+    payload: UpsertLeaveAllowancePayload,
+  ) =>
+    request<LeaveAllowanceDto>(
+      `/api/employees/${employeeId}/leave-allowances/${year}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      },
+    ),
   violations: (employeeId: string, from?: string, to?: string) => {
     const params = new URLSearchParams({ employeeId });
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     return request<ViolationDto[]>(`/api/violations?${params.toString()}`);
   },
-  absences: (filters: { employeeId?: string; from?: string; to?: string } = {}) => {
+  absences: (
+    filters: { employeeId?: string; from?: string; to?: string } = {},
+  ) => {
     const params = new URLSearchParams();
     if (filters.employeeId) params.set('employeeId', filters.employeeId);
     if (filters.from) params.set('from', filters.from);
@@ -847,13 +971,20 @@ export const api = {
     return request<AbsenceDto[]>(`/api/absences${qs ? `?${qs}` : ''}`);
   },
   createAbsence: (payload: CreateAbsencePayload) =>
-    request<AbsenceDto>('/api/absences', { method: 'POST', body: JSON.stringify(payload) }),
+    request<AbsenceDto>('/api/absences', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
   updateAbsence: (id: string, payload: UpdateAbsencePayload) =>
-    request<AbsenceDto>(`/api/absences/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+    request<AbsenceDto>(`/api/absences/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
   deleteAbsence: (id: string) =>
     request<void>(`/api/absences/${id}`, { method: 'DELETE' }),
   workSchedules: () => request<WorkScheduleDto[]>('/api/work-schedules'),
-  workSchedule: (id: string) => request<WorkScheduleDto>(`/api/work-schedules/${id}`),
+  workSchedule: (id: string) =>
+    request<WorkScheduleDto>(`/api/work-schedules/${id}`),
   createWorkSchedule: (payload: UpsertWorkSchedulePayload) =>
     request<WorkScheduleDto>('/api/work-schedules', {
       method: 'POST',
@@ -871,7 +1002,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ employeeId }),
     }),
-  bulkAssignSchedule: (id: string, timeModel: TimeModel, overrideExisting: boolean) =>
+  bulkAssignSchedule: (
+    id: string,
+    timeModel: TimeModel,
+    overrideExisting: boolean,
+  ) =>
     request<{ scheduleId: string; assigned: number; skipped: number }>(
       `/api/work-schedules/${id}/bulk-assign`,
       {
@@ -898,7 +1033,10 @@ export const api = {
    * + refresh handling implicitly by going through a custom raw fetch path
    * because we need binary, not JSON.
    */
-  downloadAttachment: async (attachmentId: string, fileName: string): Promise<void> => {
+  downloadAttachment: async (
+    attachmentId: string,
+    fileName: string,
+  ): Promise<void> => {
     const token = readToken();
     const fetchOnce = async (t: string | null) =>
       fetch(`${baseUrl}/api/attachments/${attachmentId}`, {
@@ -909,7 +1047,8 @@ export const api = {
       const fresh = await tryRefreshOnce();
       if (fresh) res = await fetchOnce(fresh);
     }
-    if (!res.ok) throw new ApiError(res.status, `Download failed (${res.status})`);
+    if (!res.ok)
+      throw new ApiError(res.status, `Download failed (${res.status})`);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

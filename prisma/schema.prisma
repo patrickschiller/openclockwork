@@ -35,6 +35,7 @@ enum EntrySource {
   Pwa
   Terminal
   Erp
+  DailyBlock
 }
 
 enum EntryStatus {
@@ -117,6 +118,8 @@ model Employee {
   bundesland                    String                   @default("NW") @db.VarChar(2)
   /// User-facing dark/light mode preference. "System" follows the OS setting.
   themePreference               ThemePreference          @default(System)
+  /// Allows an employee to create one self-approved fixed-duration block per working day.
+  allowDailyBlockBooking        Boolean                  @default(false)
   isActive                      Boolean                  @default(true)
   managerId                     String?                  @db.Uuid
   manager                       Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
@@ -192,6 +195,8 @@ model TimeEntry {
   serviceOrder     ServiceOrder? @relation(fields: [projectId, serviceOrderId], references: [projectId, id], onDelete: Restrict)
   /// Customer-facing description of the work performed (Tätigkeit).
   activity         String?
+  /// Local calendar date for DailyBlock entries. Null for all other entry sources.
+  bookingDate      DateTime?   @db.Date
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
@@ -199,6 +204,7 @@ model TimeEntry {
   @@index([status])
   @@index([projectId])
   @@index([serviceOrderId])
+  @@unique([employeeId, bookingDate])
 }
 
 model Request {

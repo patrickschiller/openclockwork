@@ -35,6 +35,7 @@ async function ensureEmployee(input: {
   startDate: Date;
   overtimeOpeningBalanceMinutes?: number;
   bundesland?: string;
+  allowDailyBlockBooking?: boolean;
   managerEmail?: string;
 }) {
   const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
@@ -43,6 +44,7 @@ async function ensureEmployee(input: {
     : null;
   const opening = input.overtimeOpeningBalanceMinutes ?? 0;
   const bundesland = input.bundesland ?? 'NW';
+  const allowDailyBlockBooking = input.allowDailyBlockBooking ?? false;
   const data: Prisma.EmployeeCreateInput = {
     personalNo: input.personalNo,
     firstName: input.firstName,
@@ -56,6 +58,7 @@ async function ensureEmployee(input: {
     startDate: input.startDate,
     overtimeOpeningBalanceMinutes: opening,
     bundesland,
+    allowDailyBlockBooking,
     isActive: true,
     ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
   };
@@ -73,12 +76,17 @@ async function ensureEmployee(input: {
       startDate: input.startDate,
       overtimeOpeningBalanceMinutes: opening,
       bundesland,
+      allowDailyBlockBooking,
       ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
     },
   });
 }
 
-async function ensureLeaveAllowance(employeeId: string, year: number, baseDays: number) {
+async function ensureLeaveAllowance(
+  employeeId: string,
+  year: number,
+  baseDays: number,
+) {
   await prisma.employeeLeaveAllowance.upsert({
     where: { employeeId_year: { employeeId, year } },
     create: { employeeId, year, baseDays, carryOverDays: 0, adjustmentDays: 0 },
@@ -106,7 +114,9 @@ interface ScheduleSeed {
 
 async function ensureWorkSchedule(seed: ScheduleSeed) {
   return prisma.$transaction(async (tx) => {
-    const existing = await tx.workSchedule.findUnique({ where: { name: seed.name } });
+    const existing = await tx.workSchedule.findUnique({
+      where: { name: seed.name },
+    });
     const data = {
       description: seed.description,
       frameStart: seed.frameStart,
@@ -117,7 +127,9 @@ async function ensureWorkSchedule(seed: ScheduleSeed) {
       ? await tx.workSchedule.update({ where: { id: existing.id }, data })
       : await tx.workSchedule.create({ data: { name: seed.name, ...data } });
     // Replace cores idempotently.
-    await tx.workScheduleCoreTime.deleteMany({ where: { scheduleId: schedule.id } });
+    await tx.workScheduleCoreTime.deleteMany({
+      where: { scheduleId: schedule.id },
+    });
     if (seed.cores.length > 0) {
       await tx.workScheduleCoreTime.createMany({
         data: seed.cores.map((c) => ({ ...c, scheduleId: schedule.id })),
@@ -206,7 +218,9 @@ async function ensureProject(seed: ProjectSeed) {
       planHours: o.planHours ?? null,
     };
     await prisma.serviceOrder.upsert({
-      where: { projectId_orderNo: { projectId: project.id, orderNo: o.orderNo } },
+      where: {
+        projectId_orderNo: { projectId: project.id, orderNo: o.orderNo },
+      },
       create: { projectId: project.id, orderNo: o.orderNo, ...orderData },
       update: orderData,
     });
@@ -233,13 +247,24 @@ async function main() {
   // Work schedules (must exist before employees are assigned to them).
   const standard = await ensureWorkSchedule({
     name: 'Standard 09–17 mit Doppel-Kernzeit',
-    description: 'Rahmen 07:00–23:00, Kernzeit 10:00–11:00 und 14:00–15:00 (Mo–Fr).',
+    description:
+      'Rahmen 07:00–23:00, Kernzeit 10:00–11:00 und 14:00–15:00 (Mo–Fr).',
     frameStart: '07:00',
     frameEnd: '23:00',
     isDefault: true,
     cores: [
-      { label: 'Vormittag', start: '10:00', end: '11:00', weekdays: WEEKDAYS_MON_TO_FRI },
-      { label: 'Nachmittag', start: '14:00', end: '15:00', weekdays: WEEKDAYS_MON_TO_FRI },
+      {
+        label: 'Vormittag',
+        start: '10:00',
+        end: '11:00',
+        weekdays: WEEKDAYS_MON_TO_FRI,
+      },
+      {
+        label: 'Nachmittag',
+        start: '14:00',
+        end: '15:00',
+        weekdays: WEEKDAYS_MON_TO_FRI,
+      },
     ],
   });
   await ensureWorkSchedule({
@@ -254,7 +279,14 @@ async function main() {
     description: 'Rahmen 07:00–14:00, Kernzeit 09:00–12:00 (Mo–Fr).',
     frameStart: '07:00',
     frameEnd: '14:00',
-    cores: [{ label: 'Kernzeit', start: '09:00', end: '12:00', weekdays: WEEKDAYS_MON_TO_FRI }],
+    cores: [
+      {
+        label: 'Kernzeit',
+        start: '09:00',
+        end: '12:00',
+        weekdays: WEEKDAYS_MON_TO_FRI,
+      },
+    ],
   });
 
   // HR-Admin
@@ -298,13 +330,74 @@ async function main() {
 
   // Employees — startDate + optional opening balance illustrate both new fields.
   const employees = [
-    { personalNo: '1001', firstName: 'Anna',   lastName: 'Müller',     mgr: manager1.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0,   bundesland: 'NW' },
-    { personalNo: '1002', firstName: 'Bernd',  lastName: 'Schulz',     mgr: manager1.email, weeklyHours: 32, model: 'Teilzeit'   as const, startDate: ALWAYS, opening: 0,   bundesland: 'NW' },
+    {
+      personalNo: '1001',
+      firstName: 'Anna',
+      lastName: 'Müller',
+      mgr: manager1.email,
+      weeklyHours: 40,
+      model: 'Vollzeit' as const,
+      startDate: ALWAYS,
+      opening: 0,
+      bundesland: 'NW',
+      allowDailyBlockBooking: true,
+    },
+    {
+      personalNo: '1002',
+      firstName: 'Bernd',
+      lastName: 'Schulz',
+      mgr: manager1.email,
+      weeklyHours: 32,
+      model: 'Teilzeit' as const,
+      startDate: ALWAYS,
+      opening: 0,
+      bundesland: 'NW',
+    },
     // Cengiz arbeitet im Außenbüro München — hat die BY-Feiertage (z.B. Fronleichnam, Mariä Himmelfahrt)
-    { personalNo: '1003', firstName: 'Cengiz', lastName: 'Yilmaz',     mgr: manager1.email, weeklyHours: 40, model: 'Gleitzeit'  as const, startDate: ALWAYS, opening: 0,   bundesland: 'BY' },
-    { personalNo: '1004', firstName: 'Diana',  lastName: 'Fischer',    mgr: manager2.email, weeklyHours: 40, model: 'Vollzeit'   as const, startDate: ALWAYS, opening: 0,   bundesland: 'NW' },
-    { personalNo: '1005', firstName: 'Erik',   lastName: 'Lindgren',   mgr: manager2.email, weeklyHours: 40, model: 'Vertrauensarbeitszeit' as const, startDate: Y0401, opening: 0,   bundesland: 'NW' },
-    { personalNo: '1006', firstName: 'Fatma',  lastName: 'Demir',      mgr: manager2.email, weeklyHours: 20, model: 'Teilzeit'   as const, startDate: Y0501, opening: 540, bundesland: 'NW' },
+    {
+      personalNo: '1003',
+      firstName: 'Cengiz',
+      lastName: 'Yilmaz',
+      mgr: manager1.email,
+      weeklyHours: 40,
+      model: 'Gleitzeit' as const,
+      startDate: ALWAYS,
+      opening: 0,
+      bundesland: 'BY',
+    },
+    {
+      personalNo: '1004',
+      firstName: 'Diana',
+      lastName: 'Fischer',
+      mgr: manager2.email,
+      weeklyHours: 40,
+      model: 'Vollzeit' as const,
+      startDate: ALWAYS,
+      opening: 0,
+      bundesland: 'NW',
+    },
+    {
+      personalNo: '1005',
+      firstName: 'Erik',
+      lastName: 'Lindgren',
+      mgr: manager2.email,
+      weeklyHours: 40,
+      model: 'Vertrauensarbeitszeit' as const,
+      startDate: Y0401,
+      opening: 0,
+      bundesland: 'NW',
+    },
+    {
+      personalNo: '1006',
+      firstName: 'Fatma',
+      lastName: 'Demir',
+      mgr: manager2.email,
+      weeklyHours: 20,
+      model: 'Teilzeit' as const,
+      startDate: Y0501,
+      opening: 540,
+      bundesland: 'NW',
+    },
   ];
 
   const created = [hr, manager1, manager2];
@@ -321,6 +414,8 @@ async function main() {
       startDate: e.startDate,
       overtimeOpeningBalanceMinutes: e.opening,
       bundesland: e.bundesland,
+      allowDailyBlockBooking:
+        'allowDailyBlockBooking' in e && e.allowDailyBlockBooking,
       managerEmail: e.mgr,
     });
     created.push(c);
@@ -341,7 +436,10 @@ async function main() {
     where: { name: 'Teilzeit Vormittag' },
   });
   await prisma.employee.updateMany({
-    where: { workScheduleId: null, timeModel: { in: ['Vollzeit', 'Gleitzeit'] } },
+    where: {
+      workScheduleId: null,
+      timeModel: { in: ['Vollzeit', 'Gleitzeit'] },
+    },
     data: { workScheduleId: standard.id },
   });
   if (trustSchedule) {
@@ -375,7 +473,9 @@ async function main() {
     code: 'PRJ-002',
     name: 'ERP-Einführung',
     description: 'Einführung und Anbindung des neuen ERP-Systems.',
-    serviceOrders: [{ orderNo: 'SA-001', title: 'Datenmigration', planHours: 25 }],
+    serviceOrders: [
+      { orderNo: 'SA-001', title: 'Datenmigration', planHours: 25 },
+    ],
   });
   await ensureProject({
     code: 'PRJ-003',
@@ -400,7 +500,9 @@ async function main() {
   // (service order SA-001 with a customer-facing activity).
   if (anna) {
     const websiteDesign = await prisma.serviceOrder.findUnique({
-      where: { projectId_orderNo: { projectId: website.id, orderNo: 'SA-001' } },
+      where: {
+        projectId_orderNo: { projectId: website.id, orderNo: 'SA-001' },
+      },
     });
     for (let i = 1; i <= 5; i += 1) {
       const day = new Date();
@@ -422,7 +524,8 @@ async function main() {
           ? {
               projectId: website.id,
               serviceOrderId: websiteDesign?.id,
-              activity: 'Wireframes und Designsystem für den Relaunch erarbeitet',
+              activity:
+                'Wireframes und Designsystem für den Relaunch erarbeitet',
             }
           : {},
         legacyClockIn,
@@ -431,7 +534,9 @@ async function main() {
   }
 
   // eslint-disable-next-line no-console
-  console.log(`Seed complete: ${created.length} employees (default password: "${DEFAULT_PASSWORD}")`);
+  console.log(
+    `Seed complete: ${created.length} employees (default password: "${DEFAULT_PASSWORD}")`,
+  );
 }
 
 main()

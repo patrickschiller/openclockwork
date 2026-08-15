@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { JwtUser } from '../auth/jwt.strategy';
@@ -18,6 +18,8 @@ import {
   BookProjectRangeDto,
   ClockInDto,
   ClockOutDto,
+  CreateDailyBlockDto,
+  DailyBlockOptionDto,
   SplitTimeEntryDto,
   UpdateTimeEntryDto,
   type BookProjectRangeResult,
@@ -51,6 +53,24 @@ export class TimeEntriesController {
   @Post('clock-out')
   clockOut(@Body() dto: ClockOutDto): Promise<TimeEntryDto> {
     return this.entries.clockOut(dto.employeeId);
+  }
+
+  @Get('daily-block/option')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOkResponse({ type: DailyBlockOptionDto })
+  dailyBlockOption(@CurrentUser() user: JwtUser): Promise<DailyBlockOptionDto> {
+    return this.entries.dailyBlockOption(user.id);
+  }
+
+  @Post('daily-block')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  dailyBlock(
+    @Body() dto: CreateDailyBlockDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TimeEntryDto> {
+    return this.entries.createDailyBlock(dto, user);
   }
 
   // Static route — keep declared before the ':id' routes.

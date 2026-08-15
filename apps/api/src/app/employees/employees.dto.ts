@@ -16,13 +16,34 @@ import {
 import type { Employee, WorkSchedule } from '@prisma/client';
 
 const ROLES = ['Employee', 'Manager', 'HRAdmin'] as const;
-const TIME_MODELS = ['Teilzeit', 'Vollzeit', 'Vertrauensarbeitszeit', 'Gleitzeit'] as const;
+const TIME_MODELS = [
+  'Teilzeit',
+  'Vollzeit',
+  'Vertrauensarbeitszeit',
+  'Gleitzeit',
+] as const;
 const BUNDESLAENDER = [
-  'BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
-  'NI', 'NW', 'RP', 'SL', 'SN', 'ST', 'SH', 'TH',
+  'BW',
+  'BY',
+  'BE',
+  'BB',
+  'HB',
+  'HH',
+  'HE',
+  'MV',
+  'NI',
+  'NW',
+  'RP',
+  'SL',
+  'SN',
+  'ST',
+  'SH',
+  'TH',
 ] as const;
 
-export type EmployeeWithSchedule = Employee & { workSchedule: WorkSchedule | null };
+export type EmployeeWithSchedule = Employee & {
+  workSchedule: WorkSchedule | null;
+};
 
 export interface EmployeeDto {
   id: string;
@@ -37,6 +58,7 @@ export interface EmployeeDto {
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes: number;
   bundesland: string;
+  allowDailyBlockBooking: boolean;
   managerId: string | null;
   workScheduleId: string | null;
   workScheduleName: string | null;
@@ -62,6 +84,7 @@ export function toEmployeeDto(e: EmployeeWithSchedule | Employee): EmployeeDto {
     startDate: dateOnly(e.startDate),
     overtimeOpeningBalanceMinutes: e.overtimeOpeningBalanceMinutes,
     bundesland: e.bundesland,
+    allowDailyBlockBooking: e.allowDailyBlockBooking,
     managerId: e.managerId,
     workScheduleId: e.workScheduleId,
     workScheduleName: ws?.name ?? null,
@@ -90,7 +113,11 @@ export class CreateEmployeeDto {
   @MaxLength(200)
   email!: string;
 
-  @ApiProperty({ minLength: 8, maxLength: 120, description: 'Initial password — bcrypt-hashed on the server.' })
+  @ApiProperty({
+    minLength: 8,
+    maxLength: 120,
+    description: 'Initial password — bcrypt-hashed on the server.',
+  })
   @IsString()
   @MinLength(8)
   @MaxLength(120)
@@ -114,19 +141,40 @@ export class CreateEmployeeDto {
   @Min(0)
   annualLeaveDays!: number;
 
-  @ApiProperty({ example: '2026-04-01', description: 'ISO date when the employee starts; Soll-Stunden are counted from here.' })
+  @ApiProperty({
+    example: '2026-04-01',
+    description:
+      'ISO date when the employee starts; Soll-Stunden are counted from here.',
+  })
   @IsISO8601({ strict: true })
   startDate!: string;
 
-  @ApiPropertyOptional({ example: 0, description: 'One-time overtime carry-over in minutes (signed).' })
+  @ApiPropertyOptional({
+    example: 0,
+    description: 'One-time overtime carry-over in minutes (signed).',
+  })
   @IsOptional()
   @IsInt()
   overtimeOpeningBalanceMinutes?: number;
 
-  @ApiPropertyOptional({ enum: BUNDESLAENDER, default: 'NW', description: 'ISO-3166-2 code of the German state — drives the holiday calendar.' })
+  @ApiPropertyOptional({
+    enum: BUNDESLAENDER,
+    default: 'NW',
+    description:
+      'ISO-3166-2 code of the German state — drives the holiday calendar.',
+  })
   @IsOptional()
   @IsEnum(BUNDESLAENDER)
   bundesland?: (typeof BUNDESLAENDER)[number];
+
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'Allow one self-approved fixed-duration block on a configured working day.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowDailyBlockBooking?: boolean;
 
   @ApiPropertyOptional({ nullable: true, format: 'uuid' })
   @IsOptional()
@@ -200,6 +248,14 @@ export class UpdateEmployeeDto {
   @IsOptional()
   @IsEnum(BUNDESLAENDER)
   bundesland?: (typeof BUNDESLAENDER)[number];
+
+  @ApiPropertyOptional({
+    description:
+      'Allow one self-approved fixed-duration block on a configured working day.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowDailyBlockBooking?: boolean;
 
   @ApiPropertyOptional({ nullable: true, format: 'uuid' })
   @IsOptional()

@@ -24,6 +24,7 @@ import {
   api,
   type BookableProjectDto,
   type ClockInPayload,
+  type DailyBlockOptionDto,
   type TimeEntryDto,
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
@@ -65,6 +66,50 @@ function fmtSummary(entry: TimeEntryDto): string {
 function fmtDate(date: string): string {
   const [year, month, day] = date.split('-');
   return `${day}.${month}.${year}`;
+}
+
+const DAILY_BLOCK_ERROR_KEYS: Record<string, string> = {
+  DAILY_BLOCK_INVALID_DATE_TIME: 'booking.dailyBlockErrorInvalidDateTime',
+  DAILY_BLOCK_DISABLED: 'booking.dailyBlockErrorDisabled',
+  DAILY_BLOCK_FUTURE_DATE: 'booking.dailyBlockErrorFutureDate',
+  DAILY_BLOCK_BEFORE_EMPLOYMENT: 'booking.dailyBlockErrorBeforeEmployment',
+  DAILY_BLOCK_NO_DAILY_TARGET: 'booking.dailyBlockErrorNoDailyTarget',
+  DAILY_BLOCK_NON_WORKING_DAY: 'booking.dailyBlockErrorNonWorkingDay',
+  DAILY_BLOCK_PUBLIC_HOLIDAY: 'booking.dailyBlockErrorPublicHoliday',
+  DAILY_BLOCK_OUTSIDE_FRAME: 'booking.dailyBlockErrorOutsideFrame',
+  DAILY_BLOCK_TIME_ENTRY_CONFLICT: 'booking.dailyBlockErrorTimeEntryConflict',
+  DAILY_BLOCK_ABSENCE_CONFLICT: 'booking.dailyBlockErrorAbsenceConflict',
+  DAILY_BLOCK_ALREADY_EXISTS: 'booking.dailyBlockErrorAlreadyExists',
+};
+
+const LEGACY_DAILY_BLOCK_ERROR_CODES: Record<string, string> = {
+  'Selected day already contains a time entry':
+    'DAILY_BLOCK_TIME_ENTRY_CONFLICT',
+  'Selected day is covered by an absence or active request':
+    'DAILY_BLOCK_ABSENCE_CONFLICT',
+  'A daily block already exists for the selected day':
+    'DAILY_BLOCK_ALREADY_EXISTS',
+};
+
+function dailyBlockErrorKey(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  const candidate = error as { code?: unknown; message?: unknown };
+  const code =
+    typeof candidate.code === 'string'
+      ? candidate.code
+      : typeof candidate.message === 'string'
+        ? LEGACY_DAILY_BLOCK_ERROR_CODES[candidate.message]
+        : undefined;
+  return code ? (DAILY_BLOCK_ERROR_KEYS[code] ?? null) : null;
+}
+
+function localDateInputValue(date = new Date()): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function formatDuration(minutes: number): string {
+  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}min`;
 }
 
 /** ISO timestamp → value for <input type="datetime-local"> in local time. */
@@ -211,6 +256,7 @@ export function BookingPage() {
     null,
   );
   const [bookRangeOpen, setBookRangeOpen] = useState(false);
+  const [dailyBlockOpen, setDailyBlockOpen] = useState(false);
 
   const entriesKey = ['time-entries', employeeId];
   const year = new Date().getFullYear();
@@ -218,6 +264,10 @@ export function BookingPage() {
   const entriesQuery = useQuery({
     queryKey: entriesKey,
     queryFn: () => api.timeEntries(employeeId),
+  });
+  const dailyBlockOptionQuery = useQuery({
+    queryKey: ['daily-block-option', employeeId],
+    queryFn: () => api.dailyBlockOption(),
   });
   const violationsQuery = useQuery({
     queryKey: ['violations', employeeId, year],
@@ -427,6 +477,28 @@ export function BookingPage() {
                 : t('booking.clockOut')}
             </Button>
           </div>
+          {dailyBlockOptionQuery.data?.enabled && (
+            <div className="border-t pt-4">
+              <p className="mb-3 text-sm text-muted-foreground">
+                {t('booking.dailyBlockHint', {
+                  net: formatDuration(
+                    dailyBlockOptionQuery.data.dailyNetMinutes,
+                  ),
+                })}
+              </p>
+              <Button
+                variant="outline"
+                disabled={
+                  !!open ||
+                  !online ||
+                  dailyBlockOptionQuery.data.dailyNetMinutes <= 0
+                }
+                onClick={() => setDailyBlockOpen(true)}
+              >
+                {t('booking.dailyBlockAction')}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -520,6 +592,11 @@ export function BookingPage() {
                         {entryBadge(e)}
                       </Badge>
                     )}
+                    {e.source === 'DailyBlock' && (
+                      <Badge variant="outline">
+                        {t('booking.dailyBlockSource')}
+                      </Badge>
+                    )}
                     {e.requiresApproval && (
                       <Badge variant="destructive">
                         {t('booking.approval')}
@@ -597,7 +674,154 @@ export function BookingPage() {
           }}
         />
       )}
+      {dailyBlockOpen && dailyBlockOptionQuery.data && (
+        <DailyBlockDialog
+          option={dailyBlockOptionQuery.data}
+          projects={bookable}
+          onClose={() => setDailyBlockOpen(false)}
+          onSaved={() => {
+            setDailyBlockOpen(false);
+            qc.invalidateQueries({ queryKey: entriesKey });
+            qc.invalidateQueries({ queryKey: ['account', employeeId] });
+            qc.invalidateQueries({ queryKey: ['violations', employeeId] });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function DailyBlockDialog({
+  option,
+  projects,
+  onClose,
+  onSaved,
+}: {
+  option: DailyBlockOptionDto;
+  projects: BookableProjectDto[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t, locale } = useI18n();
+  const today = localDateInputValue();
+  const [date, setDate] = useState(today);
+  const [start, setStart] = useState('08:00');
+  const [target, setTarget] = useState<BookingTargetState>(EMPTY_TARGET);
+  const [error, setError] = useState<string | null>(null);
+
+  const startDate = new Date(`${date}T${start}:00`);
+  const endDate = new Date(startDate.getTime() + option.grossMinutes * 60_000);
+  const previewValid =
+    date !== '' &&
+    start !== '' &&
+    !Number.isNaN(startDate.getTime()) &&
+    !Number.isNaN(endDate.getTime());
+  const end = previewValid
+    ? endDate.toLocaleTimeString(locale === 'de' ? 'de-DE' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '—';
+  const targetValid = targetIsValid(projects, target);
+
+  const create = useMutation({
+    mutationFn: () =>
+      api.createDailyBlock({
+        date,
+        start,
+        projectId: target.projectId || null,
+        serviceOrderId: target.serviceOrderId || null,
+        activity: target.projectId ? target.activity.trim() || null : null,
+      }),
+    onSuccess: onSaved,
+    onError: (e) => {
+      const key = dailyBlockErrorKey(e);
+      setError(t(key ?? 'booking.dailyBlockFailed'));
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('booking.dailyBlockTitle')}</DialogTitle>
+          <DialogDescription>
+            {t('booking.dailyBlockDescription')}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="daily-block-date">
+                {t('booking.dailyBlockDate')}
+              </Label>
+              <Input
+                id="daily-block-date"
+                type="date"
+                value={date}
+                max={today}
+                onChange={(event) => setDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="daily-block-start">
+                {t('booking.dailyBlockStart')}
+              </Label>
+              <Input
+                id="daily-block-start"
+                type="time"
+                value={start}
+                onChange={(event) => setStart(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="rounded-md border bg-muted/30 p-3 text-sm">
+            <p className="font-medium">
+              {t('booking.dailyBlockPreview', {
+                start: start || '—',
+                end,
+              })}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {t('booking.dailyBlockCalculation', {
+                gross: formatDuration(option.grossMinutes),
+                break: formatDuration(option.breakMinutes),
+                net: formatDuration(option.dailyNetMinutes),
+              })}
+            </p>
+          </div>
+          {projects.length > 0 && (
+            <BookingTargetFields
+              idPrefix="daily-block"
+              projects={projects}
+              target={target}
+              onChange={setTarget}
+            />
+          )}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button
+            disabled={!previewValid || !targetValid || create.isPending}
+            onClick={() => {
+              setError(null);
+              create.mutate();
+            }}
+          >
+            {create.isPending
+              ? t('booking.dailyBlockSaving')
+              : t('booking.dailyBlockSubmit')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

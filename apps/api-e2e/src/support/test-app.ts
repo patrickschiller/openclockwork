@@ -33,7 +33,9 @@ const RESET_SQL = `
 `;
 
 export async function createTestApp(): Promise<TestContext> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const moduleRef = await Test.createTestingModule({
+    imports: [AppModule],
+  }).compile();
   const app = moduleRef.createNestApplication({ logger: false });
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
@@ -73,14 +75,22 @@ export interface SeedEmployeeInput {
   annualLeaveDays?: number;
   startDate?: Date;
   overtimeOpeningBalanceMinutes?: number;
+  bundesland?: string;
+  allowDailyBlockBooking?: boolean;
   managerId?: string | null;
+  workScheduleId?: string | null;
 }
 
-export async function seedEmployee(prisma: PrismaService, input: SeedEmployeeInput) {
+export async function seedEmployee(
+  prisma: PrismaService,
+  input: SeedEmployeeInput,
+) {
   const passwordHash = await bcrypt.hash(input.password ?? 'test1234', 4);
   // Default startDate is "Jan 1 of three years ago" so most tests don't have
   // to think about it; specs that care override it explicitly.
-  const defaultStart = new Date(Date.UTC(new Date().getUTCFullYear() - 3, 0, 1));
+  const defaultStart = new Date(
+    Date.UTC(new Date().getUTCFullYear() - 3, 0, 1),
+  );
   return prisma.employee.create({
     data: {
       personalNo: input.personalNo,
@@ -94,8 +104,11 @@ export async function seedEmployee(prisma: PrismaService, input: SeedEmployeeInp
       annualLeaveDays: input.annualLeaveDays ?? 30,
       startDate: input.startDate ?? defaultStart,
       overtimeOpeningBalanceMinutes: input.overtimeOpeningBalanceMinutes ?? 0,
+      bundesland: input.bundesland ?? 'NW',
+      allowDailyBlockBooking: input.allowDailyBlockBooking ?? false,
       isActive: true,
       managerId: input.managerId ?? null,
+      workScheduleId: input.workScheduleId ?? null,
     },
   });
 }
@@ -128,7 +141,10 @@ export interface SeedProjectInput {
   }>;
 }
 
-export async function seedProject(prisma: PrismaService, input: SeedProjectInput) {
+export async function seedProject(
+  prisma: PrismaService,
+  input: SeedProjectInput,
+) {
   const project = await prisma.project.create({
     data: {
       code: input.code,
