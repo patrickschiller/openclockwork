@@ -158,3 +158,80 @@ jobs:
 
       - name: API end-to-end tests
         run: pnpm nx e2e api-e2e
+
+  database-upgrade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: openclockwork
+          POSTGRES_PASSWORD: openclockwork
+          POSTGRES_DB: openclockwork_upgrade
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U openclockwork -d openclockwork_upgrade"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5434/openclockwork_upgrade?schema=public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve pre-update revision
+        id: baseline
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            base_sha="$PR_BASE_SHA"
+          else
+            base_sha="$PUSH_BEFORE_SHA"
+          fi
+
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            base_sha="$(git rev-parse HEAD^)"
+          fi
+
+          base_dir="$RUNNER_TEMP/openclockwork-before-update"
+          git worktree add --detach "$base_dir" "$base_sha"
+          echo "base_dir=$base_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Apply pre-update migrations
+        env:
+          PRISMA_BASE_DIR: ${{ steps.baseline.outputs.base_dir }}
+        run: pnpm prisma migrate deploy --config ops/prisma-upgrade-baseline.config.ts
+
+      - name: Insert existing production-like data
+        run: node ops/upgrade-smoke.mjs seed
+
+      - name: Apply current migrations
+        run: pnpm prisma migrate deploy
+
+      - name: Verify existing data survived the update
+        run: node ops/upgrade-smoke.mjs verify

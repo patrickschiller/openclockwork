@@ -1,0 +1,28 @@
+changelog:
+  exclude:
+    labels:
+      - skip-release-notes
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking-change
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+    - title: Fixes
+      labels:
+        - bug
+        - fix
+    - title: Security
+      labels:
+        - security
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Other changes
+      labels:
+        - '*'

@@ -1,6 +1,7 @@
 import {
   CalendarDays,
   Clock,
+  FileBarChart,
   FolderKanban,
   Handshake,
   Inbox,
@@ -78,6 +79,13 @@ export const navItems: NavItem[] = [
     labelKey: 'nav.projects',
     icon: FolderKanban,
     roles: ['Manager', 'HRAdmin'],
+    showInBottomNav: false,
+  },
+  {
+    to: '/admin/working-times',
+    labelKey: 'nav.workingTimes',
+    icon: FileBarChart,
+    roles: ['HRAdmin'],
     showInBottomNav: false,
   },
   {

@@ -1,0 +1,18 @@
+# Local source-build override for the production-shaped stack.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.build.yml \
+#     --env-file .env.prod up -d --build
+
+services:
+  api:
+    image: openclockwork-api:local
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+
+  web:
+    image: openclockwork-web:local
+    build:
+      context: .
+      dockerfile: Dockerfile.web

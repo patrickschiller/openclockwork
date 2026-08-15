@@ -242,6 +242,38 @@ export interface ProjectReportDto {
   totalGrossMinutes: number;
 }
 
+export interface WorkingTimeReportRowDto {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  clockIn: string;
+  clockOut: string;
+  status: EntryStatus;
+  grossMinutes: number;
+  breakMinutes: number;
+  netMinutes: number;
+}
+
+export interface WorkingTimeReportEmployeeDto {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface WorkingTimeReportTotalsDto {
+  grossMinutes: number;
+  breakMinutes: number;
+  netMinutes: number;
+}
+
+export interface WorkingTimeReportDto {
+  from: string;
+  to: string;
+  rows: WorkingTimeReportRowDto[];
+  totals: WorkingTimeReportTotalsDto;
+}
+
 export interface UpsertProjectPayload {
   code: string;
   name: string;
@@ -662,8 +694,21 @@ export const api = {
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     const qs = params.toString();
-    return request<ProjectReportDto>(`/api/projects/${id}/report${qs ? `?${qs}` : ''}`);
+    return request<ProjectReportDto>(
+      `/api/projects/${id}/report${qs ? `?${qs}` : ''}`,
+    );
   },
+  workingTimeReport: (from: string, to: string, employeeId?: string) => {
+    const params = new URLSearchParams({ from, to });
+    if (employeeId) params.set('employeeId', employeeId);
+    return request<WorkingTimeReportDto>(
+      `/api/reports/working-times?${params.toString()}`,
+    );
+  },
+  workingTimeReportEmployees: () =>
+    request<WorkingTimeReportEmployeeDto[]>(
+      '/api/reports/working-times/employees',
+    ),
   projects: (includeInactive = false) =>
     request<ProjectDto[]>(`/api/projects${includeInactive ? '?includeInactive=true' : ''}`),
   bookableProjects: (employeeId: string) =>

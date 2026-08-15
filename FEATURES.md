@@ -5,9 +5,9 @@ small and mid-sized organisations. Its domain model focuses on German
 working-time workflows while keeping deployment and integration under the
 operator's control.
 
-> **Project status:** Beta. The capabilities below are implemented and covered
-> by automated tests. APIs, schemas, and user flows may still evolve before the
-> first stable release.
+> **Project status:** Stable. Published versions follow semantic versioning and
+> include release notes and documented upgrade steps. The capabilities below
+> are implemented and covered by automated tests.
 
 ## Mobile PWA
 
@@ -103,6 +103,7 @@ Employee submits
 | Project assignment matrix   | Employee-by-project matrix controlling who may book time to each project                                               |
 | Plan-versus-actual tracking | Plan hours per project and service order, with progress indicators and overbooking warnings                            |
 | Customer activity reports   | Per-project report of dates, employees, service orders, hours, and activities, including period filters and CSV export |
+| Working-time reports        | HR-only, project-independent overview of start, end, break, gross, and net time with CSV export                        |
 | Leave allowances            | Base leave, carry-over, adjustments, expiry dates, and adjustment reasons                                              |
 | German public holidays      | Configurable German-state holiday calendars used in vacation calculations                                              |
 | Absence administration      | Record and review sickness, training, and flextime entries for employees                                               |
@@ -126,6 +127,12 @@ bookings, and customer-facing activity reports in one administrative workflow.
 - Edit, deactivate, or delete service orders, with protection for referenced
   bookings
 - Open detailed project evaluations and export customer activity reports
+
+Project-independent working-time reporting is always available to HR
+administrators alongside project evaluations. It includes closed, non-rejected
+bookings regardless of whether the project feature is used. Its CSV exports
+contain employee names and working-time data and must therefore be handled as
+personal data under the organisation's retention and access policies.
 
 ## Compliance-Oriented Domain Logic
 
@@ -179,18 +186,24 @@ committed at [`apps/api/openapi.json`](apps/api/openapi.json).
 - Nx workspace with lint, type-check, build, unit, integration, and browser
   test targets
 
-## Beta Considerations
+## Release and Upgrade Policy
 
-- There is currently no hosted public demo or stable release.
-- Public APIs and database schemas may still evolve before the first stable
-  release.
-- Production deployments should validate organisation-specific labour
+- Stable releases are published through GitHub Releases with versioned API and
+  web container images.
+- Database changes are delivered as forward-only Prisma migrations and tested
+  against an existing database before merge.
+- Production deployments must be backed up and upgraded according to
+  [`UPGRADING.md`](UPGRADING.md); destructive reset commands are never part of
+  an upgrade.
+- Operators remain responsible for validating organisation-specific labour
   agreements, payroll integrations, security requirements, backups, monitoring,
   and operating procedures.
 
 ## Explore the Project
 
 - [Set up a local development environment](README.md#getting-started-development)
+- [Upgrade an existing installation](UPGRADING.md)
+- [Review published releases](https://github.com/patrickschiller/openclockwork/releases)
 - [Contribute to OpenClockwork](CONTRIBUTING.md)
 - [Review the security policy](SECURITY.md)
 - [Inspect the generated OpenAPI specification](apps/api/openapi.json)

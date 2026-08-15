@@ -1,6 +1,6 @@
 {
   "name": "openclockwork",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "license": "Apache-2.0",
   "private": true,
   "description": "OpenClockwork — open-source digital time-and-attendance management",
@@ -27,7 +27,8 @@
     "db:reset": "prisma migrate reset --force",
     "db:demo-reset": "node --import tsx prisma/demo-reset.ts",
     "generate:api": "ts-node --project apps/api/tsconfig.app.json --transpile-only apps/api/src/generate-openapi.ts && openapi-typescript apps/api/openapi.json -o apps/web/src/api/generated.ts",
-    "verify:api": "pnpm generate:api && git diff --exit-code -- apps/api/openapi.json apps/web/src/api/generated.ts"
+    "verify:api": "pnpm generate:api && git diff --exit-code -- apps/api/openapi.json apps/web/src/api/generated.ts",
+    "release:verify-tag": "node ops/verify-release-version.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",

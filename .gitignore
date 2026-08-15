@@ -39,6 +39,7 @@ prisma/.env
 .env.*
 !.env.example
 !.env.dev.example
+!.env.prod.example
 
 # --- Editors / IDEs ---
 .vscode/
