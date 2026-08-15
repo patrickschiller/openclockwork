@@ -44,6 +44,11 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 
+# Seed the mount point with app-user ownership. Docker copies this metadata
+# into a newly created named volume so local attachments stay writable after
+# container replacement.
+RUN mkdir -p /app/data/attachments && chown -R app:app /app/data
+
 USER app
 EXPOSE 3000
 

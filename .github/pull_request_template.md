@@ -16,10 +16,22 @@
 
 <!-- Describe the manual and/or automated tests you ran. Include relevant commands. -->
 
+## Release notes
+
+<!-- Add a user-facing release-note bullet, or write "None". -->
+
+## Upgrade impact
+
+- Database migration: <!-- None, or name the new migration. -->
+- Breaking change: <!-- No, or describe the compatibility impact. -->
+- Manual operator action: <!-- None, or describe the required step. -->
+
 ## Checklist
 
 - [ ] All commits are signed off (`git commit -s`) per the [DCO](../CONTRIBUTING.md#developer-certificate-of-origin-dco).
 - [ ] Lint, typecheck, and tests pass locally (`pnpm nx run-many -t lint typecheck test`).
 - [ ] New behaviour is covered by tests where appropriate.
+- [ ] Release notes and upgrade impact are documented above.
+- [ ] Existing Prisma migrations were not edited; schema changes use a new migration.
 - [ ] If domain rules from `base-instructions.md` were touched, the relevant section was re-read.
 - [ ] No new third-party dependencies added without justification in this PR description.

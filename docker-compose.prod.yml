@@ -1,9 +1,11 @@
 # Production-flavoured stack for a single-host deployment.
 #
 # Usage:
-#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod pull
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 #
 # Required env (see .env.example):
+#   OPENCLOCKWORK_VERSION
 #   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 #   DATABASE_URL  (must match the postgres credentials above)
 #   JWT_SECRET, ERP_API_KEY, CRON_API_KEY, API_CORS_ORIGINS
@@ -25,9 +27,7 @@ services:
       retries: 10
 
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
+    image: ghcr.io/patrickschiller/openclockwork-api:${OPENCLOCKWORK_VERSION}
     restart: unless-stopped
     depends_on:
       db:
@@ -42,16 +42,25 @@ services:
       ERP_API_KEY: ${ERP_API_KEY}
       CRON_API_KEY: ${CRON_API_KEY}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      ATTACHMENTS_DIR: ${ATTACHMENTS_DIR:-/app/data/attachments}
+      AZURE_BLOB_ACCOUNT: ${AZURE_BLOB_ACCOUNT:-}
+      AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-}
+    volumes:
+      - openclockwork-attachments:/app/data/attachments
     # Apply pending migrations on container start, then hand off to the API.
     # Idempotent: prisma skips already-applied migrations.
-    command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && node dist/main.js']
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && node dist/main.js',
+      ]
     expose:
       - '3000'
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
+    image: ghcr.io/patrickschiller/openclockwork-web:${OPENCLOCKWORK_VERSION}
     restart: unless-stopped
     depends_on:
       - api
@@ -60,4 +69,6 @@ services:
 
 volumes:
   openclockwork-db-data:
-    name: openclockwork-db-data-prod
+    name: ${OPENCLOCKWORK_DB_VOLUME:-openclockwork-db-data-prod}
+  openclockwork-attachments:
+    name: ${OPENCLOCKWORK_ATTACHMENTS_VOLUME:-openclockwork-attachments-prod}
