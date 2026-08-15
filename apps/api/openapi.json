@@ -923,6 +923,91 @@
         ]
       }
     },
+    "/api/reports/working-times/employees": {
+      "get": {
+        "operationId": "ReportsController_workingTimeEmployees",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkingTimeReportEmployeeDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/reports/working-times": {
+      "get": {
+        "operationId": "ReportsController_workingTimes",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkingTimeReportDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "reports"
+        ]
+      }
+    },
     "/api/timeentries": {
       "get": {
         "operationId": "TimeEntriesController_list",
@@ -2608,6 +2693,136 @@
         "required": [
           "orderNo",
           "title"
+        ]
+      },
+      "WorkingTimeReportEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName"
+        ]
+      },
+      "WorkingTimeReportRowDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "clockIn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "clockOut": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Open",
+              "Pending",
+              "Approved"
+            ]
+          },
+          "grossMinutes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "breakMinutes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "netMinutes": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "employeeName",
+          "date",
+          "clockIn",
+          "clockOut",
+          "status",
+          "grossMinutes",
+          "breakMinutes",
+          "netMinutes"
+        ]
+      },
+      "WorkingTimeReportTotalsDto": {
+        "type": "object",
+        "properties": {
+          "grossMinutes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "breakMinutes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "netMinutes": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "grossMinutes",
+          "breakMinutes",
+          "netMinutes"
+        ]
+      },
+      "WorkingTimeReportDto": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingTimeReportRowDto"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/WorkingTimeReportTotalsDto"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "rows",
+          "totals"
         ]
       },
       "ClockInDto": {

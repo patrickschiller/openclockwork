@@ -340,6 +340,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/working-times/employees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportsController_workingTimeEmployees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/reports/working-times": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["ReportsController_workingTimes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/timeentries": {
         parameters: {
             query?: never;
@@ -1030,6 +1062,43 @@ export interface components {
             /** @default true */
             isActive: boolean;
             planHours?: Record<string, never> | null;
+        };
+        WorkingTimeReportEmployeeDto: {
+            /** Format: uuid */
+            id: string;
+            firstName: string;
+            lastName: string;
+        };
+        WorkingTimeReportRowDto: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            employeeId: string;
+            employeeName: string;
+            /** Format: date */
+            date: string;
+            /** Format: date-time */
+            clockIn: string;
+            /** Format: date-time */
+            clockOut: string;
+            /** @enum {string} */
+            status: "Open" | "Pending" | "Approved";
+            grossMinutes: number;
+            breakMinutes: number;
+            netMinutes: number;
+        };
+        WorkingTimeReportTotalsDto: {
+            grossMinutes: number;
+            breakMinutes: number;
+            netMinutes: number;
+        };
+        WorkingTimeReportDto: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            rows: components["schemas"]["WorkingTimeReportRowDto"][];
+            totals: components["schemas"]["WorkingTimeReportTotalsDto"];
         };
         ClockInDto: {
             /** Format: uuid */
@@ -1843,6 +1912,48 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    ReportsController_workingTimeEmployees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkingTimeReportEmployeeDto"][];
+                };
+            };
+        };
+    };
+    ReportsController_workingTimes: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                employeeId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkingTimeReportDto"];
+                };
             };
         };
     };

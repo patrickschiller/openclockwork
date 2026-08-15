@@ -54,6 +54,11 @@ const AdminEmployeesPage = lazy(() =>
     default: m.AdminEmployeesPage,
   })),
 );
+const AdminWorkingTimesPage = lazy(() =>
+  import('../routes/AdminWorkingTimesPage').then((m) => ({
+    default: m.AdminWorkingTimesPage,
+  })),
+);
 const PlaceholderPage = lazy(() =>
   import('../routes/PlaceholderPage').then((m) => ({
     default: m.PlaceholderPage,
@@ -102,6 +107,10 @@ export function App() {
           />
           <Route path="admin/requests" element={<AdminRequestsPage />} />
           <Route path="admin/projects" element={<AdminProjectsPage />} />
+          <Route
+            path="admin/working-times"
+            element={<AdminWorkingTimesPage />}
+          />
           <Route path="admin/schedules" element={<AdminSchedulesPage />} />
           <Route path="admin/employees" element={<AdminEmployeesPage />} />
           <Route

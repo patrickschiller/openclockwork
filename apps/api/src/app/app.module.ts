@@ -12,6 +12,7 @@ import { LeaveAllowancesModule } from './leave-allowances/leave-allowances.modul
 import { NotificationsModule } from './notifications/notifications.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProjectsModule } from './projects/projects.module';
+import { ReportsModule } from './reports/reports.module';
 import { RequestsModule } from './requests/requests.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { ViolationsModule } from './violations/violations.module';
@@ -28,6 +29,7 @@ import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
     EmployeesModule,
     WorkSchedulesModule,
     ProjectsModule,
+    ReportsModule,
     TimeEntriesModule,
     LeaveAllowancesModule,
     AccountsModule,
