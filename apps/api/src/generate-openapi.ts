@@ -29,7 +29,7 @@ async function main() {
   const config = new DocumentBuilder()
     .setTitle('OpenClockwork API')
     .setDescription('Self-hostable working-time tracker — REST + WebSocket surface.')
-    .setVersion('1.1.1')
+    .setVersion('1.1.2')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
