@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 import { AppShell } from './AppShell';
+
+const runtimeWindow = window as Window & {
+  __OPENClockwork_CONFIG__?: { demoMode?: boolean };
+};
 
 vi.mock('./auth', () => ({
   useAuth: () => ({
@@ -34,7 +38,30 @@ vi.mock('./ThemeToggle', () => ({
   ThemeToggle: () => null,
 }));
 
-describe('AppShell mobile navigation', () => {
+describe('AppShell', () => {
+  afterEach(() => {
+    delete runtimeWindow.__OPENClockwork_CONFIG__;
+  });
+
+  it('keeps the demo notice within the available page width', () => {
+    runtimeWindow.__OPENClockwork_CONFIG__ = { demoMode: true };
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route index element={<div>Dashboard content</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const demoNotice = screen.getByRole('alert');
+
+    expect(demoNotice.classList.contains('w-auto')).toBe(true);
+    expect(demoNotice.classList.contains('w-full')).toBe(false);
+  });
+
   it('makes the manager approval inbox reachable from the overflow menu', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>

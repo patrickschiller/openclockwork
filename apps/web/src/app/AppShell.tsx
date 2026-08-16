@@ -104,7 +104,7 @@ export function AppShell() {
           </DropdownMenu>
         </header>
 
-        <DemoNotice className="mx-4 mt-4 md:mx-6" />
+        <DemoNotice className="mx-4 mt-4 w-auto md:mx-6" />
 
         {install.available && (
           <div className="flex items-center gap-3 border-b bg-muted/40 px-4 py-2 text-sm md:px-6">
