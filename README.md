@@ -128,25 +128,173 @@ Stop the stack with `docker compose -f docker-compose.dev.yml down`. The `-v`
 option also deletes persistent volumes and is only appropriate when you
 explicitly want to discard the local development database.
 
-## Production deployment
+## Production installation (step by step)
 
-Production deployments use versioned API and web images from the GitHub
-Container Registry. Pin every installation to a concrete version instead of
-using `latest`:
+Production installations use versioned API and web images from the GitHub
+Container Registry. The database starts empty: production never loads the
+development/demo seed. Follow every step below to configure the installation
+and create its first HR administrator.
+
+### 1. Prepare the host and configuration
+
+Install Docker Engine with the Docker Compose plugin, then obtain this
+repository and enter its directory:
 
 ```bash
+git clone https://github.com/patrickschiller/openclockwork.git
+cd openclockwork
 cp .env.prod.example .env.prod
-# Replace all change-me values and set the public API_CORS_ORIGINS URL.
+```
 
+Keep `.env.prod` private. It contains production credentials and is ignored by
+Git. Do not commit it or copy it into an issue, log, or support request.
+
+### 2. Generate independent secrets
+
+Generate every secret separately. Run each of the following commands exactly
+once and copy its output only to the variable named in the comment:
+
+```bash
+# POSTGRES_PASSWORD (use this same value in DATABASE_URL as well)
+openssl rand -hex 24
+
+# JWT_SECRET
+openssl rand -hex 32
+
+# ERP_API_KEY
+openssl rand -hex 32
+
+# CRON_API_KEY
+openssl rand -hex 32
+```
+
+Open `.env.prod` in an editor and replace every `change-me` value:
+
+- Set `OPENCLOCKWORK_VERSION` to the exact version from the GitHub Release,
+  without the leading `v`. Never deploy `latest`.
+- Put the first command's output into `POSTGRES_PASSWORD` and replace
+  `change-me-database-password` inside `DATABASE_URL` with that exact same
+  value. These two locations must match.
+- Put the output of each subsequent command into its matching variable:
+  `JWT_SECRET`, `ERP_API_KEY`, or `CRON_API_KEY`. These three values must all be
+  different from each other and from the database password.
+- Set `API_CORS_ORIGINS` to the exact URL used in the browser to open
+  OpenClockwork. Include `http://` or `https://` and include the port when it is
+  not the protocol default, but do not add a trailing slash or path:
+  - Local installation on the default port:
+    `API_CORS_ORIGINS=http://localhost:8080`
+  - Public installation behind TLS:
+    `API_CORS_ORIGINS=https://time.example.com`
+  - If more than one browser origin is required, separate the complete URLs
+    with commas and no spaces.
+- Keep the volume names stable across future upgrades. Set `TZ` and `WEB_PORT`
+  as required for the installation.
+
+If a PostgreSQL password contains URL-special characters, percent-encode it in
+`DATABASE_URL`. The hexadecimal command above avoids that ambiguity.
+
+### 3. Pull and start the services
+
+Choose exactly one of the following variants.
+
+#### Variant A: install a published release
+
+Use this on a production host when `OPENCLOCKWORK_VERSION` refers to an image
+that has already been published to GHCR:
+
+```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod pull
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
 
-The PostgreSQL database and locally stored request attachments use stable,
-named Docker volumes. On startup, the API runs `prisma migrate deploy`, which
-applies pending migrations without resetting the database. Never use
-`docker compose down -v`, `prisma migrate reset`, or `pnpm db:reset` for a
-production installation.
+#### Variant B: test the current local source tree
+
+Use this for an unpublished branch or local `main` checkout. Do not run the
+`pull` command from variant A: it would download the published release instead
+of testing the local changes.
+
+```bash
+docker compose \
+  -f docker-compose.prod.yml \
+  -f docker-compose.prod.build.yml \
+  --env-file .env.prod \
+  up -d --build
+```
+
+This variant builds `openclockwork-api:local` and `openclockwork-web:local` from
+the current working tree. Docker may still need to download the PostgreSQL,
+Node.js, and nginx base images if they are not present locally.
+
+The API waits for PostgreSQL and runs `prisma migrate deploy` before it starts.
+Migrations create the empty production schema but never create demo employees,
+projects, bookings, or known passwords.
+
+### 4. Verify the empty installation
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod ps
+
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  exec -T api ./node_modules/.bin/prisma migrate status
+
+curl --fail http://localhost:8080/api/health
+```
+
+All services should be healthy, the migrations should be current, and the
+health endpoint should return HTTP 200. Replace `8080` if `WEB_PORT` has been
+changed. The login form is intentionally empty in production at this point.
+
+### 5. Create the first HR administrator
+
+Run the interactive bootstrap command from the production host. Do not add
+`-T`: the command requires a terminal for its prompts.
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod \
+  exec api node --import tsx prisma/create-admin.ts
+```
+
+Enter the administrator's personnel number, name, email address, time model,
+weekly hours, annual leave, start date, and German state. Defaults are shown in
+square brackets and can be accepted with Enter.
+
+The command creates exactly one active `HRAdmin` and prints a random initial
+password once. Store that password in the organisation's approved password
+manager. The command refuses to run if any employee already exists, and it
+never imports the demo seed.
+
+### 6. Sign in and replace the initial password
+
+1. Open the configured public URL (or `http://localhost:8080` while testing
+   directly on the host; use the configured `WEB_PORT` if it differs).
+2. Sign in with the email address and generated initial password from step 5.
+3. Open **Administration → Employees**, select the key action for your own
+   account, and set a new unique password of at least eight characters.
+4. Sign out and sign in again with the new password before discarding the
+   initial password.
+
+### 7. Finish the organisation setup
+
+Review the new administrator's employee master data, then create the required
+work schedules, employees, projects, and assignments through the administration
+pages. Nothing from `prisma/seed.ts` belongs in a production database.
+
+### 8. Protect the installation
+
+Configure TLS/reverse-proxy access, database backups, and attachment backups
+before entering real personal data. The PostgreSQL database and locally stored
+attachments use stable named Docker volumes.
+
+**Warning — there is no command to execute in this part of the installation.**
+The following operations destroy application data and must never be used in
+production: removing Compose volumes during shutdown, resetting Prisma
+migrations, running the database-reset script, or running the destructive demo
+reset. A normal stop or restart must always preserve the named volumes.
+
+If the bootstrap command reports that an employee already exists, do not reset
+or seed the database to work around it. Preserve a backup and investigate the
+existing data; the bootstrap command is intentionally not an administrator
+recovery or privilege-escalation tool.
 
 Maintainers can build the same production-shaped stack from the current source
 tree with the local override:

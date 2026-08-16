@@ -1,16 +1,20 @@
 # Releasing OpenClockwork
 
 Only publish a release from a green `main` commit. Stable releases follow
-semantic versioning and use matching metadata in three places:
+semantic versioning and use matching metadata in five places:
 
 - `package.json`: `MAJOR.MINOR.PATCH`
+- `apps/api/src/main.ts` and `apps/api/src/generate-openapi.ts`:
+  `MAJOR.MINOR.PATCH`
 - `RELEASE_NOTES.md`: `# OpenClockwork vMAJOR.MINOR.PATCH`
+- `.env.prod.example`: `OPENCLOCKWORK_VERSION=MAJOR.MINOR.PATCH`
 - Git tag: `vMAJOR.MINOR.PATCH`
 
 ## Prepare the release pull request
 
 1. Choose the next semantic version according to the compatibility impact.
-2. Update `package.json`, `RELEASE_NOTES.md`, and any version examples.
+2. Update `package.json`, `RELEASE_NOTES.md`, `.env.prod.example`, and any
+   additional version examples.
 3. Curate highlights, upgrade notes, database migrations, breaking changes,
    Docker image names, and known issues.
 4. Ensure every included pull request has a release-note entry or is explicitly
@@ -26,8 +30,8 @@ annotated tag on the exact merge commit and push it:
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v1.1.0 -m "OpenClockwork v1.1.0"
-git push origin v1.1.0
+git tag -a v1.1.1 -m "OpenClockwork v1.1.1"
+git push origin v1.1.1
 ```
 
 The release workflow verifies the tag and notes, runs Nx and API end-to-end
@@ -42,8 +46,8 @@ pulled anonymously by self-hosted installations.
 ## Verify the published release
 
 ```bash
-docker pull ghcr.io/patrickschiller/openclockwork-api:1.1.0
-docker pull ghcr.io/patrickschiller/openclockwork-web:1.1.0
+docker pull ghcr.io/patrickschiller/openclockwork-api:1.1.1
+docker pull ghcr.io/patrickschiller/openclockwork-web:1.1.1
 ```
 
 Confirm that the GitHub Release is marked latest, contains the curated upgrade
