@@ -90,6 +90,12 @@ const de: Catalog = {
   'login.submit': 'Anmelden',
   'login.submitting': 'Anmelden…',
   'login.failed': 'Anmeldung fehlgeschlagen',
+  'login.invalidCredentials': 'E-Mail-Adresse oder Passwort ist falsch.',
+  'login.connectionFailed':
+    'Der Server ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.',
+  'login.serverUnavailable':
+    'Die Anmeldung ist wegen eines Serverproblems derzeit nicht möglich. Versuche es später erneut oder wende dich an die Administration.',
+  'login.demoCredentials': 'Demo-Zugang',
   'demo.title': 'Öffentliche Demo-Umgebung',
   'demo.description':
     'Bitte keine echten personenbezogenen Daten eingeben. Alle eingegebenen Daten und Anhänge werden jede Nacht zurückgesetzt.',
@@ -465,6 +471,12 @@ const en: Catalog = {
   'login.submit': 'Sign in',
   'login.submitting': 'Signing in…',
   'login.failed': 'Sign-in failed',
+  'login.invalidCredentials': 'The email address or password is incorrect.',
+  'login.connectionFailed':
+    'The server cannot be reached. Check your connection and try again.',
+  'login.serverUnavailable':
+    'Sign-in is currently unavailable because of a server problem. Try again later or contact an administrator.',
+  'login.demoCredentials': 'Demo credentials',
   'demo.title': 'Public demo environment',
   'demo.description':
     'Do not enter real personal data. All entered data and attachments are reset every night.',

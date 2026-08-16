@@ -15,12 +15,28 @@ import { LanguageToggle } from '../app/LanguageToggle';
 import { useI18n } from '../app/i18n';
 import { DemoNotice } from '../app/DemoNotice';
 import { BrandMark } from '../app/BrandMark';
+import { isDemoMode } from '../app/runtime-config';
+import { ApiError } from '../api/client';
+
+const DEMO_EMAIL = 'hannah.roth@openclockwork.test';
+const DEMO_PASSWORD = 'openclockwork';
+
+function loginErrorMessage(error: unknown, t: (key: string) => string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return t('login.invalidCredentials');
+    if (error.status >= 500) return t('login.serverUnavailable');
+    return t('login.failed');
+  }
+  if (error instanceof TypeError) return t('login.connectionFailed');
+  return t('login.failed');
+}
 
 export function LoginPage() {
   const { login, loading } = useAuth();
   const { t } = useI18n();
-  const [email, setEmail] = useState('hannah.roth@openclockwork.test');
-  const [password, setPassword] = useState('openclockwork');
+  const demoMode = isDemoMode();
+  const [email, setEmail] = useState(demoMode ? DEMO_EMAIL : '');
+  const [password, setPassword] = useState(demoMode ? DEMO_PASSWORD : '');
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -29,7 +45,7 @@ export function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('login.failed'));
+      setError(loginErrorMessage(err, t));
     }
   };
 
@@ -79,10 +95,12 @@ export function LoginPage() {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? t('login.submitting') : t('login.submit')}
               </Button>
-              <p className="text-xs text-muted-foreground">
-                Default-Seed: <code>hannah.roth@openclockwork.test</code> /{' '}
-                <code>openclockwork</code>
-              </p>
+              {demoMode && (
+                <p className="text-xs text-muted-foreground">
+                  {t('login.demoCredentials')}: <code>{DEMO_EMAIL}</code> /{' '}
+                  <code>{DEMO_PASSWORD}</code>
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>

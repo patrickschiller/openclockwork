@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execFileSync } from 'node:child_process';
 import { Client } from 'pg';
 
 /* eslint-disable */
@@ -37,7 +37,8 @@ module.exports = async function () {
   }
 
   // 2. Apply Prisma migrations to the (now-existing) test database.
-  execSync('pnpm exec prisma migrate deploy', {
+  const prismaCli = require.resolve('prisma/build/index.js');
+  execFileSync(process.execPath, [prismaCli, 'migrate', 'deploy'], {
     stdio: 'inherit',
     env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
   });

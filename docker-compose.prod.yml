@@ -4,7 +4,7 @@
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod pull
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 #
-# Required env (see .env.example):
+# Required env (see .env.prod.example):
 #   OPENCLOCKWORK_VERSION
 #   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 #   DATABASE_URL  (must match the postgres credentials above)

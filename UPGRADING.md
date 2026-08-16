@@ -34,7 +34,7 @@ command above.
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, for example `1.1.0`. Do not use `latest` for a controlled production
+Release, for example `1.1.1`. Do not use `latest` for a controlled production
 upgrade.
 
 ```bash
