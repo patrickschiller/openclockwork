@@ -121,6 +121,12 @@ That spins everything up with placeholder hello-world images for api and
 web. The first push to `main` after merging the deploy workflow will
 replace them with the real builds.
 
+`supportUrl` controls only the optional voluntary-support link shown after the
+first terminal activation. Set `param supportUrl = ''` in the private parameter
+file to hide it. It is never an entitlement or a prerequisite for the terminal.
+The required `terminalQrSecret` is stored separately in Key Vault and must not
+reuse `jwtSecret`; the example parameter file generates both independently.
+
 ## Disposable public demo reset
 
 For the public demo, set these values in the local, gitignored

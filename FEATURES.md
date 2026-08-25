@@ -1,75 +1,111 @@
 # OpenClockwork Features
 
-OpenClockwork is a mobile-first, self-hostable time-and-attendance system for
-small and mid-sized organisations. Its domain model focuses on German
-working-time workflows while keeping deployment and integration under the
-operator's control.
+OpenClockwork is a responsive, self-hostable time-and-attendance system for
+employees, managers, HR administrators, and paired tablet terminals. Its domain
+model focuses on real German working-time workflows while keeping deployment,
+data, and integrations under the operator's control.
 
 > **Project status:** Stable. Published versions follow semantic versioning and
-> include release notes and documented upgrade steps. The capabilities below
-> are implemented and covered by automated tests.
+> include release notes, forward-only database migrations, and documented
+> upgrade steps. The capabilities below are implemented and covered by
+> automated tests.
+
+<p align="center">
+  <img src="assets/screenshots/tablet/kiosk.png" alt="Paired OpenClockwork tablet kiosk with a rotating QR code" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/mobile/booking.png" alt="Mobile booking view" width="30%">
+  <img src="assets/screenshots/mobile/terminal.png" alt="Mobile terminal scanner" width="30%">
+  <img src="assets/screenshots/mobile/navigation.png" alt="Role-aware mobile navigation and overflow menu" width="30%">
+</p>
+
+## At a glance
+
+| Audience          | Main capabilities                                                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Employees         | Clock in/out, scan tablet QR codes, book daily targets, manage requests and absences, view calendars and time accounts              |
+| Managers          | Review team requests, handle substitute workflows, approve or return corrections, use bulk actions, inspect project data            |
+| HR administrators | Manage employees, schedules, leave, projects, reports, terminal kiosks, geofences, devices, and production bootstrap                |
+| Kiosk devices     | Pair once, display a branded rotating challenge, refresh automatically, report health, and operate with least-privilege credentials |
+| Integrations      | Consume documented REST endpoints, generated types, realtime events, ERP exports, and health checks                                 |
 
 ## Mobile PWA
 
-The responsive web application can be installed as a Progressive Web App and
-provides role-aware navigation for employees, managers, and HR administrators.
+The React application is installable as a Progressive Web App and adapts down
+to narrow phone screens without horizontal scrolling. The compact profile icon
+opens an identity menu with name, email, role, and logout. German and English
+can be switched from the login, employee shell, and kiosk.
+
+The primary phone navigation is intentionally task-focused:
+
+1. Dashboard
+2. Booking
+3. Terminal
+4. Requests
+5. More
+
+Calendar, substitutes, absences, approval inboxes, project areas, and HR
+administration remain reachable through the role-aware **More** menu.
 
 <p align="center">
-  <img src="assets/screenshots/mobile/dashboard.jpg" alt="Mobile dashboard" width="30%">
-  <img src="assets/screenshots/mobile/booking.jpg" alt="Mobile booking view" width="30%">
-  <img src="assets/screenshots/mobile/calendar.jpg" alt="Mobile annual calendar" width="30%">
+  <img src="assets/screenshots/mobile/calendar.png" alt="Mobile annual absence calendar" width="45%">
+  <img src="assets/screenshots/mobile/vacation-request.png" alt="Mobile vacation request with live leave balance" width="45%">
 </p>
+
+## QR tablet terminals
+
+OpenClockwork turns a standard tablet into a shared, branded time-clock display
+without requiring RFID badges, proprietary readers, or biometrics. The mounted
+device never acts as an employee and cannot call normal HR or time-entry APIs.
 
 <p align="center">
-  <img src="assets/screenshots/mobile/requests.jpg" alt="Mobile request overview" width="30%">
-  <img src="assets/screenshots/mobile/vacation-request.jpg" alt="Mobile vacation request form" width="30%">
+  <img src="assets/screenshots/admin/terminals.png" alt="Terminal administration with geofence, pairing, and device state" width="100%">
 </p>
 
-## Employee Experience
+| Capability             | What it provides                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Terminal configuration | Internal name, visible location, custom message, optional PNG/JPEG/WebP logo, IANA time zone, and active state                        |
+| Optional GPS           | Run without any geofence, or require a fresh position inside a configured radius and maximum accuracy                                 |
+| One-time pairing       | Short-lived code and kiosk URL; a new pairing revokes the previous active device                                                      |
+| Kiosk PWA              | Dedicated manifest and full-screen view with time, date, location, custom branding, connection state, and automatic challenge refresh |
+| Employee scanner       | Explicit clock-in or clock-out choice, camera preview, local QR decoding, and GPS only when the terminal requires it                  |
+| Device operations      | Last-seen monitoring, re-pairing, immediate device revocation, terminal deactivation, and permanent deletion                          |
+| Time-zone handling     | IANA drop-down with `Europe/Berlin` as the default and server-side validation                                                         |
+| Durable audit trail    | Historical bookings retain terminal/GPS evidence snapshots even when kiosk-only records are removed                                   |
 
-| Capability                        | What it provides                                                                                                            |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Personal dashboard                | Vacation balance, overtime account, and detected core-time violations at a glance                                           |
-| Clock in and out                  | PWA-based time booking with optional GPS coordinates and recent-booking history                                             |
-| Direct daily-block booking        | With per-employee HR permission, book the contractual daily target as one completed, directly approved block                |
-| Core-time violation details       | Booking-page list with violation date, affected core-time window, violation type, boundary, and uncovered minutes           |
-| Project and service-order booking | Book time to assigned active projects; active service orders become the required booking level                              |
-| Activity per booking              | Record a customer-facing description of the work performed                                                                  |
-| Retroactive booking changes       | Change a booking target or activity after the fact, including approved entries                                              |
-| Entry splitting                   | Split a closed entry at a chosen time, for example when switching projects mid-day                                          |
-| Retroactive range booking         | Assign a past interval to a project; the API validates complete clocked-time coverage and splits existing entries as needed |
-| Automatic break accounting        | Statutory break deduction after six and nine hours                                                                          |
-| Time accounts                     | Calculated target hours, actual hours, overtime, and opening balances                                                       |
-| Annual calendar                   | Year overview for vacation, home office, special leave, sickness, training, and flextime days                               |
-| Requests                          | Vacation, home-office, special-leave, and time-adjustment requests                                                          |
-| Half-day vacation                 | First-day and last-day half-day selection with calculated leave usage                                                       |
-| Vacation balance preview          | Available, approved, and submitted leave shown while creating a request                                                     |
-| Request lifecycle                 | View requests, workflow state, decisions, and cancellation state                                                            |
-| Substitute inbox                  | Accept or decline requests when named as a substitute                                                                       |
-| Absence records                   | Record sickness, training, and flextime days                                                                                |
-| Multilingual interface            | German and English UI with a persistent language switcher on the login screen and in the application header                 |
-| Role-aware mobile navigation      | Bottom navigation plus an overflow menu that keeps manager and HR areas, including approval inboxes, reachable on phones    |
-| Theme preference                  | Light, dark, or operating-system theme                                                                                      |
+The local iPad pilot includes a trusted-HTTPS Compose overlay, generated test
+CA/server certificates, loopback-only raw service ports, an Nginx TLS gateway,
+Guided Access guidance, a site acceptance checklist, and MDM recommendations.
+See [the German iPad setup guide](docs/IPAD_TERMINAL_SETUP.de.md).
 
-## Languages and Localisation
+## Employee experience
 
-OpenClockwork ships with a German and English user interface across the core
-employee, manager, and HR workflows. The selected language is stored in the
-browser.
+| Capability                        | What it provides                                                                                                |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Personal dashboard                | Leave balance, overtime account, current booking, open requests, and detected core-time violations              |
+| Clock in and out                  | PWA booking with optional GPS, project/service-order selection, and recent booking history                      |
+| QR terminal booking               | Scan a short-lived kiosk challenge and let the server validate identity, replay state, and optional geofence    |
+| Direct daily-target block         | With per-employee HR permission, book the contractual daily target as one completed and directly approved block |
+| Core-time violation details       | Date, affected core window, violation type, boundary, and uncovered minutes                                     |
+| Project and service-order booking | Book only to assigned active projects; active service orders become the required booking level                  |
+| Activity per booking              | Store a customer-facing description of the work performed                                                       |
+| Retroactive booking changes       | Change project/service-order/activity on completed and approved entries                                         |
+| Entry splitting                   | Split a closed entry at a chosen time when work changes between projects                                        |
+| Retroactive range booking         | Assign a past interval to a project; coverage is validated and existing entries are split as required           |
+| Automatic break accounting        | Statutory deduction after six and nine hours                                                                    |
+| Time accounts                     | Calculated target hours, actual hours, overtime, and opening balances                                           |
+| Annual calendar                   | Year view for vacation, home office, special leave, sickness, training, and flextime                            |
+| Requests                          | Vacation, home-office, special-leave, and time-adjustment workflows                                             |
+| Half-day vacation                 | Independent first-day and last-day half-day selection                                                           |
+| Live leave preview                | Available, approved, submitted, and calculated leave shown while creating a request                             |
+| Substitute inbox                  | Accept or decline requests when named as a substitute                                                           |
+| Absence records                   | Record sickness, training, and flextime days without mobile layout overflow                                     |
+| Theme preference                  | Light, dark, or operating-system theme                                                                          |
 
-- Central translation catalogue shared by navigation, pages, dialogs, actions,
-  validation hints, and empty states
-- Localised workflow states, request and absence types, roles, time models, and
-  core-time violation labels
-- Locale-aware date and date-time formatting
-- Correct German labels for technical workflow values such as `Approved`,
-  `Pending`, `PendingManager`, and `TimeApproval`
-- Extensible catalogue architecture so another language can be added and
-  maintained in one central location
+## Approval workflows
 
-## Approval Workflows
-
-OpenClockwork models approvals as explicit workflow states instead of a single
+OpenClockwork models approvals as explicit state transitions instead of one
 approved/rejected flag.
 
 ```text
@@ -80,139 +116,154 @@ Employee submits
   -> approved
 ```
 
-- Manager and HR approval inboxes, reachable from desktop and mobile navigation
+- Manager and HR inboxes from desktop and mobile navigation
 - Substitute acceptance and rejection
-- Manager approval, rejection, and return-for-correction
+- Manager approval, rejection, and return for correction
 - HR confirmation and rejection
 - Bulk approval and rejection
 - Request cancellation
-- Audit trail of workflow events
-- Special approval flag for bookings and time adjustments outside configured
-  working frames
-- Direct daily blocks bypass the request workflow only when HR has enabled the
-  option for that employee; conflicting or out-of-policy blocks are rejected
-- Request attachments with local-filesystem or Azure Blob storage adapters
+- Complete workflow-event history
+- Special approval for bookings and corrections outside configured frames
+- Local-filesystem or Azure Blob attachments for supported request types
+- Daily-target blocks bypass the workflow only when HR enables the employee and
+  all schedule, holiday, absence, conflict, frame, and break checks pass
 
-## HR and Administration
+## HR and administration
 
-| Capability                  | What it provides                                                                                                       |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Employee management         | Create, edit, deactivate, reactivate, and reset employee passwords                                                     |
-| Daily-block permission      | Enable or disable direct daily-target block booking for each employee                                                  |
-| Roles                       | Employee, Manager, and HRAdmin access levels                                                                           |
-| Time models                 | Full-time, part-time, trust-based working time, and flextime                                                           |
-| Work schedules              | Configurable working days, permitted booking frames, and multiple core-time windows                                    |
-| Schedule assignment         | Assign schedules to individual employees or bulk-assign by time model                                                  |
-| Project management          | Projects structured by service orders, with active/inactive lifecycles and deletion protection once time is booked     |
-| Project assignment matrix   | Employee-by-project matrix controlling who may book time to each project                                               |
-| Plan-versus-actual tracking | Plan hours per project and service order, with progress indicators and overbooking warnings                            |
-| Customer activity reports   | Per-project report of dates, employees, service orders, hours, and activities, including period filters and CSV export |
-| Working-time reports        | HR-only, project-independent overview of start, end, break, gross, and net time with CSV export                        |
-| Leave allowances            | Base leave, carry-over, adjustments, expiry dates, and adjustment reasons                                              |
-| German public holidays      | Configurable German-state holiday calendars used in vacation calculations                                              |
-| Absence administration      | Record and review sickness, training, and flextime entries for employees                                               |
-| Approval operations         | Role-aware manager and HR inboxes with bulk actions and workflow history                                               |
+| Capability              | What it provides                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| Employee management     | Create, edit, deactivate/reactivate, reset passwords, assign managers, and control direct daily blocks |
+| Roles                   | Employee, Manager, and HRAdmin access levels with role-aware navigation and endpoint guards            |
+| Time models             | Full-time, part-time, trust-based working time, and flextime                                           |
+| Work schedules          | Working-day masks, permitted frames, and multiple named core-time windows                              |
+| Schedule assignment     | Assign individual schedules or bulk-assign by time model                                               |
+| Leave allowances        | Base leave, carry-over, adjustments, expiry dates, and adjustment reasons                              |
+| German public holidays  | State-specific holiday calendars used in target hours and vacation calculations                        |
+| Absence administration  | Record and review sickness, training, and flextime entries                                             |
+| Approval operations     | Manager/HR inboxes, bulk actions, correction loops, and workflow history                               |
+| Terminal administration | Configure, activate, pair, monitor, revoke, re-pair, deactivate, or permanently delete tablet kiosks   |
+| Working-time reports    | HR-only start, end, break, gross, net, approval, and CSV reporting independent of projects             |
 
-## Project Management and Reporting
+Production starts with an empty database. The interactive
+`prisma/create-admin.ts` bootstrap creates exactly one first HR administrator,
+prints a random initial password once, and refuses to run after any employee has
+been created.
+
+## Project management and reporting
 
 Projects combine employee assignments, service orders, planned hours, actual
 bookings, and customer-facing activity reports in one administrative workflow.
 
 <p align="center">
-  <img src="assets/screenshots/projects.png" alt="Project overview with plan-versus-actual progress and service orders" width="100%">
+  <img src="assets/screenshots/projects.png" alt="Project overview with PLAN/IST progress and service orders" width="100%">
 </p>
 
-- Create and maintain projects with project numbers, titles, and descriptions
-- Assign employees and control which projects they may book time to
-- Structure projects into service orders with separate active/inactive states
-- Maintain PLAN hours and compare them with booked IST hours at project and
-  service-order level
-- Review progress indicators and identify approaching or exceeded budgets
-- Edit, deactivate, or delete service orders, with protection for referenced
-  bookings
-- Open detailed project evaluations and export customer activity reports
+- Project number, title, description, lifecycle, and optional PLAN hours
+- Employee-by-project assignment matrix controlling booking eligibility
+- Active/inactive service orders with their own PLAN hours
+- PLAN/IST progress indicators at project and service-order level
+- Protection against deleting referenced projects or service orders
+- Detailed evaluations filtered by period, employee, project, and order
+- Customer-facing activity report and CSV export
+- Project-independent HR working-time report for all closed, non-rejected entries
 
-Project-independent working-time reporting is always available to HR
-administrators alongside project evaluations. It includes closed, non-rejected
-bookings regardless of whether the project feature is used. Its CSV exports
-contain employee names and working-time data and must therefore be handled as
-personal data under the organisation's retention and access policies.
+Exports contain employee names and working-time data and must be handled as
+personal data under the organisation's access and retention policies.
 
-## Compliance-Oriented Domain Logic
+## Compliance-oriented domain logic
 
-OpenClockwork makes working-time rules visible in code and testable as domain
-logic. It is not a substitute for legal advice or organisation-specific policy
-configuration.
+Working-time rules are visible in code and covered by focused tests. Operators
+remain responsible for validating their organisation's exact policies.
 
 - Statutory break calculation
-- Target-versus-actual hour accounting, including daily targets derived from
-  weekly hours and the configured number of working days
-- Configurable working days and core-time windows
-- Direct daily blocks validated against public holidays, absences, active
-  requests, existing time entries, and permitted working-time frames
-- Detection of core-time violations
-- Special approval handling for out-of-frame bookings
-- Vacation calculation using working days and public holidays
-- Carry-over expiry processing
-- Multi-stage approval workflows
+- Target/actual accounting derived from weekly hours and working-day masks
+- Opening overtime balances and employee start dates
+- Configurable working frames and multiple core-time windows
+- Direct daily-target validation against holidays, absences, requests, existing
+  entries, permitted frames, and automatic breaks
+- Detailed core-time violation detection
+- Special approval handling for out-of-frame entries
+- Working-day and German state-holiday aware vacation calculation
+- Half-day leave and carry-over expiry processing
+- Multi-stage request workflows and workflow events
 
-## Security and Data Handling
+## Languages, accessibility, and responsive design
 
-- JWT access and refresh authentication for interactive users
-- Role-based endpoint protection for employee, manager, and HR operations
+- German and English UI across login, employee, manager, HR, and kiosk routes
+- Central translation catalogue for labels, validation, states, and empty views
+- Locale-aware dates and timestamps
+- Persistent language and theme preferences
+- Keyboard-operable account and mobile overflow menus
+- Semantic labels for navigation, forms, buttons, progress indicators, and QR
+  images
+- Tested mobile breakpoints at 320 px and 375 px without horizontal overflow
+
+## Security and data handling
+
+- JWT access/refresh authentication for interactive users
+- Employee identity taken from the authenticated token for live booking APIs
+- Role-based guards for employee, manager, and HR endpoints
 - Dedicated API-key protection for machine-to-machine ERP exports
 - Authenticated Socket.IO connections
 - Password hashing and refresh-token rotation
-- Request workflow history for approval decisions
-- Pluggable attachment storage using the local filesystem or Azure Blob Storage
+- Separate `TERMINAL_QR_SECRET` for kiosk pairing and QR signing material
+- Hash-only device credential storage and immediate revocation
+- Short-lived challenges, daily key rotation, rate limiting, expiry, and
+  per-employee replay protection
+- Optional server-enforced geofences with maximum-accuracy validation
+- Historical position/accuracy/radius snapshots retained when a terminal is
+  deleted; pairing codes, devices, credentials, and QR challenges are removed
+- Pluggable attachment storage using local volumes or Azure Blob Storage
+- Public demo reset controls that are explicitly disabled by default
 
 OpenClockwork provides technical controls, but operators remain responsible for
-their deployment security, retention rules, access policies, and legal
-compliance.
+TLS, secrets, access policy, legal basis, retention, backups, monitoring, and
+incident response.
 
-## API and Integrations
+## API and integrations
 
-The NestJS REST API is documented through the generated OpenAPI specification
-committed at [`apps/api/openapi.json`](apps/api/openapi.json).
+The generated and committed OpenAPI specification lives at
+[`apps/api/openapi.json`](apps/api/openapi.json).
 
-- Paginated ERP time-entry export with project, service-order, and activity references
-- Authenticated endpoints for reading the current employee's daily-block option
-  and creating a directly approved daily block
-- Socket.IO events for real-time client refreshes
+- Authenticated employee clock-in/out and terminal scanning
+- HR terminal/device lifecycle endpoints and least-privilege kiosk endpoints
+- Employee daily-target capability and direct-block creation
+- Paginated ERP time-entry exports with project, service-order, and activity
+  references
+- Socket.IO events for realtime client refreshes
 - Health endpoint for deployment checks
 - Generated TypeScript client types for the web application
-- Language-neutral API values translated centrally by the web application
+- Language-neutral API values translated by the web catalogue
 
-## Self-Hosting and Operations
+## Self-hosting and operations
 
 - Dockerfiles for API and web applications
-- Docker Compose configurations for local development and self-hosting
+- Development and production Docker Compose configurations
+- Trusted-HTTPS iPad overlay with runtime-configuration validation
 - PostgreSQL with versioned Prisma migrations
-- Seed data for local evaluation
-- Azure Container Apps reference infrastructure using Bicep
-- Azure Key Vault and managed-identity integration
-- Azure Blob Storage support for attachments
-- Nx workspace with lint, type-check, build, unit, integration, and browser
-  test targets
+- Synthetic seed data for local evaluation only
+- Empty production bootstrap with a one-time HR admin command
+- Azure Container Apps, ACR, PostgreSQL Flexible Server, Key Vault, Blob
+  Storage, and Log Analytics reference infrastructure
+- Dedicated terminal QR secret in Compose and Azure Key Vault
+- Stable versioned images and documented backup/migration/rollback procedures
+- Nx targets for lint, type-check, build, unit, integration, E2E, and browser
+  tests
 
-## Release and Upgrade Policy
+## Voluntary support
 
-- Stable releases are published through GitHub Releases with versioned API and
-  web container images.
-- Database changes are delivered as forward-only Prisma migrations and tested
-  against an existing database before merge.
-- Production deployments must be backed up and upgraded according to
-  [`UPGRADING.md`](UPGRADING.md); destructive reset commands are never part of
-  an upgrade.
-- Operators remain responsible for validating organisation-specific labour
-  agreements, payroll integrations, security requirements, backups, monitoring,
-  and operating procedures.
+The complete application and tablet terminal are Apache-2.0 software. A
+one-time optional support prompt may appear to HR after the first terminal
+activation; dismissing it never changes functionality. `SUPPORT_URL` can point
+to another trusted HTTPS page or be empty. No payment state, entitlement, or
+installation identity is sent back to OpenClockwork.
 
-## Explore the Project
+## Explore the project
 
-- [Set up a local development environment](README.md#getting-started-development)
+- [Main README and installation guide](README.md)
+- [Set up and test an iPad terminal](docs/IPAD_TERMINAL_SETUP.de.md)
 - [Upgrade an existing installation](UPGRADING.md)
 - [Review published releases](https://github.com/patrickschiller/openclockwork/releases)
-- [Contribute to OpenClockwork](CONTRIBUTING.md)
+- [Contribute with DCO sign-off](CONTRIBUTING.md)
 - [Review the security policy](SECURITY.md)
-- [Inspect the generated OpenAPI specification](apps/api/openapi.json)
+- [Inspect the OpenAPI specification](apps/api/openapi.json)

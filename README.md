@@ -1,132 +1,210 @@
 # OpenClockwork
 
-> Open-source digital time-and-attendance management — **Zeiterfassung** done right, on a modern web stack.
-
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![DCO](https://img.shields.io/badge/DCO-required-blue)](CONTRIBUTING.md#developer-certificate-of-origin-dco)
-[![GitHub Release](https://img.shields.io/github/v/release/patrickschiller/openclockwork)](https://github.com/patrickschiller/openclockwork/releases/latest)
-
-OpenClockwork is a self-hostable working-time tracker for small and mid-sized organisations. Employees can clock in and out or, when HR enables the option for them, book their contractual daily target as one completed and directly approved block. OpenClockwork models real-world German labour-law requirements (statutory break deduction, _Soll/Ist_ hour accounts, vacation balances, multi-stage approval workflows for _Urlaub_, _Home-Office_, _Sonderurlaub_, _Zeitanträge_) — but it is built to be useful anywhere that needs a credible alternative to commercial _Zeiterfassung_ products.
-
-The project is intentionally small in scope and opinionated in its choices, so a single developer or a small team can stand it up, run it, and trust the numbers.
-
 <p align="center">
-  <img src="assets/screenshots/mobile/booking.jpg" alt="OpenClockwork mobile clock-in and clock-out view with optional GPS" width="30%">
-  <img src="assets/screenshots/mobile/calendar.jpg" alt="OpenClockwork mobile annual absence calendar" width="30%">
-  <img src="assets/screenshots/mobile/vacation-request.jpg" alt="OpenClockwork mobile vacation request with live leave balance" width="30%">
+  <img src="assets/brand/openclockwork-mark.svg" alt="OpenClockwork clock and location-pin mark" width="112">
 </p>
 
 <p align="center">
-  <strong>Mobile-first PWA for employees, managers, and HR.</strong><br>
+  <strong>Open-source time and attendance for teams that want trustworthy rules, modern self-hosting, and no proprietary punch-clock hardware.</strong>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 license"></a>
+  <a href="CONTRIBUTING.md#developer-certificate-of-origin-dco"><img src="https://img.shields.io/badge/DCO-required-blue" alt="DCO required"></a>
+  <a href="https://github.com/patrickschiller/openclockwork/releases/latest"><img src="https://img.shields.io/github/v/release/patrickschiller/openclockwork" alt="Latest GitHub release"></a>
+</p>
+
+OpenClockwork is a mobile-first, self-hostable working-time system for small and
+mid-sized organisations. Employees can clock in and out, scan a rotating QR
+code from a wall-mounted tablet, or—when HR explicitly enables it—book their
+contractual daily target as one completed block.
+
+The domain model covers real working-time behaviour: statutory break deduction,
+target/actual accounts, configurable schedules and core hours, German public
+holidays, leave balances, multi-stage approvals, projects, service orders, and
+auditable reporting. The UI ships in German and English and works as an
+installable PWA on phones, tablets, and desktops.
+
+<p align="center">
+  <img src="assets/screenshots/tablet/kiosk.png" alt="OpenClockwork tablet terminal with a rotating QR code" width="100%">
+</p>
+
+<p align="center">
+  <img src="assets/screenshots/mobile/booking.png" alt="Mobile clock-in and clock-out view with optional GPS and project selection" width="30%">
+  <img src="assets/screenshots/mobile/terminal.png" alt="Mobile QR terminal scanner" width="30%">
+  <img src="assets/screenshots/mobile/vacation-request.png" alt="Mobile vacation request with live leave balance" width="30%">
+</p>
+
+<p align="center">
+  <strong>One responsive PWA for employees, managers, HR, and paired kiosk devices.</strong><br>
   <a href="FEATURES.md">Explore the complete feature overview</a>
 </p>
 
+## Highlights
+
+- **Flexible time capture.** Clock actual start/end times, add an optional GPS
+  position and project, or use an HR-enabled daily-target block.
+- **QR tablet terminal.** Pair an iPad or another tablet once, show a rotating
+  short-lived challenge, and let employees clock in or out from their own
+  authenticated phones—without badges, chips, or biometric readers.
+- **Optional geofencing.** A terminal can work entirely without GPS or require a
+  fresh employee position inside a server-validated radius with a configured
+  accuracy limit.
+- **Compliance-oriented domain logic.** Break deduction, working frames, core
+  hours, target/actual balances, public holidays, and leave calculations live in
+  tested backend/shared-domain code.
+- **Real approval workflows.** Vacation, home office, special leave, time
+  corrections, substitute confirmation, manager approval, HR confirmation,
+  bulk actions, and workflow history.
+- **Projects and reporting.** Assign employees, structure projects by service
+  order, compare PLAN and IST hours, edit booking targets, split entries, and
+  export customer or working-time reports.
+- **Self-hosted and API-first.** PostgreSQL, NestJS, React, OpenAPI, Socket.IO,
+  Docker, and an Azure reference deployment—without SaaS lock-in.
+- **German and English.** Centralised translations, locale-aware dates, and a
+  persistent language switcher across the login, employee, manager, HR, and
+  kiosk experiences.
+
+## Tablet terminal
+
+An HR administrator creates a terminal with an internal name, visible location,
+custom message, optional logo, IANA time zone, and optional GPS geofence. After
+activation, a one-time code pairs exactly one kiosk device. The kiosk then shows
+a continuously refreshed QR challenge while the employee PWA performs the
+authenticated booking.
+
+<p align="center">
+  <img src="assets/screenshots/admin/terminals.png" alt="HR terminal administration with pairing and device status" width="100%">
+</p>
+
+The security model is deliberately separate from an employee session:
+
+- kiosk credentials are least-privilege, revocable, and stored only as hashes;
+- QR challenges are opaque, short-lived, rate-limited, and protected against
+  replay per employee;
+- daily signing material is derived from a dedicated `TERMINAL_QR_SECRET`, not
+  from `JWT_SECRET`;
+- clock-in/out uses the authenticated employee identity from the bearer token;
+- geofence, position, accuracy, and radius snapshots remain in the historical
+  booking audit record even if the terminal is later deleted permanently;
+- pairing, kiosk, and mobile camera/location flows are documented for trusted
+  local HTTPS and managed iPad deployments.
+
+See [the German iPad setup and operations guide](docs/IPAD_TERMINAL_SETUP.de.md)
+for certificates, pairing, Guided Access, pilot acceptance tests, MDM rollout,
+device replacement, revocation, and troubleshooting.
+
 ## Project status
 
-**Stable and ready for self-hosting.** The core employee, manager, HR,
-approval, reporting, and self-hosting workflows are covered by automated tests.
+**Stable and ready for self-hosting.** Employee, manager, HR, terminal,
+approval, reporting, and deployment workflows are covered by automated tests.
 Stable releases follow semantic versioning and include release notes and upgrade
-instructions. Operators must still validate organisation-specific working-time
-rules, integrations, security requirements, backups, and operating procedures.
+instructions.
 
-See the [latest GitHub Release](https://github.com/patrickschiller/openclockwork/releases/latest)
+Operators must still validate organisation-specific working-time rules,
+collective agreements, payroll integrations, privacy requirements, backups,
+monitoring, and incident procedures. OpenClockwork provides technical controls;
+it is not legal advice.
+
+See the [latest release](https://github.com/patrickschiller/openclockwork/releases/latest)
 and read [UPGRADING.md](UPGRADING.md) before changing an existing installation.
-
-## Why another time tracker?
-
-Most off-the-shelf systems are either cheap-and-cheerful punch clocks that ignore German labour law, or enterprise _Zeitwirtschaft_ suites priced for HR departments with budget. OpenClockwork sits in the middle:
-
-- **Lawful by construction.** Statutory break deduction, detailed core-hour violation reporting, and the 07:00 / 23:00 approval threshold are encoded in the domain layer, not bolted on by the customer.
-- **Flexible time capture.** Employees can use the clock for their actual start and end times or, with an explicit per-employee permission, book the daily target as a single block without an approval request. The block still observes the work schedule, public holidays, absences, existing entries, frame times, and automatic break rules.
-- **Self-hostable.** PostgreSQL + a Node backend + a static web client. No SaaS lock-in; your data stays on your infrastructure.
-- **PWA-first mobile experience.** Employees clock in and out from their phones with optional GPS, while role-aware mobile navigation keeps manager and HR approval workflows accessible — no app-store gatekeeper, no native build pipeline.
-- **Multilingual by design.** The user interface is available in German and English, with a persistent language switcher and a central translation catalogue that makes additional languages straightforward to maintain.
-- **API-first.** The web client is just one consumer of the public REST + WebSocket API. ERP integration is a first-class endpoint, not an afterthought.
-- **Open source under Apache 2.0.** Fork it, embed it, sell support around it. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for the terms.
-
-See the [complete feature overview](FEATURES.md) for employee, manager, HR, integration, and deployment capabilities.
 
 ## Tech stack
 
-| Layer     | Technology                                                            |
-| --------- | --------------------------------------------------------------------- |
-| Workspace | Nx monorepo (pnpm)                                                    |
-| Frontend  | React 19, Vite, Tailwind CSS, shadcn/ui, central DE/EN i18n catalogue |
-| Backend   | NestJS (Node.js, TypeScript strict)                                   |
-| Database  | PostgreSQL with Prisma ORM                                            |
-| Realtime  | Socket.IO (NestJS WebSocket gateway)                                  |
-| Tests     | Vitest (web), Jest (api), Playwright                                  |
-| Quality   | Nx lint, type-check, and test targets                                 |
+| Layer      | Technology                                                         |
+| ---------- | ------------------------------------------------------------------ |
+| Workspace  | Nx monorepo with pnpm                                              |
+| Frontend   | React 19, Vite, Tailwind CSS, shadcn/ui, installable PWA           |
+| Backend    | NestJS, Node.js, strict TypeScript                                 |
+| Database   | PostgreSQL with Prisma schema and forward-only migrations          |
+| Realtime   | Authenticated Socket.IO gateway                                    |
+| API        | REST with committed OpenAPI specification and generated web client |
+| Tests      | Vitest, Jest, API E2E, and Playwright browser tests                |
+| Deployment | Docker Compose and Azure Container Apps reference infrastructure   |
 
 ## Repository layout
 
-```
+```text
 apps/
-  api/            NestJS service: REST, WebSocket gateway, Prisma client
-  web/            React + Vite + Tailwind + shadcn PWA
+  api/            NestJS REST/WebSocket service
+  api-e2e/        API and domain integration tests
+  web/            React/Vite/Tailwind PWA and kiosk UI
+  web-e2e/        Browser smoke tests
 libs/
-  shared/         Shared TS types and pure-TS domain functions
-prisma/           Prisma schema and migrations (single source of DB truth)
-infra/            Reference deployment infrastructure
+  shared/         Shared types and pure working-time domain functions
+prisma/           Schema, migrations, seed, and admin bootstrap
+docs/             Operator and device setup guides
+infra/azure/      Azure reference deployment
+ops/              Runtime validation, TLS, Nginx, and operations scripts
+assets/           Brand sources and documentation screenshots
 ```
 
-## Getting started (development)
+## Getting started
 
-Prerequisites: **Node 20+**, **pnpm 9+**, **Docker** (for the local PostgreSQL).
+Prerequisites: **Node.js 20+**, **pnpm 9+**, and **Docker**.
 
-### Option A: Node.js + Docker (classic dev workflow)
+### Development with Node.js and Docker
 
 ```bash
-# Clone
 git clone https://github.com/patrickschiller/openclockwork.git
 cd openclockwork
 
-# Install dependencies
 pnpm install
-
-# Boot a local Postgres
 docker compose up -d db
-
-# Apply migrations and seed
 pnpm prisma migrate dev
-
-# Run the backend (port 3000) and the web client (port 4200) in parallel
 pnpm nx run-many -t serve -p api,web
 ```
 
-The Vite web client is then available at http://localhost:4200 and proxies API calls to http://localhost:3000.
+Open `http://localhost:4200`. Vite proxies API calls to
+`http://localhost:3000`. The interface starts in German; use the language menu
+on the login screen or in the application header to switch to English.
 
-The interface starts in German by default. Use the language menu on the login
-screen or in the application header to switch between German and English. The
-selection is stored locally in the browser.
-
-### Option B: Full local Docker stack (containerized everything)
-
-For a fully containerised environment — including the web frontend and API — use the provided dev compose file:
+### Full local Docker stack
 
 ```bash
-# Prepare environment variables
 cp .env.dev.example .env.dev
 
-# Build & start all services (DB → API → Web)
-docker compose -f docker-compose.dev.yml --env-file .env.dev up -d --build
+docker compose \
+  -f docker-compose.dev.yml \
+  --env-file .env.dev \
+  up -d --build
 ```
 
-The API container applies pending migrations and seeds the development database
-automatically before starting.
+| Service    | URL                     | Host mapping                |
+| ---------- | ----------------------- | --------------------------- |
+| Web/PWA    | `http://localhost:8080` | `8080:8080`                 |
+| API        | `http://localhost:3001` | `3001:3001`                 |
+| PostgreSQL | `localhost:5432`        | configurable with `DB_PORT` |
 
-| Service  | URL                     | Port mapping        |
-| -------- | ----------------------- | ------------------- |
-| Frontend | `http://localhost:8080` | `8080:8080` (Nginx) |
-| API      | `http://localhost:3001` | `3001:3001`         |
-| Database | `localhost:5432`        | internal (`5432`)   |
+The API applies pending migrations and loads synthetic development data before
+starting. Stop the stack with:
 
-> **Tip:** If a local PostgreSQL already binds to port `5432`, set `DB_PORT=5433` in `.env.dev` before starting the stack.
-> If port `8080` is already in use, set `WEB_PORT` to another host port in `.env.dev`.
+```bash
+docker compose -f docker-compose.dev.yml --env-file .env.dev down
+```
 
-Stop the stack with `docker compose -f docker-compose.dev.yml down`. The `-v`
-option also deletes persistent volumes and is only appropriate when you
-explicitly want to discard the local development database.
+Do not add `-v` unless you explicitly intend to delete the local database.
+
+### Local HTTPS iPad terminal pilot
+
+Camera and geolocation APIs require a trusted secure origin on mobile devices.
+The iPad overlay adds a local TLS gateway, binds raw database/API/HTTP ports to
+loopback, and exposes only the configured HTTPS port to the test LAN.
+
+```bash
+cp .env.ipad.example .env.ipad
+
+docker compose \
+  -f docker-compose.dev.yml \
+  -f docker-compose.ipad.yml \
+  --env-file .env.ipad \
+  up -d --build
+```
+
+Replace all example addresses before starting. Local certificates, private
+keys, and `.env.ipad` are ignored by Git and must never be committed. Follow
+[the complete iPad guide](docs/IPAD_TERMINAL_SETUP.de.md) instead of exposing
+the regular HTTP port to a tablet.
 
 ## Production installation (step by step)
 
@@ -161,6 +239,9 @@ openssl rand -hex 24
 # JWT_SECRET
 openssl rand -hex 32
 
+# TERMINAL_QR_SECRET (must be independent from JWT_SECRET)
+openssl rand -hex 32
+
 # ERP_API_KEY
 openssl rand -hex 32
 
@@ -176,8 +257,10 @@ Open `.env.prod` in an editor and replace every `change-me` value:
   `change-me-database-password` inside `DATABASE_URL` with that exact same
   value. These two locations must match.
 - Put the output of each subsequent command into its matching variable:
-  `JWT_SECRET`, `ERP_API_KEY`, or `CRON_API_KEY`. These three values must all be
-  different from each other and from the database password.
+  `JWT_SECRET`, `TERMINAL_QR_SECRET`, `ERP_API_KEY`, or `CRON_API_KEY`. These
+  four values must all be different from each other and from the database
+  password. `TERMINAL_QR_SECRET` derives the rotating QR signatures and must
+  never silently reuse the interactive session secret.
 - Set `API_CORS_ORIGINS` to the exact URL used in the browser to open
   OpenClockwork. Include `http://` or `https://` and include the port when it is
   not the protocol default, but do not add a trailing slash or path:
@@ -310,51 +393,46 @@ docker compose \
 For an existing installation, follow the backup, migration, verification, and
 rollback procedure in [UPGRADING.md](UPGRADING.md).
 
-## Releases
+## Voluntary support
 
-OpenClockwork uses [GitHub Releases](https://github.com/patrickschiller/openclockwork/releases)
-and [Semantic Versioning](https://semver.org/). Each release contains user-facing
-highlights, upgrade and database notes, breaking changes, known issues, and the
-matching Docker image tags. Release tags use the `vMAJOR.MINOR.PATCH` form;
-Docker images omit the leading `v`. Maintainers follow [RELEASING.md](RELEASING.md)
-to prepare and publish a release.
+OpenClockwork—including the tablet terminal—remains fully available under
+Apache 2.0. There are no licence keys, paid unlocks, usage limits, or payment
+checks.
 
-## Public demo deployment
+After the first terminal activation, HR may see a one-time, explicitly optional
+support link (approximately EUR 125). Skipping or closing it never changes
+functionality. OpenClockwork does not receive payment status or tie sponsorship
+to installation data. Operators can replace or disable the link with
+`SUPPORT_URL`.
 
-The Azure reference deployment can run as an ephemeral public demo in West
-Europe. Set `environment = 'demo'` and `enableDemoReset = true` in the Bicep
-parameters. A scheduled Container Apps job then deletes all application rows
-and uploaded attachment blobs every night before recreating the seed data.
-The checked-in example keeps the reset disabled. Copy
-`infra/azure/main.example.bicepparam` to the gitignored
-`infra/azure/main.bicepparam`, replace every `CHANGE-ME-*` placeholder locally,
-and never commit that file.
+You can also support the project through
+[GitHub Sponsors](https://github.com/sponsors/patrickschiller).
 
-The reset is intentionally destructive and guarded by two explicit environment
-variables. Never enable it for staging or production. A public demo must also
-carry a visible notice that visitors must not enter real personal data:
+## Documentation
 
-- Database backups can retain deleted rows for the configured Azure PostgreSQL
-  backup-retention period.
-- Logs and browser caches may outlive the nightly reset.
-- Use synthetic demo accounts only; do not connect production integrations.
-
-The reset schedule uses UTC. The example configuration runs at `03:00 UTC`.
+- [Complete feature overview](FEATURES.md)
+- [iPad terminal setup and operations (German)](docs/IPAD_TERMINAL_SETUP.de.md)
+- [Upgrade procedure](UPGRADING.md)
+- [Release process](RELEASING.md)
+- [Azure reference deployment](infra/azure/README.md)
+- [Generated OpenAPI specification](apps/api/openapi.json)
+- [Security policy](SECURITY.md)
+- [Contribution guide](CONTRIBUTING.md)
 
 ## Contributing
 
-Contributions are very welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and the [Developer Certificate of Origin](https://developercertificate.org/) requirement (every commit must be `Signed-off-by:` your real name).
-
-For bugs and feature ideas, open a GitHub issue. For security vulnerabilities, follow the private process in [SECURITY.md](SECURITY.md).
-
-By participating, you agree to abide by the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome. Every commit from an external contributor must carry
+a valid DCO `Signed-off-by:` line; the DCO GitHub Action enforces this policy.
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request and use the
+private process in [SECURITY.md](SECURITY.md) for vulnerabilities.
 
 ## License
 
-OpenClockwork is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for required attribution when redistributing or building derivative works.
+OpenClockwork is licensed under the [Apache License 2.0](LICENSE). See
+[NOTICE](NOTICE) for attribution requirements. The name “OpenClockwork” and its
+marks are trademarks of the project authors; the Apache licence does not grant
+rights beyond honest origin attribution.
 
-The name "OpenClockwork" and any associated marks are trademarks of the project authors. The Apache License grants no right to use them beyond honest origin attribution.
-
-## Acknowledgements
-
-OpenClockwork is created and maintained by [Patrick Schiller](https://github.com/patrickschiller) and the open-source contributors listed in the project's commit history.
+OpenClockwork is created and maintained by
+[Patrick Schiller](https://github.com/patrickschiller) and the open-source
+contributors listed in the repository history.

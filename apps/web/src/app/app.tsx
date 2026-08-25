@@ -10,6 +10,9 @@ import { useI18n } from './i18n';
 const AppShell = lazy(() =>
   import('./AppShell').then((m) => ({ default: m.AppShell })),
 );
+const KioskPage = lazy(() =>
+  import('../routes/KioskPage').then((m) => ({ default: m.KioskPage })),
+);
 
 // Route-based code-splitting: each page becomes its own Vite chunk so
 // the initial bundle only carries the AppShell + Login + the lazy
@@ -59,6 +62,16 @@ const AdminWorkingTimesPage = lazy(() =>
     default: m.AdminWorkingTimesPage,
   })),
 );
+const AdminTerminalsPage = lazy(() =>
+  import('../routes/AdminTerminalsPage').then((m) => ({
+    default: m.AdminTerminalsPage,
+  })),
+);
+const TerminalScanPage = lazy(() =>
+  import('../routes/TerminalScanPage').then((m) => ({
+    default: m.TerminalScanPage,
+  })),
+);
 const PlaceholderPage = lazy(() =>
   import('../routes/PlaceholderPage').then((m) => ({
     default: m.PlaceholderPage,
@@ -82,48 +95,52 @@ export function App() {
   const { user } = useAuth();
   const { t } = useI18n();
 
-  if (!user) {
-    return (
-      <Routes>
-        <Route path="*" element={<LoginPage />} />
-      </Routes>
-    );
-  }
-
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        <Route element={<AppShell />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="booking" element={<BookingPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
-          <Route path="requests" element={<RequestsPage />} />
-          <Route path="substitute" element={<SubstitutePage />} />
-          <Route path="absences" element={<AbsencesPage />} />
-          {/* Backwards-compat redirect from the old route name. */}
-          <Route
-            path="sickness"
-            element={<Navigate to="/absences" replace />}
-          />
-          <Route path="admin/requests" element={<AdminRequestsPage />} />
-          <Route path="admin/projects" element={<AdminProjectsPage />} />
-          <Route
-            path="admin/working-times"
-            element={<AdminWorkingTimesPage />}
-          />
-          <Route path="admin/schedules" element={<AdminSchedulesPage />} />
-          <Route path="admin/employees" element={<AdminEmployeesPage />} />
-          <Route
-            path="*"
-            element={
-              <PlaceholderPage
-                title={t('app.notFound')}
-                hint={t('app.notFoundHint')}
-              />
-            }
-          />
-        </Route>
-        <Route path="login" element={<Navigate to="/" replace />} />
+        {/* A paired kiosk is a device, not an employee. It must remain
+            reachable before the global employee-login gate. */}
+        <Route path="kiosk" element={<KioskPage />} />
+        {!user ? (
+          <Route path="*" element={<LoginPage />} />
+        ) : (
+          <Route element={<AppShell />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="booking" element={<BookingPage />} />
+            <Route path="terminal" element={<TerminalScanPage />} />
+            <Route path="calendar" element={<CalendarPage />} />
+            <Route path="requests" element={<RequestsPage />} />
+            <Route path="substitute" element={<SubstitutePage />} />
+            <Route path="absences" element={<AbsencesPage />} />
+            {/* Backwards-compat redirect from the old route name. */}
+            <Route
+              path="sickness"
+              element={<Navigate to="/absences" replace />}
+            />
+            <Route path="admin/requests" element={<AdminRequestsPage />} />
+            <Route path="admin/projects" element={<AdminProjectsPage />} />
+            <Route
+              path="admin/working-times"
+              element={<AdminWorkingTimesPage />}
+            />
+            <Route path="admin/schedules" element={<AdminSchedulesPage />} />
+            <Route path="admin/employees" element={<AdminEmployeesPage />} />
+            <Route
+              path="admin/settings/terminals"
+              element={<AdminTerminalsPage />}
+            />
+            <Route
+              path="*"
+              element={
+                <PlaceholderPage
+                  title={t('app.notFound')}
+                  hint={t('app.notFoundHint')}
+                />
+              }
+            />
+          </Route>
+        )}
+        {user && <Route path="login" element={<Navigate to="/" replace />} />}
       </Routes>
     </Suspense>
   );

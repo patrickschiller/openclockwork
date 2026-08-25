@@ -64,6 +64,7 @@ const de: Catalog = {
   'common.hrOnly': 'Diese Seite ist HR-Admins vorbehalten.',
   'nav.dashboard': 'Dashboard',
   'nav.booking': 'Buchen',
+  'nav.terminalScan': 'Terminal',
   'nav.calendar': 'Kalender',
   'nav.requests': 'Anträge',
   'nav.substitute': 'Vertretungen',
@@ -73,9 +74,13 @@ const de: Catalog = {
   'nav.workingTimes': 'Arbeitszeiten',
   'nav.schedules': 'Arbeitszeitpläne',
   'nav.employees': 'Mitarbeiter',
+  'nav.terminals': 'Terminals',
   'shell.profile': 'Profil',
+  'shell.accountMenu': 'Kontomenü öffnen',
   'shell.signedInAs': 'Angemeldet als',
   'shell.signOut': 'Abmelden',
+  'shell.mainNavigation': 'Hauptnavigation',
+  'shell.mobileNavigation': 'Mobile Navigation',
   'shell.more': 'Mehr',
   'shell.moreAreas': 'Weitere Bereiche',
   'shell.openMore': 'Weitere Bereiche öffnen',
@@ -85,6 +90,8 @@ const de: Catalog = {
   'shell.installHint':
     'OpenClockwork als App installieren — schneller Zugriff und Offline-Hinweis.',
   'shell.closeInstall': 'Installations-Hinweis schließen',
+  'shell.adminFooter': 'Crafted with ❤️ in Würzburg by Patrick Schiller',
+  'shell.adminVersion': 'OpenClockwork-Version {version}',
   'login.description': 'Anmeldung mit E-Mail und Passwort',
   'login.password': 'Passwort',
   'login.submit': 'Anmelden',
@@ -259,6 +266,15 @@ const de: Catalog = {
   'absences.certificate': 'ärztliches Attest liegt vor',
   'absences.deleteConfirm': 'Eintrag wirklich löschen?',
   'absences.certificateShort': 'Attest',
+  'absences.show': 'Anzeigen',
+  'absences.employeeFilter': 'Abwesenheiten nach Mitarbeiter:in filtern',
+  'absences.noNote': 'keine Notiz',
+  'absences.certificateProvided': 'Attest vorgelegt',
+  'absences.withoutCertificate': 'ohne Attest',
+  'absences.editorDescription': 'Typ, Zeitraum und optionale Notiz',
+  'absences.noteOptional': 'Notiz (optional)',
+  'absences.flextimeNotice':
+    'Hinweis: Gleittage reduzieren das Überstundenkonto aktuell nicht automatisch. Die rechnerische Verrechnung kommt in einer späteren Iteration; Kalender und Liste zeigen den Eintrag bereits korrekt.',
   'approvals.title': 'Genehmigungen',
   'approvals.restricted':
     'Diese Seite ist Manager:innen und HR-Admins vorbehalten.',
@@ -355,6 +371,161 @@ const de: Catalog = {
   'employees.deactivateConfirm': 'Mitarbeiter:in {name} deaktivieren?',
   'employees.passwordUpdated': 'Passwort wurde aktualisiert.',
   'employees.newPassword': 'Neues Passwort (≥ 8 Zeichen)',
+  'terminals.title': 'Login-Terminals',
+  'terminals.description':
+    'Tablets für Kommen-/Gehen-Buchungen mit optionaler Standortprüfung einrichten und koppeln.',
+  'terminals.new': 'Terminal einrichten',
+  'terminals.none': 'Noch keine Terminals eingerichtet.',
+  'terminals.edit': 'Terminal bearbeiten',
+  'terminals.editorDescription':
+    'Anzeige und optional die zulässige GPS-Abweichung des montierten Tablets festlegen.',
+  'terminals.name': 'Interner Name',
+  'terminals.locationLabel': 'Angezeigter Ort',
+  'terminals.displayText': 'Anzeigetext',
+  'terminals.logoUrl': 'Logo (PNG, JPEG oder WebP, maximal 60 KiB)',
+  'terminals.geofence': 'Standortprüfung',
+  'terminals.enforceGeofence': 'GPS-Standort beim Scannen prüfen',
+  'terminals.geofenceHint':
+    'Ohne Standortprüfung funktioniert das Terminal ohne GPS-Berechtigung.',
+  'terminals.geofenceEnabled': 'aktiv',
+  'terminals.geofenceDisabled': 'deaktiviert',
+  'terminals.geofenceDisabledHint':
+    'Beim Scannen wird kein Standort angefordert und es werden keine GPS-Daten gespeichert. Ein weitergegebener QR-Code kann während seiner kurzen Gültigkeit dann ortsunabhängig verwendet werden.',
+  'terminals.position': 'Terminal-Standort',
+  'terminals.positionHint':
+    'Die serverseitige Prüfung verwendet diese Koordinaten und den Radius.',
+  'terminals.coordinates': 'Koordinaten',
+  'terminals.latitude': 'Breitengrad',
+  'terminals.longitude': 'Längengrad',
+  'terminals.radius': 'Radius',
+  'terminals.radiusMeters': 'Zulässiger Radius (Meter)',
+  'terminals.accuracy': 'Max. GPS-Ungenauigkeit',
+  'terminals.maxAccuracyMeters': 'Max. GPS-Ungenauigkeit (Meter)',
+  'terminals.metersValue': '{count} m',
+  'terminals.timeZone': 'IANA-Zeitzone',
+  'terminals.device': 'Tablet',
+  'terminals.paired': 'gekoppelt',
+  'terminals.notPaired': 'nicht gekoppelt',
+  'terminals.pairedDevices': 'Gekoppelte Geräte',
+  'terminals.unnamedDevice': 'iPad-Terminal',
+  'terminals.deviceLastSeen': 'Zuletzt online: {date}',
+  'terminals.deviceNeverSeen': 'Noch nicht online gewesen',
+  'terminals.revokeDevice': 'Gerät widerrufen',
+  'terminals.revokeConfirm':
+    'Dieses Gerät sofort widerrufen? Der Kiosk zeigt danach keinen QR-Code mehr an.',
+  'terminals.revokeFailed': 'Das Gerät konnte nicht widerrufen werden.',
+  'terminals.lastSeen': 'Zuletzt online',
+  'terminals.activeHint': 'Terminal ist aktiv',
+  'terminals.useCurrentPosition': 'Aktuelle Position übernehmen',
+  'terminals.locating': 'Ermittle Position …',
+  'terminals.geolocationUnavailable':
+    'Dieser Browser stellt keine Standortermittlung bereit.',
+  'terminals.geolocationFailed':
+    'Die aktuelle Position konnte nicht ermittelt werden.',
+  'terminals.saveFailed': 'Terminal konnte nicht gespeichert werden.',
+  'terminals.loadFailed': 'Terminals konnten nicht geladen werden.',
+  'terminals.deactivateFailed': 'Terminal konnte nicht deaktiviert werden.',
+  'terminals.deactivateConfirm': 'Terminal „{name}“ wirklich deaktivieren?',
+  'terminals.deletePermanently': 'Dauerhaft löschen',
+  'terminals.deleteFailed': 'Terminal konnte nicht dauerhaft gelöscht werden.',
+  'terminals.deleteConfirm':
+    'Terminal „{name}“ dauerhaft löschen? Diese Aktion kann nicht rückgängig gemacht werden. Kopplungen und QR-Daten werden entfernt; bestehende Zeitbuchungen bleiben erhalten.',
+  'terminals.pairDevice': 'Tablet koppeln',
+  'terminals.pairingFailed': 'Kopplung konnte nicht vorbereitet werden.',
+  'terminals.pairingTitle': 'iPad koppeln',
+  'terminals.pairingDescription':
+    'Öffne die URL auf dem iPad oder gib dort den einmaligen Code ein. Eine bestehende Kopplung wird widerrufen.',
+  'terminals.pairingCode': 'Kopplungscode',
+  'terminals.pairingUrl': 'Kiosk-URL',
+  'terminals.copyUrl': 'Kiosk-URL kopieren',
+  'terminals.copied': 'URL wurde kopiert.',
+  'terminals.pairingExpires': 'Gültig bis {date}.',
+  'terminals.supportTitle': 'OpenClockwork unterstützen?',
+  'terminals.supportDescription':
+    'Wenn das Terminal Ihrem Unternehmen hilft, können Sie die Weiterentwicklung freiwillig einmalig mit 125 € unterstützen.',
+  'terminals.supportNoGate':
+    'Das Terminal ist vollständig kostenlos und bleibt ohne Unterstützung uneingeschränkt nutzbar.',
+  'terminals.continueWithoutSupport': 'Ohne Unterstützung fortfahren',
+  'terminals.supportAction': 'Freiwillig unterstützen',
+  'terminals.logoInvalidType':
+    'Bitte nur ein PNG-, JPEG- oder WebP-Bild auswählen.',
+  'terminals.logoTooLarge': 'Das Logo darf höchstens 60 KiB groß sein.',
+  'terminals.removeLogo': 'Logo entfernen',
+  'kiosk.setupTitle': 'Terminal koppeln',
+  'kiosk.setupDescription':
+    'Dieses iPad benötigt einen einmaligen Kopplungscode aus den HR-Einstellungen.',
+  'kiosk.pairingCode': 'Kopplungscode',
+  'kiosk.pairingPlaceholder': 'z. B. ABCD-1234',
+  'kiosk.pair': 'Terminal koppeln',
+  'kiosk.pairing': 'Kopple …',
+  'kiosk.pairFailed': 'Der Kopplungscode ist ungültig oder abgelaufen.',
+  'kiosk.loading': 'Lade Terminal …',
+  'kiosk.refreshFailed': 'Terminal konnte nicht aktualisiert werden.',
+  'kiosk.retry': 'Erneut versuchen',
+  'kiosk.errorTitle': 'Terminal nicht verfügbar',
+  'kiosk.offlineTitle': 'Keine Verbindung',
+  'kiosk.offlinePairing':
+    'Zum Koppeln ist eine Verbindung mit OpenClockwork erforderlich.',
+  'kiosk.offlineDescription':
+    'Der QR-Code wurde aus Sicherheitsgründen ausgeblendet. Er erscheint nach erfolgreicher Verbindung automatisch wieder.',
+  'kiosk.defaultMessage': 'Willkommen! Zum Stempeln QR-Code scannen.',
+  'kiosk.scanTitle': 'Kommen / Gehen',
+  'kiosk.scanDescription':
+    'Öffne OpenClockwork auf deinem Smartphone und scanne diesen Code.',
+  'kiosk.refreshingTitle': 'Neuer QR-Code wird geladen',
+  'kiosk.refreshingDescription':
+    'Abgelaufene Codes werden automatisch ausgeblendet.',
+  'kiosk.qrAlt': 'Kurzzeitig gültiger QR-Code für dieses Terminal',
+  'kiosk.qrFailed': 'QR-Code konnte nicht erzeugt werden.',
+  'kiosk.securityHint': 'Kurzzeitig gültig und serverseitig geprüft',
+  'terminalScan.title': 'Terminal scannen',
+  'terminalScan.description':
+    'Scanne den QR-Code am Tablet. Falls konfiguriert, wird anschließend ein frischer Standort geprüft.',
+  'terminalScan.actionTitle': 'Was möchtest du buchen?',
+  'terminalScan.start': 'Kamera öffnen und QR-Code scannen',
+  'terminalScan.working': 'Wird vorbereitet …',
+  'terminalScan.cameraPreview': 'Kameravorschau für den QR-Code-Scan',
+  'terminalScan.cameraIdle':
+    'Die Kamera startet erst nach deiner ausdrücklichen Freigabe.',
+  'terminalScan.locating': 'Aktueller Standort wird ermittelt …',
+  'terminalScan.booking': 'Buchung wird sicher geprüft …',
+  'terminalScan.privacyHint':
+    'Die Kamera verarbeitet den QR-Code lokal. Standortdaten werden nur bei aktivierter Standortprüfung angefordert und als Buchungsnachweis gespeichert.',
+  'terminalScan.offlineTitle': 'Offline nicht möglich',
+  'terminalScan.offlineDescription':
+    'Terminalbuchungen benötigen eine aktive Verbindung zum Server.',
+  'terminalScan.errorTitle': 'Buchung nicht möglich',
+  'terminalScan.successTitle': 'Buchung erfolgreich',
+  'terminalScan.clockInSuccess': 'Du wurdest erfolgreich eingestempelt.',
+  'terminalScan.clockOutSuccess': 'Du wurdest erfolgreich ausgestempelt.',
+  'terminalScan.cameraDenied':
+    'Der Kamerazugriff wurde abgelehnt. Erlaube ihn in den Browser-Einstellungen und versuche es erneut.',
+  'terminalScan.cameraFailed':
+    'Die Kamera konnte nicht gestartet werden. Prüfe, ob eine andere App sie verwendet und ob die Seite über HTTPS geöffnet ist.',
+  'terminalScan.locationDenied':
+    'Der Standortzugriff wurde abgelehnt. Ohne Standort ist keine Terminalbuchung möglich.',
+  'terminalScan.locationTimeout':
+    'Es konnte rechtzeitig kein genauer Standort ermittelt werden.',
+  'terminalScan.locationFailed': 'Der Standort konnte nicht ermittelt werden.',
+  'terminalScan.locationUnavailable':
+    'Dieser Browser unterstützt keine Standortermittlung.',
+  'terminalScan.bookingFailed': 'Die Terminalbuchung ist fehlgeschlagen.',
+  'terminalScan.errorExpired':
+    'Der QR-Code ist abgelaufen. Scanne den neuen Code am Tablet.',
+  'terminalScan.errorInvalid': 'Der QR-Code gehört zu keinem aktiven Terminal.',
+  'terminalScan.errorReplayed':
+    'Dieser QR-Code wurde bereits verwendet. Scanne den aktuellen Code erneut.',
+  'terminalScan.errorOutsideRadius':
+    'Du befindest dich außerhalb des erlaubten Terminalbereichs.',
+  'terminalScan.errorInaccurate':
+    'Dein Standort ist derzeit zu ungenau. Warte kurz im Freien oder nahe einem Fenster und versuche es erneut.',
+  'terminalScan.errorInactive': 'Dieses Terminal wurde deaktiviert.',
+  'terminalScan.errorActionMismatch':
+    'Die gewählte Aktion passt nicht zu deinem aktuellen Status. Wähle „Kommen“, wenn du nicht eingestempelt bist, beziehungsweise „Gehen“, wenn du bereits eingestempelt bist.',
+  'terminalScan.errorBookingConflict':
+    'Dein Buchungsstatus hat sich gerade geändert. Lade die Seite neu und versuche es erneut.',
+  'terminalScan.errorPositionStale':
+    'Der ermittelte Standort ist nicht frisch genug. Aktiviere Ortungsdienste und versuche es erneut.',
   'placeholder.description':
     'Diese Seite wird im Rahmen der laufenden Migration nach OpenClockwork in einem späteren Schritt portiert. Die alte Implementierung steht unter legacy/frontend/ als Referenz bereit.',
   'enum.Employee': 'Mitarbeiter:in',
@@ -444,6 +615,7 @@ const en: Catalog = {
   'common.calendarDays': 'calendar days',
   'common.saveFailed': 'Saving failed',
   'common.hrOnly': 'This page is restricted to HR admins.',
+  'nav.terminalScan': 'Terminal',
   'nav.booking': 'Booking',
   'nav.calendar': 'Calendar',
   'nav.requests': 'Requests',
@@ -454,9 +626,13 @@ const en: Catalog = {
   'nav.workingTimes': 'Working times',
   'nav.schedules': 'Work schedules',
   'nav.employees': 'Employees',
+  'nav.terminals': 'Terminals',
   'shell.profile': 'Profile',
+  'shell.accountMenu': 'Open account menu',
   'shell.signedInAs': 'Signed in as',
   'shell.signOut': 'Sign out',
+  'shell.mainNavigation': 'Main navigation',
+  'shell.mobileNavigation': 'Mobile navigation',
   'shell.more': 'More',
   'shell.moreAreas': 'More areas',
   'shell.openMore': 'Open more areas',
@@ -466,6 +642,8 @@ const en: Catalog = {
   'shell.installHint':
     'Install OpenClockwork as an app for faster access and offline notices.',
   'shell.closeInstall': 'Close installation notice',
+  'shell.adminFooter': 'Crafted with ❤️ in Würzburg by Patrick Schiller',
+  'shell.adminVersion': 'OpenClockwork version {version}',
   'login.description': 'Sign in with email and password',
   'login.password': 'Password',
   'login.submit': 'Sign in',
@@ -640,6 +818,15 @@ const en: Catalog = {
   'absences.certificate': 'medical certificate is available',
   'absences.deleteConfirm': 'Really delete this entry?',
   'absences.certificateShort': 'Certificate',
+  'absences.show': 'Show',
+  'absences.employeeFilter': 'Filter absences by employee',
+  'absences.noNote': 'no note',
+  'absences.certificateProvided': 'Certificate provided',
+  'absences.withoutCertificate': 'without certificate',
+  'absences.editorDescription': 'Type, period, and optional note',
+  'absences.noteOptional': 'Note (optional)',
+  'absences.flextimeNotice':
+    'Note: Flextime days currently do not reduce the overtime balance automatically. Automatic accounting will follow in a later iteration; the calendar and list already show the entry correctly.',
   'approvals.title': 'Approvals',
   'approvals.restricted': 'This page is restricted to managers and HR admins.',
   'approvals.hrInbox': 'HR inbox: all requests in “Pending HR” status',
@@ -735,6 +922,160 @@ const en: Catalog = {
   'employees.deactivateConfirm': 'Deactivate employee {name}?',
   'employees.passwordUpdated': 'Password has been updated.',
   'employees.newPassword': 'New password (at least 8 characters)',
+  'terminals.title': 'Login terminals',
+  'terminals.description':
+    'Set up and pair tablets for clock-in and clock-out bookings with optional location checks.',
+  'terminals.new': 'Set up terminal',
+  'terminals.none': 'No terminals have been set up.',
+  'terminals.edit': 'Edit terminal',
+  'terminals.editorDescription':
+    'Configure the display and optionally the permitted GPS deviation of the mounted tablet.',
+  'terminals.name': 'Internal name',
+  'terminals.locationLabel': 'Displayed location',
+  'terminals.displayText': 'Display text',
+  'terminals.logoUrl': 'Logo (PNG, JPEG, or WebP; no more than 60 KiB)',
+  'terminals.geofence': 'Location check',
+  'terminals.enforceGeofence': 'Check GPS location when scanning',
+  'terminals.geofenceHint':
+    'Without a location check, the terminal works without GPS permission.',
+  'terminals.geofenceEnabled': 'enabled',
+  'terminals.geofenceDisabled': 'disabled',
+  'terminals.geofenceDisabledHint':
+    'Scanning will not request a location and no GPS data will be stored. A shared QR code can then be used from any location during its short validity window.',
+  'terminals.position': 'Terminal location',
+  'terminals.positionHint':
+    'The server-side check uses these coordinates and this radius.',
+  'terminals.coordinates': 'Coordinates',
+  'terminals.latitude': 'Latitude',
+  'terminals.longitude': 'Longitude',
+  'terminals.radius': 'Radius',
+  'terminals.radiusMeters': 'Permitted radius (meters)',
+  'terminals.accuracy': 'Maximum GPS inaccuracy',
+  'terminals.maxAccuracyMeters': 'Maximum GPS inaccuracy (meters)',
+  'terminals.metersValue': '{count} m',
+  'terminals.timeZone': 'IANA time zone',
+  'terminals.device': 'Tablet',
+  'terminals.paired': 'paired',
+  'terminals.notPaired': 'not paired',
+  'terminals.pairedDevices': 'Paired devices',
+  'terminals.unnamedDevice': 'iPad terminal',
+  'terminals.deviceLastSeen': 'Last online: {date}',
+  'terminals.deviceNeverSeen': 'Never connected',
+  'terminals.revokeDevice': 'Revoke device',
+  'terminals.revokeConfirm':
+    'Revoke this device immediately? The kiosk will stop displaying QR codes.',
+  'terminals.revokeFailed': 'The device could not be revoked.',
+  'terminals.lastSeen': 'Last online',
+  'terminals.activeHint': 'Terminal is active',
+  'terminals.useCurrentPosition': 'Use current location',
+  'terminals.locating': 'Getting location …',
+  'terminals.geolocationUnavailable':
+    'This browser does not provide geolocation.',
+  'terminals.geolocationFailed':
+    'The current location could not be determined.',
+  'terminals.saveFailed': 'The terminal could not be saved.',
+  'terminals.loadFailed': 'The terminals could not be loaded.',
+  'terminals.deactivateFailed': 'The terminal could not be deactivated.',
+  'terminals.deactivateConfirm': 'Really deactivate terminal “{name}”?',
+  'terminals.deletePermanently': 'Delete permanently',
+  'terminals.deleteFailed': 'The terminal could not be permanently deleted.',
+  'terminals.deleteConfirm':
+    'Permanently delete terminal “{name}”? This cannot be undone. Pairings and QR data will be removed; existing time entries will remain.',
+  'terminals.pairDevice': 'Pair tablet',
+  'terminals.pairingFailed': 'Pairing could not be prepared.',
+  'terminals.pairingTitle': 'Pair iPad',
+  'terminals.pairingDescription':
+    'Open the URL on the iPad or enter the one-time code there. An existing pairing will be revoked.',
+  'terminals.pairingCode': 'Pairing code',
+  'terminals.pairingUrl': 'Kiosk URL',
+  'terminals.copyUrl': 'Copy kiosk URL',
+  'terminals.copied': 'The URL has been copied.',
+  'terminals.pairingExpires': 'Valid until {date}.',
+  'terminals.supportTitle': 'Support OpenClockwork?',
+  'terminals.supportDescription':
+    'If the terminal helps your company, you can voluntarily support its continued development once with €125.',
+  'terminals.supportNoGate':
+    'The terminal is completely free and remains fully usable without support.',
+  'terminals.continueWithoutSupport': 'Continue without support',
+  'terminals.supportAction': 'Support voluntarily',
+  'terminals.logoInvalidType': 'Please select a PNG, JPEG, or WebP image only.',
+  'terminals.logoTooLarge': 'The logo must not be larger than 60 KiB.',
+  'terminals.removeLogo': 'Remove logo',
+  'kiosk.setupTitle': 'Pair terminal',
+  'kiosk.setupDescription':
+    'This iPad needs a one-time pairing code from the HR settings.',
+  'kiosk.pairingCode': 'Pairing code',
+  'kiosk.pairingPlaceholder': 'e.g. ABCD-1234',
+  'kiosk.pair': 'Pair terminal',
+  'kiosk.pairing': 'Pairing …',
+  'kiosk.pairFailed': 'The pairing code is invalid or has expired.',
+  'kiosk.loading': 'Loading terminal …',
+  'kiosk.refreshFailed': 'The terminal could not be refreshed.',
+  'kiosk.retry': 'Try again',
+  'kiosk.errorTitle': 'Terminal unavailable',
+  'kiosk.offlineTitle': 'No connection',
+  'kiosk.offlinePairing':
+    'A connection to OpenClockwork is required for pairing.',
+  'kiosk.offlineDescription':
+    'The QR code has been hidden for security. It will reappear automatically after a successful connection.',
+  'kiosk.defaultMessage': 'Welcome! Scan the QR code to clock in or out.',
+  'kiosk.scanTitle': 'Clock in / out',
+  'kiosk.scanDescription':
+    'Open OpenClockwork on your phone and scan this code.',
+  'kiosk.refreshingTitle': 'Loading a new QR code',
+  'kiosk.refreshingDescription': 'Expired codes are hidden automatically.',
+  'kiosk.qrAlt': 'Short-lived QR code for this terminal',
+  'kiosk.qrFailed': 'The QR code could not be generated.',
+  'kiosk.securityHint': 'Short-lived and validated by the server',
+  'terminalScan.title': 'Scan terminal',
+  'terminalScan.description':
+    'Scan the code on the tablet. If configured, a fresh location is then checked.',
+  'terminalScan.actionTitle': 'What would you like to book?',
+  'terminalScan.start': 'Open camera and scan QR code',
+  'terminalScan.working': 'Preparing …',
+  'terminalScan.cameraPreview': 'Camera preview for scanning the QR code',
+  'terminalScan.cameraIdle':
+    'The camera starts only after you explicitly allow it.',
+  'terminalScan.locating': 'Getting your current location …',
+  'terminalScan.booking': 'Securely checking booking …',
+  'terminalScan.privacyHint':
+    'The camera processes the QR code locally. Location data is requested and stored as booking evidence only when the location check is enabled.',
+  'terminalScan.offlineTitle': 'Unavailable offline',
+  'terminalScan.offlineDescription':
+    'Terminal bookings require an active server connection.',
+  'terminalScan.errorTitle': 'Booking unavailable',
+  'terminalScan.successTitle': 'Booking successful',
+  'terminalScan.clockInSuccess': 'You have successfully clocked in.',
+  'terminalScan.clockOutSuccess': 'You have successfully clocked out.',
+  'terminalScan.cameraDenied':
+    'Camera access was denied. Allow it in the browser settings and try again.',
+  'terminalScan.cameraFailed':
+    'The camera could not be started. Check whether another app is using it and whether this page is opened over HTTPS.',
+  'terminalScan.locationDenied':
+    'Location access was denied. A terminal booking requires your location.',
+  'terminalScan.locationTimeout':
+    'An accurate location could not be obtained in time.',
+  'terminalScan.locationFailed': 'Your location could not be determined.',
+  'terminalScan.locationUnavailable':
+    'This browser does not support geolocation.',
+  'terminalScan.bookingFailed': 'The terminal booking failed.',
+  'terminalScan.errorExpired':
+    'The QR code has expired. Scan the new code on the tablet.',
+  'terminalScan.errorInvalid':
+    'The QR code does not belong to an active terminal.',
+  'terminalScan.errorReplayed':
+    'This QR code has already been used. Scan the current code again.',
+  'terminalScan.errorOutsideRadius':
+    'You are outside the permitted terminal area.',
+  'terminalScan.errorInaccurate':
+    'Your location is currently too inaccurate. Wait briefly outdoors or near a window, then try again.',
+  'terminalScan.errorInactive': 'This terminal has been deactivated.',
+  'terminalScan.errorActionMismatch':
+    'The selected action does not match your current status. Choose “Clock in” when you are not clocked in, or “Clock out” when you are already clocked in.',
+  'terminalScan.errorBookingConflict':
+    'Your booking status has just changed. Reload the page and try again.',
+  'terminalScan.errorPositionStale':
+    'The reported location is not recent enough. Enable Location Services and try again.',
   'placeholder.description':
     'This page will be ported to OpenClockwork in a later migration step. The old implementation remains available under legacy/frontend/ for reference.',
   'enum.Employee': 'Employee',

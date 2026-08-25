@@ -33,26 +33,40 @@ export class TimeEntriesController {
   constructor(private readonly entries: TimeEntriesService) {}
 
   @Get()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   list(
-    @Query('employeeId') employeeId: string,
+    @Query('employeeId', new ParseUUIDPipe()) employeeId: string,
+    @CurrentUser() user: JwtUser,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ): Promise<TimeEntryDto[]> {
     return this.entries.list(
       employeeId,
+      user,
       from ? new Date(from) : undefined,
       to ? new Date(to) : undefined,
     );
   }
 
   @Post('clock-in')
-  clockIn(@Body() dto: ClockInDto): Promise<TimeEntryDto> {
-    return this.entries.clockIn(dto);
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  clockIn(
+    @Body() dto: ClockInDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TimeEntryDto> {
+    return this.entries.clockIn(dto, user.id);
   }
 
   @Post('clock-out')
-  clockOut(@Body() dto: ClockOutDto): Promise<TimeEntryDto> {
-    return this.entries.clockOut(dto.employeeId);
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  clockOut(
+    @Body() dto: ClockOutDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TimeEntryDto> {
+    return this.entries.clockOut(user.id, dto);
   }
 
   @Get('daily-block/option')

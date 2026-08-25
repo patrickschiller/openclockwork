@@ -16,8 +16,10 @@ server {
     listen 8080 default_server;
     server_name _;
 
-    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
-    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(self)" always;
+    add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    # The employee PWA needs same-origin camera access for terminal QR scans
+    # and geolocation for the server-enforced terminal geofence.
+    add_header Permissions-Policy "camera=(self), microphone=(), geolocation=(self)" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -54,14 +56,24 @@ server {
         add_header Cache-Control "no-cache";
         expires off;
     }
+    location = /registerSW.js {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
     location = /manifest.webmanifest {
+        add_header Cache-Control "no-cache";
+        expires off;
+    }
+    location = /kiosk.webmanifest {
         add_header Cache-Control "no-cache";
         expires off;
     }
     location = /runtime-config.js {
         default_type application/javascript;
         add_header Cache-Control "no-store";
-        return 200 'window.__OPENClockwork_CONFIG__ = { demoMode: ${DEMO_MODE} };';
+        # SUPPORT_URL is operator-controlled trusted configuration. Keep it a
+        # plain HTTPS URL without quotes; an empty value disables the button.
+        return 200 'window.__OPENClockwork_CONFIG__ = { demoMode: ${DEMO_MODE}, supportUrl: "${SUPPORT_URL}" };';
     }
 
     # API proxy. proxy_ssl_server_name is required when the upstream is
@@ -77,6 +89,53 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
+    }
+
+    # Terminal challenges and scan results are short-lived security material.
+    # Never let a browser or intermediary cache them.
+    location ^~ /api/terminals {
+        proxy_pass ${API_UPSTREAM};
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-store, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Permissions-Policy "camera=(self), microphone=(), geolocation=(self)" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        expires off;
+        proxy_read_timeout 60s;
+    }
+
+    # The kiosk shell must always obtain current state from the network. The
+    # frontend service worker separately excludes /kiosk from navigation cache.
+    location = /kiosk {
+        # The optional pairing code may arrive in the query string. Never put
+        # that one-time credential into access logs.
+        access_log off;
+        # Use the existing file directly in this location. A URI fallback to
+        # /index.html would trigger an internal redirect and lose these
+        # location-specific no-store headers.
+        try_files /kiosk.html =404;
+        add_header Cache-Control "no-store, max-age=0" always;
+        add_header Pragma "no-cache" always;
+        add_header Content-Security-Policy "default-src 'self'; connect-src 'self' ws: wss:; worker-src 'self' blob:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Permissions-Policy "camera=(self), microphone=(), geolocation=(self)" always;
+        # Pairing may arrive as a query credential; never forward that URL as
+        # Referer while the kiosk shell loads its scripts and manifest.
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        expires off;
     }
 
     # Socket.IO upgrades.

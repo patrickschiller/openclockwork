@@ -23,13 +23,17 @@ async function main() {
 
   // eslint-disable-next-line no-console
   console.log('Bootstrapping NestJS for OpenAPI generation…');
-  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn'] });
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn'],
+  });
   app.setGlobalPrefix('api');
 
   const config = new DocumentBuilder()
     .setTitle('OpenClockwork API')
-    .setDescription('Self-hostable working-time tracker — REST + WebSocket surface.')
-    .setVersion('1.1.2')
+    .setDescription(
+      'Self-hostable working-time tracker — REST + WebSocket surface.',
+    )
+    .setVersion('1.2.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);

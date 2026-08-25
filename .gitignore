@@ -39,7 +39,11 @@ prisma/.env
 .env.*
 !.env.example
 !.env.dev.example
+!.env.ipad.example
 !.env.prod.example
+
+# Local TLS material (mkcert root/private keys must never be committed).
+.certs/
 
 # --- Editors / IDEs ---
 .vscode/

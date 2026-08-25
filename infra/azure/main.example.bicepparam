@@ -12,6 +12,10 @@ param location = 'westeurope'
 param namePrefix = 'oclock'
 param environment = 'dev'
 
+// Voluntary only; set to '' to hide the support button. Terminal functionality
+// remains fully available in either case.
+param supportUrl = 'https://github.com/sponsors/patrickschiller'
+
 // Opt in only for a disposable public demo: this destroys visitor-created
 // database rows and attachments every night, then recreates the seed data.
 param enableDemoReset = false
@@ -25,6 +29,9 @@ param postgresAdminPassword = 'CHANGE-ME-postgres'
 
 // REPLACE: openssl rand -base64 48
 param jwtSecret = 'CHANGE-ME-jwt'
+
+// REPLACE independently: openssl rand -hex 32
+param terminalQrSecret = 'CHANGE-ME-terminal-qr'
 
 // REPLACE: openssl rand -hex 32
 param erpApiKey = 'CHANGE-ME-erp'

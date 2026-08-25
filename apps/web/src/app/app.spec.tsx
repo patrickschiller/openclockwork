@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './app';
@@ -19,6 +19,10 @@ function renderApp() {
   );
 }
 
+afterEach(() => {
+  window.history.replaceState({}, '', '/');
+});
+
 describe('App', () => {
   it('shows the login page when no user is authenticated', () => {
     try {
@@ -28,5 +32,21 @@ describe('App', () => {
     }
     const { getAllByText } = renderApp();
     expect(getAllByText(/OpenClockwork/i).length).toBeGreaterThan(0);
+  });
+
+  it('keeps the kiosk route public before the employee login gate', async () => {
+    try {
+      window.localStorage?.clear();
+    } catch {
+      /* localStorage can be unavailable in isolated test workers */
+    }
+    window.history.pushState({}, '', '/kiosk');
+
+    renderApp();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Terminal koppeln' }),
+    ).toBeDefined();
+    expect(screen.queryByLabelText('E-Mail')).toBeNull();
   });
 });

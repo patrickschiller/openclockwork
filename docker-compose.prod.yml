@@ -8,7 +8,7 @@
 #   OPENCLOCKWORK_VERSION
 #   POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
 #   DATABASE_URL  (must match the postgres credentials above)
-#   JWT_SECRET, ERP_API_KEY, CRON_API_KEY, API_CORS_ORIGINS
+#   JWT_SECRET, TERMINAL_QR_SECRET, ERP_API_KEY, CRON_API_KEY, API_CORS_ORIGINS
 
 services:
   db:
@@ -39,6 +39,10 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
+      # Keep QR signing cryptographically separate from interactive JWTs.
+      TERMINAL_QR_SECRET: ${TERMINAL_QR_SECRET:?Set an independent TERMINAL_QR_SECRET in .env.prod}
+      TERMINAL_CHALLENGE_TTL_SECONDS: ${TERMINAL_CHALLENGE_TTL_SECONDS:-45}
+      TERMINAL_PAIRING_TTL_SECONDS: ${TERMINAL_PAIRING_TTL_SECONDS:-600}
       ERP_API_KEY: ${ERP_API_KEY}
       CRON_API_KEY: ${CRON_API_KEY}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS}
@@ -64,6 +68,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+    environment:
+      SUPPORT_URL: ${SUPPORT_URL-https://github.com/sponsors/patrickschiller}
     ports:
       - '${WEB_PORT:-8080}:8080'
 

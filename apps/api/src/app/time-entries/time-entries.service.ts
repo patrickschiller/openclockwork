@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, type TimeEntry } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import {
   calculateBreakMinutes,
   calculateDailyTargetMinutes,
@@ -23,6 +24,7 @@ import {
   type BookProjectRangeDto,
   type BookProjectRangeResult,
   type ClockInDto,
+  type ClockOutDto,
   type CreateDailyBlockDto,
   type DailyBlockOptionDto,
   type SplitTimeEntryDto,
@@ -111,9 +113,11 @@ export class TimeEntriesService {
 
   async list(
     employeeId: string,
+    user: JwtUser,
     from?: Date,
     to?: Date,
   ): Promise<TimeEntryDto[]> {
+    this.assertSelfOrAdmin(employeeId, user);
     const where: Prisma.TimeEntryWhereInput = { employeeId };
     if (from || to) {
       where.clockIn = {};
@@ -308,19 +312,57 @@ export class TimeEntriesService {
       serviceOrder: { orderNo: string; title: string } | null;
     };
     try {
-      created = await this.prisma.timeEntry.create({
-        data: {
-          employeeId: employee.id,
-          clockIn: parsed.clockIn,
-          clockOut,
-          bookingDate: parsed.bookingDate,
-          source: 'DailyBlock',
-          status: 'Approved',
-          requiresApproval: false,
-          ...target,
+      created = await this.prisma.$transaction(
+        async (tx) => {
+          await this.lockEmployee(tx, employee.id);
+          const activeEmployee = await tx.employee.findUnique({
+            where: { id: employee.id },
+            select: { isActive: true, allowDailyBlockBooking: true },
+          });
+          if (
+            !activeEmployee?.isActive ||
+            !activeEmployee.allowDailyBlockBooking
+          ) {
+            throw new ForbiddenException(
+              dailyBlockError(
+                'DAILY_BLOCK_DISABLED',
+                'Daily block booking is not enabled for this employee',
+              ),
+            );
+          }
+          const conflict = await tx.timeEntry.findFirst({
+            where: {
+              employeeId: employee.id,
+              status: { not: 'Rejected' },
+              clockIn: { lt: parsed.dayEnd },
+              OR: [{ clockOut: null }, { clockOut: { gt: parsed.dayStart } }],
+            },
+            select: { id: true },
+          });
+          if (conflict) {
+            throw new ConflictException(
+              dailyBlockError(
+                'DAILY_BLOCK_TIME_ENTRY_CONFLICT',
+                'Selected day already contains a time entry',
+              ),
+            );
+          }
+          return tx.timeEntry.create({
+            data: {
+              employeeId: employee.id,
+              clockIn: parsed.clockIn,
+              clockOut,
+              bookingDate: parsed.bookingDate,
+              source: 'DailyBlock',
+              status: 'Approved',
+              requiresApproval: false,
+              ...target,
+            },
+            include: ENTRY_INCLUDE,
+          });
         },
-        include: ENTRY_INCLUDE,
-      });
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+      );
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
         throw new ConflictException(
@@ -340,50 +382,84 @@ export class TimeEntriesService {
     return toTimeEntryDto(created);
   }
 
-  async clockIn(dto: ClockInDto): Promise<TimeEntryDto> {
-    const today = localTodayAsUtcDate();
-    const dailyBlock = await this.prisma.timeEntry.findUnique({
-      where: {
-        employeeId_bookingDate: {
-          employeeId: dto.employeeId,
-          bookingDate: today,
-        },
-      },
-      select: { id: true },
-    });
-    if (dailyBlock) {
-      throw new ConflictException('Today already has a daily-block booking');
-    }
-    const open = await this.prisma.timeEntry.findFirst({
-      where: { employeeId: dto.employeeId, clockOut: null },
-    });
-    if (open) {
-      throw new ConflictException(
-        'There is already an open time entry — clock out first',
-      );
-    }
+  async clockIn(dto: ClockInDto, employeeId: string): Promise<TimeEntryDto> {
+    this.assertLocationTuple(dto.latitude, dto.longitude, dto.accuracyMeters);
+    await this.assertActiveEmployee(employeeId);
     const target = await this.resolveBookingTarget(
-      dto.employeeId,
+      employeeId,
       dto.projectId ?? null,
       dto.serviceOrderId ?? null,
       dto.activity ?? null,
     );
-    const schedule = await this.schedules.resolveForEmployee(dto.employeeId);
-    const now = new Date();
-    const created = await this.prisma.timeEntry.create({
-      data: {
-        employeeId: dto.employeeId,
-        clockIn: now,
-        source: 'Pwa',
-        status: 'Open',
-        requiresApproval: requiresSpecialApproval(now, null, schedule.frame),
-        latitude: dto.latitude ?? null,
-        longitude: dto.longitude ?? null,
-        accuracyMeters: dto.accuracyMeters ?? null,
-        ...target,
-      },
-      include: ENTRY_INCLUDE,
-    });
+    const schedule = await this.schedules.resolveForEmployee(employeeId);
+    let created: TimeEntry & {
+      project: { code: string; name: string } | null;
+      serviceOrder: { orderNo: string; title: string } | null;
+    };
+    try {
+      created = await this.prisma.$transaction(
+        async (tx) => {
+          await this.lockEmployee(tx, employeeId);
+          const activeEmployee = await tx.employee.findUnique({
+            where: { id: employeeId },
+            select: { isActive: true },
+          });
+          if (!activeEmployee?.isActive) {
+            throw new ForbiddenException('Employee account is not active');
+          }
+          const bookingNow = new Date();
+          const today = localTodayAsUtcDate(bookingNow);
+          const [dailyBlock, open] = await Promise.all([
+            tx.timeEntry.findUnique({
+              where: {
+                employeeId_bookingDate: { employeeId, bookingDate: today },
+              },
+              select: { id: true },
+            }),
+            tx.timeEntry.findFirst({
+              where: { employeeId, clockOut: null },
+              select: { id: true },
+            }),
+          ]);
+          if (dailyBlock) {
+            throw new ConflictException(
+              'Today already has a daily-block booking',
+            );
+          }
+          if (open) {
+            throw new ConflictException(
+              'There is already an open time entry — clock out first',
+            );
+          }
+          return tx.timeEntry.create({
+            data: {
+              employeeId,
+              clockIn: bookingNow,
+              source: 'Pwa',
+              status: 'Open',
+              requiresApproval: requiresSpecialApproval(
+                bookingNow,
+                null,
+                schedule.frame,
+              ),
+              latitude: dto.latitude ?? null,
+              longitude: dto.longitude ?? null,
+              accuracyMeters: dto.accuracyMeters ?? null,
+              ...target,
+            },
+            include: ENTRY_INCLUDE,
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+      );
+    } catch (error) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException(
+          'There is already an open time entry — clock out first',
+        );
+      }
+      throw error;
+    }
     this.events.broadcast('time-entry:created', {
       id: created.id,
       employeeId: created.employeeId,
@@ -392,27 +468,60 @@ export class TimeEntriesService {
     return toTimeEntryDto(created);
   }
 
-  async clockOut(employeeId: string): Promise<TimeEntryDto> {
-    const open = await this.prisma.timeEntry.findFirst({
-      where: { employeeId, clockOut: null },
-      orderBy: { clockIn: 'desc' },
-    });
-    if (!open) throw new NotFoundException('No open time entry to close');
-    const now = new Date();
-    if (now.getTime() <= open.clockIn.getTime()) {
-      throw new BadRequestException('Clock-out must be after clock-in');
-    }
+  async clockOut(
+    employeeId: string,
+    dto: ClockOutDto = {},
+  ): Promise<TimeEntryDto> {
+    this.assertLocationTuple(dto.latitude, dto.longitude, dto.accuracyMeters);
+    await this.assertActiveEmployee(employeeId);
     const schedule = await this.schedules.resolveForEmployee(employeeId);
-    const requires = requiresSpecialApproval(open.clockIn, now, schedule.frame);
-    const updated = await this.prisma.timeEntry.update({
-      where: { id: open.id },
-      data: {
-        clockOut: now,
-        status: requires ? 'Pending' : 'Approved',
-        requiresApproval: requires,
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        await this.lockEmployee(tx, employeeId);
+        const activeEmployee = await tx.employee.findUnique({
+          where: { id: employeeId },
+          select: { isActive: true },
+        });
+        if (!activeEmployee?.isActive) {
+          throw new ForbiddenException('Employee account is not active');
+        }
+        const bookingNow = new Date();
+        const open = await tx.timeEntry.findFirst({
+          where: { employeeId, clockOut: null },
+          orderBy: { clockIn: 'desc' },
+        });
+        if (!open) throw new NotFoundException('No open time entry to close');
+        if (bookingNow.getTime() <= open.clockIn.getTime()) {
+          throw new BadRequestException('Clock-out must be after clock-in');
+        }
+        const requires = requiresSpecialApproval(
+          open.clockIn,
+          bookingNow,
+          schedule.frame,
+        );
+        const result = await tx.timeEntry.updateMany({
+          where: { id: open.id, clockOut: null },
+          data: {
+            clockOut: bookingNow,
+            status: requires ? 'Pending' : 'Approved',
+            requiresApproval: requires,
+            clockOutLatitude: dto.latitude ?? null,
+            clockOutLongitude: dto.longitude ?? null,
+            clockOutAccuracyMeters: dto.accuracyMeters ?? null,
+          },
+        });
+        if (result.count !== 1) {
+          throw new ConflictException('Time entry was already closed');
+        }
+        const row = await tx.timeEntry.findUnique({
+          where: { id: open.id },
+          include: ENTRY_INCLUDE,
+        });
+        if (!row) throw new NotFoundException('No open time entry to close');
+        return row;
       },
-      include: ENTRY_INCLUDE,
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
     this.events.broadcast('time-entry:updated', {
       id: updated.id,
       employeeId: updated.employeeId,
@@ -547,29 +656,58 @@ export class TimeEntriesService {
           ? 'Pending'
           : 'Approved';
 
-    const [first, secondEntry] = await this.prisma.$transaction([
-      this.prisma.timeEntry.update({
-        where: { id },
-        data: {
-          clockOut: at,
-          requiresApproval: firstRequires,
-          status: statusFor(firstRequires),
-        },
-        include: ENTRY_INCLUDE,
-      }),
-      this.prisma.timeEntry.create({
-        data: {
-          employeeId: entry.employeeId,
-          clockIn: at,
-          clockOut: entry.clockOut,
-          source: entry.source,
-          status: statusFor(secondRequires),
-          requiresApproval: secondRequires,
-          ...second,
-        },
-        include: ENTRY_INCLUDE,
-      }),
-    ]);
+    const [first, secondEntry] = await this.prisma.$transaction(
+      async (tx) => {
+        await this.lockEmployee(tx, entry.employeeId);
+        const firstSegment = await tx.timeEntry.update({
+          where: { id },
+          data: {
+            clockOut: at,
+            requiresApproval: firstRequires,
+            status: statusFor(firstRequires),
+            clockOutLatitude: null,
+            clockOutLongitude: null,
+            clockOutAccuracyMeters: null,
+            clockOutTerminalDistanceMeters: null,
+            clockOutTerminalRadiusMeters: null,
+            clockOutTerminalMaxAccuracyMeters: null,
+            clockOutPositionTimestamp: null,
+            clockOutTerminalId: null,
+            clockOutChallengeId: null,
+          },
+          include: ENTRY_INCLUDE,
+        });
+        const secondSegment = await tx.timeEntry.create({
+          data: {
+            employeeId: entry.employeeId,
+            clockIn: at,
+            clockOut: entry.clockOut,
+            source: entry.source,
+            status: statusFor(secondRequires),
+            requiresApproval: secondRequires,
+            clockOutLatitude: entry.clockOutLatitude,
+            clockOutLongitude: entry.clockOutLongitude,
+            clockOutAccuracyMeters: entry.clockOutAccuracyMeters,
+            clockOutTerminalDistanceMeters:
+              entry.clockOutTerminalDistanceMeters,
+            clockOutTerminalRadiusMeters: entry.clockOutTerminalRadiusMeters,
+            clockOutTerminalMaxAccuracyMeters:
+              entry.clockOutTerminalMaxAccuracyMeters,
+            clockOutPositionTimestamp: entry.clockOutPositionTimestamp,
+            clockOutTerminalId: entry.clockOutTerminalId,
+            clockOutChallengeId: entry.clockOutChallengeId,
+            ...second,
+          },
+          include: ENTRY_INCLUDE,
+        });
+        await tx.terminalChallengeRedemption.updateMany({
+          where: { timeEntryId: entry.id, action: 'clock-out' },
+          data: { timeEntryId: secondSegment.id },
+        });
+        return [firstSegment, secondSegment] as const;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
 
     this.events.broadcast('time-entry:updated', {
       id: first.id,
@@ -635,6 +773,7 @@ export class TimeEntriesService {
 
     const ops: Prisma.PrismaPromise<TimeEntry>[] = [];
     const kinds: Array<'updated' | 'created'> = [];
+    const clockOutRedemptionRemaps: Array<{ from: string; to: string }> = [];
     const push = (
       op: Prisma.PrismaPromise<TimeEntry>,
       kind: 'updated' | 'created',
@@ -671,11 +810,13 @@ export class TimeEntriesService {
         );
       } else if (startsBefore && !endsAfter) {
         // Case B — sticks out left: original keeps its booking up to `from`.
+        const lastSegmentId = randomUUID();
         push(
           this.prisma.timeEntry.update({
             where: { id: entry.id },
             data: {
               clockOut: from,
+              ...this.clearClockOutAudit(),
               requiresApproval: requiresFor(s, from),
               status: statusFor(requiresFor(s, from)),
             },
@@ -686,26 +827,34 @@ export class TimeEntriesService {
         push(
           this.prisma.timeEntry.create({
             data: {
+              id: lastSegmentId,
               employeeId: entry.employeeId,
               clockIn: from,
               clockOut: e,
               source: entry.source,
               requiresApproval: requiresFor(from, e),
               status: statusFor(requiresFor(from, e)),
+              ...this.clockOutAudit(entry),
               ...newFields,
             },
             include: ENTRY_INCLUDE,
           }),
           'created',
         );
+        clockOutRedemptionRemaps.push({
+          from: entry.id,
+          to: lastSegmentId,
+        });
       } else if (!startsBefore && endsAfter) {
         // Case C — sticks out right: original (first physical segment, keeps
         // GPS/note) gets the new booking up to `to`; the rest keeps the old one.
+        const lastSegmentId = randomUUID();
         push(
           this.prisma.timeEntry.update({
             where: { id: entry.id },
             data: {
               clockOut: to,
+              ...this.clearClockOutAudit(),
               ...newFields,
               requiresApproval: requiresFor(s, to),
               status: statusFor(requiresFor(s, to)),
@@ -717,25 +866,33 @@ export class TimeEntriesService {
         push(
           this.prisma.timeEntry.create({
             data: {
+              id: lastSegmentId,
               employeeId: entry.employeeId,
               clockIn: to,
               clockOut: e,
               source: entry.source,
               requiresApproval: requiresFor(to, e),
               status: statusFor(requiresFor(to, e)),
+              ...this.clockOutAudit(entry),
               ...origFields,
             },
             include: ENTRY_INCLUDE,
           }),
           'created',
         );
+        clockOutRedemptionRemaps.push({
+          from: entry.id,
+          to: lastSegmentId,
+        });
       } else {
         // Case D — sticks out both sides: old | new | old.
+        const lastSegmentId = randomUUID();
         push(
           this.prisma.timeEntry.update({
             where: { id: entry.id },
             data: {
               clockOut: from,
+              ...this.clearClockOutAudit(),
               requiresApproval: requiresFor(s, from),
               status: statusFor(requiresFor(s, from)),
             },
@@ -761,22 +918,40 @@ export class TimeEntriesService {
         push(
           this.prisma.timeEntry.create({
             data: {
+              id: lastSegmentId,
               employeeId: entry.employeeId,
               clockIn: to,
               clockOut: e,
               source: entry.source,
               requiresApproval: requiresFor(to, e),
               status: statusFor(requiresFor(to, e)),
+              ...this.clockOutAudit(entry),
               ...origFields,
             },
             include: ENTRY_INCLUDE,
           }),
           'created',
         );
+        clockOutRedemptionRemaps.push({
+          from: entry.id,
+          to: lastSegmentId,
+        });
       }
     }
 
-    const results = await this.prisma.$transaction(ops);
+    const lockOp = this.prisma
+      .$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${dto.employeeId}, 0))`;
+    const redemptionOps = clockOutRedemptionRemaps.map((remap) =>
+      this.prisma.terminalChallengeRedemption.updateMany({
+        where: { timeEntryId: remap.from, action: 'clock-out' },
+        data: { timeEntryId: remap.to },
+      }),
+    );
+    const transactionResults = await this.prisma.$transaction(
+      [lockOp, ...ops, ...redemptionOps] as Prisma.PrismaPromise<unknown>[],
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
+    const results = transactionResults.slice(1, ops.length + 1) as TimeEntry[];
     results.forEach((row, i) => {
       if (kinds[i] === 'updated') {
         this.events.broadcast('time-entry:updated', {
@@ -881,6 +1056,72 @@ export class TimeEntriesService {
         'Only the owner or a Manager/HRAdmin may modify this entry',
       );
     }
+  }
+
+  private clearClockOutAudit() {
+    return {
+      clockOutLatitude: null,
+      clockOutLongitude: null,
+      clockOutAccuracyMeters: null,
+      clockOutTerminalDistanceMeters: null,
+      clockOutTerminalRadiusMeters: null,
+      clockOutTerminalMaxAccuracyMeters: null,
+      clockOutPositionTimestamp: null,
+      clockOutTerminalId: null,
+      clockOutChallengeId: null,
+    };
+  }
+
+  private clockOutAudit(entry: TimeEntry) {
+    return {
+      clockOutLatitude: entry.clockOutLatitude,
+      clockOutLongitude: entry.clockOutLongitude,
+      clockOutAccuracyMeters: entry.clockOutAccuracyMeters,
+      clockOutTerminalDistanceMeters: entry.clockOutTerminalDistanceMeters,
+      clockOutTerminalRadiusMeters: entry.clockOutTerminalRadiusMeters,
+      clockOutTerminalMaxAccuracyMeters:
+        entry.clockOutTerminalMaxAccuracyMeters,
+      clockOutPositionTimestamp: entry.clockOutPositionTimestamp,
+      clockOutTerminalId: entry.clockOutTerminalId,
+      clockOutChallengeId: entry.clockOutChallengeId,
+    };
+  }
+
+  private async assertActiveEmployee(employeeId: string): Promise<void> {
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { isActive: true },
+    });
+    if (!employee || !employee.isActive) {
+      throw new ForbiddenException('Employee account is not active');
+    }
+  }
+
+  private assertLocationTuple(
+    latitude: number | null | undefined,
+    longitude: number | null | undefined,
+    accuracyMeters: number | null | undefined,
+  ): void {
+    const values = [latitude, longitude, accuracyMeters];
+    const provided = values.filter(
+      (value) => value !== null && value !== undefined,
+    );
+    if (provided.length !== 0 && provided.length !== values.length) {
+      throw new BadRequestException(
+        'latitude, longitude and accuracyMeters must be provided together',
+      );
+    }
+  }
+
+  private async lockEmployee(
+    tx: Prisma.TransactionClient,
+    employeeId: string,
+  ): Promise<void> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${employeeId}, 0))`;
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (error as { code?: string }).code === 'P2002';
   }
 
   private async findOrThrow(id: string): Promise<TimeEntry> {

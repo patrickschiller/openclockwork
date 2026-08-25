@@ -1,7 +1,14 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, vi } from 'vitest';
 import { AppShell } from './AppShell';
+import { APP_VERSION } from './app-version';
 
 const runtimeWindow = window as Window & {
   __OPENClockwork_CONFIG__?: { demoMode?: boolean };
@@ -62,6 +69,33 @@ describe('AppShell', () => {
     expect(demoNotice.classList.contains('w-full')).toBe(false);
   });
 
+  it('uses an icon-only account trigger and shows the complete account details', async () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route index element={<div>Dashboard content</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Kontomenü öffnen' });
+
+    expect(trigger.textContent).toBe('');
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+
+    const accountMenu = await screen.findByRole('menu');
+    expect(within(accountMenu).getByText('Marc Becker')).toBeDefined();
+    expect(
+      within(accountMenu).getByText('marc.becker@openclockwork.test'),
+    ).toBeDefined();
+    expect(within(accountMenu).getByText('Rolle: Vorgesetzte:r')).toBeDefined();
+    expect(
+      within(accountMenu).getByRole('menuitem', { name: 'Abmelden' }),
+    ).toBeDefined();
+  });
+
   it('makes the manager approval inbox reachable from the overflow menu', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
@@ -74,19 +108,64 @@ describe('AppShell', () => {
       </MemoryRouter>,
     );
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Weitere Bereiche öffnen' }),
-    );
-    const overflowMenu = await screen.findByRole('dialog', {
-      name: 'Weitere Bereiche',
+    const trigger = screen.getByRole('button', {
+      name: 'Weitere Bereiche öffnen',
     });
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    const overflowMenu = await screen.findByRole('menu');
+    const calendarItem = within(overflowMenu).getByRole('menuitem', {
+      name: 'Kalender',
+    });
+    await waitFor(() => expect(document.activeElement).toBe(calendarItem));
+
+    fireEvent.keyDown(overflowMenu, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+
+    fireEvent.keyDown(trigger, { key: 'Enter' });
+    const reopenedMenu = await screen.findByRole('menu');
     fireEvent.click(
-      within(overflowMenu).getByRole('link', { name: 'Genehmigungen' }),
+      within(reopenedMenu).getByRole('menuitem', { name: 'Genehmigungen' }),
     );
 
     expect(await screen.findByText('Approval inbox')).toBeDefined();
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('shows the attribution footer on admin routes only', () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={['/admin/requests']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route path="admin/requests" element={<div>Approval inbox</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
     expect(
-      screen.queryByRole('dialog', { name: 'Weitere Bereiche' }),
+      screen.getByText('Crafted with ❤️ in Würzburg by Patrick Schiller'),
+    ).toBeDefined();
+    expect(
+      screen.getByText(`OpenClockwork-Version ${APP_VERSION}`),
+    ).toBeDefined();
+
+    unmount();
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route element={<AppShell />}>
+            <Route index element={<div>Dashboard content</div>} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.queryByText('Crafted with ❤️ in Würzburg by Patrick Schiller'),
+    ).toBeNull();
+    expect(
+      screen.queryByText(`OpenClockwork-Version ${APP_VERSION}`),
     ).toBeNull();
   });
 });

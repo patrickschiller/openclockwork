@@ -181,4 +181,33 @@ describe('TimeEntries — direct daily-block booking', () => {
       message: 'Selected day already contains a time entry',
     });
   });
+
+  it('serializes a daily block against a simultaneous live clock-in', async () => {
+    const { employee, token } = await fixture();
+    await ctx.prisma.workSchedule.update({
+      where: { id: employee.workScheduleId as string },
+      data: { workingDays: 127 },
+    });
+    const today = localDateValue(new Date());
+
+    const responses = await Promise.all([
+      ctx.http
+        .post('/api/timeentries/daily-block')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ date: today, start: '08:00' }),
+      ctx.http
+        .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ employeeId: '00000000-0000-4000-8000-000000000000' }),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      201, 409,
+    ]);
+    expect(
+      await ctx.prisma.timeEntry.count({
+        where: { employeeId: employee.id },
+      }),
+    ).toBe(1);
+  });
 });
