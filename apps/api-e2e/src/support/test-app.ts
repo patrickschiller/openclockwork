@@ -17,6 +17,11 @@ export interface TestContext {
 
 const RESET_SQL = `
   TRUNCATE TABLE
+    "TerminalChallengeRedemption",
+    "TerminalChallenge",
+    "TerminalDevice",
+    "TerminalSupportPrompt",
+    "Terminal",
     "Absence",
     "RequestAttachment",
     "RequestEvent",

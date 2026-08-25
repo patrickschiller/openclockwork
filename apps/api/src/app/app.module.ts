@@ -15,6 +15,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { ReportsModule } from './reports/reports.module';
 import { RequestsModule } from './requests/requests.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
+import { TerminalsModule } from './terminals/terminals.module';
 import { ViolationsModule } from './violations/violations.module';
 import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
 
@@ -31,6 +32,7 @@ import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
     ProjectsModule,
     ReportsModule,
     TimeEntriesModule,
+    TerminalsModule,
     LeaveAllowancesModule,
     AccountsModule,
     RequestsModule,

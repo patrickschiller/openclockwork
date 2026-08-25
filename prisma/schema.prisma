@@ -102,42 +102,43 @@ enum AbsenceKind {
 // -------------------------------------------------------------
 
 model Employee {
-  id                            String                   @id @default(uuid()) @db.Uuid
-  personalNo                    String                   @unique
+  id                            String                        @id @default(uuid()) @db.Uuid
+  personalNo                    String                        @unique
   firstName                     String
   lastName                      String
-  email                         String                   @unique
+  email                         String                        @unique
   passwordHash                  String
-  role                          Role                     @default(Employee)
+  role                          Role                          @default(Employee)
   timeModel                     TimeModel
-  weeklyHours                   Decimal                  @db.Decimal(5, 2)
-  annualLeaveDays               Decimal                  @db.Decimal(5, 2)
-  startDate                     DateTime                 @db.Date
-  overtimeOpeningBalanceMinutes Int                      @default(0)
+  weeklyHours                   Decimal                       @db.Decimal(5, 2)
+  annualLeaveDays               Decimal                       @db.Decimal(5, 2)
+  startDate                     DateTime                      @db.Date
+  overtimeOpeningBalanceMinutes Int                           @default(0)
   /// ISO-3166-2 code of the German state ("NW", "BY", …). Drives the holiday calendar.
-  bundesland                    String                   @default("NW") @db.VarChar(2)
+  bundesland                    String                        @default("NW") @db.VarChar(2)
   /// User-facing dark/light mode preference. "System" follows the OS setting.
-  themePreference               ThemePreference          @default(System)
+  themePreference               ThemePreference               @default(System)
   /// Allows an employee to create one self-approved fixed-duration block per working day.
-  allowDailyBlockBooking        Boolean                  @default(false)
-  isActive                      Boolean                  @default(true)
-  managerId                     String?                  @db.Uuid
-  manager                       Employee?                @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
-  reports                       Employee[]               @relation("ManagerToReports")
-  workScheduleId                String?                  @db.Uuid
-  workSchedule                  WorkSchedule?            @relation(fields: [workScheduleId], references: [id], onDelete: SetNull)
+  allowDailyBlockBooking        Boolean                       @default(false)
+  isActive                      Boolean                       @default(true)
+  managerId                     String?                       @db.Uuid
+  manager                       Employee?                     @relation("ManagerToReports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports                       Employee[]                    @relation("ManagerToReports")
+  workScheduleId                String?                       @db.Uuid
+  workSchedule                  WorkSchedule?                 @relation(fields: [workScheduleId], references: [id], onDelete: SetNull)
   timeEntries                   TimeEntry[]
-  requests                      Request[]                @relation("RequestEmployee")
-  approverRequests              Request[]                @relation("RequestApprover")
-  decidedRequests               Request[]                @relation("RequestDecider")
-  substituteRequests            Request[]                @relation("RequestSubstitute")
+  requests                      Request[]                     @relation("RequestEmployee")
+  approverRequests              Request[]                     @relation("RequestApprover")
+  decidedRequests               Request[]                     @relation("RequestDecider")
+  substituteRequests            Request[]                     @relation("RequestSubstitute")
   leaveAllowances               EmployeeLeaveAllowance[]
-  events                        RequestEvent[]           @relation("EventActor")
+  events                        RequestEvent[]                @relation("EventActor")
   uploadedAttachments           RequestAttachment[]
   absences                      Absence[]
   projectAssignments            ProjectAssignment[]
-  createdAt                     DateTime                 @default(now())
-  updatedAt                     DateTime                 @updatedAt
+  terminalChallengeRedemptions  TerminalChallengeRedemption[]
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
 
   @@index([role])
   @@index([managerId])
@@ -177,65 +178,185 @@ model WorkScheduleCoreTime {
 }
 
 model TimeEntry {
-  id               String      @id @default(uuid()) @db.Uuid
-  employeeId       String      @db.Uuid
-  employee         Employee    @relation(fields: [employeeId], references: [id], onDelete: Restrict)
-  clockIn          DateTime
-  clockOut         DateTime?
-  source           EntrySource @default(Manual)
-  status           EntryStatus @default(Open)
-  requiresApproval Boolean     @default(false)
-  latitude         Decimal?    @db.Decimal(9, 6)
-  longitude        Decimal?    @db.Decimal(9, 6)
-  accuracyMeters   Decimal?    @db.Decimal(7, 2)
-  note             String?
-  projectId        String?     @db.Uuid
-  project          Project?    @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  serviceOrderId   String?       @db.Uuid
-  serviceOrder     ServiceOrder? @relation(fields: [projectId, serviceOrderId], references: [projectId, id], onDelete: Restrict)
+  id                                String                        @id @default(uuid()) @db.Uuid
+  employeeId                        String                        @db.Uuid
+  employee                          Employee                      @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  clockIn                           DateTime
+  clockOut                          DateTime?
+  source                            EntrySource                   @default(Manual)
+  status                            EntryStatus                   @default(Open)
+  requiresApproval                  Boolean                       @default(false)
+  latitude                          Decimal?                      @db.Decimal(9, 6)
+  longitude                         Decimal?                      @db.Decimal(9, 6)
+  accuracyMeters                    Decimal?                      @db.Decimal(7, 2)
+  terminalDistanceMeters            Decimal?                      @db.Decimal(8, 2)
+  terminalRadiusMeters              Int?
+  terminalMaxAccuracyMeters         Int?
+  positionTimestamp                 DateTime?
+  clockOutLatitude                  Decimal?                      @db.Decimal(9, 6)
+  clockOutLongitude                 Decimal?                      @db.Decimal(9, 6)
+  clockOutAccuracyMeters            Decimal?                      @db.Decimal(7, 2)
+  clockOutTerminalDistanceMeters    Decimal?                      @db.Decimal(8, 2)
+  clockOutTerminalRadiusMeters      Int?
+  clockOutTerminalMaxAccuracyMeters Int?
+  clockOutPositionTimestamp         DateTime?
+  /// Terminal used for the physical clock-in. Null for non-terminal entries.
+  terminalId                        String?                       @db.Uuid
+  terminal                          Terminal?                     @relation("TerminalClockInEntries", fields: [terminalId], references: [id], onDelete: SetNull)
+  /// A clock-out may happen at a different terminal (or close a PWA entry).
+  clockOutTerminalId                String?                       @db.Uuid
+  clockOutTerminal                  Terminal?                     @relation("TerminalClockOutEntries", fields: [clockOutTerminalId], references: [id], onDelete: SetNull)
+  clockInChallengeId                String?                       @db.Uuid
+  clockInChallenge                  TerminalChallenge?            @relation("TerminalChallengeClockIn", fields: [clockInChallengeId], references: [id], onDelete: SetNull)
+  clockOutChallengeId               String?                       @db.Uuid
+  clockOutChallenge                 TerminalChallenge?            @relation("TerminalChallengeClockOut", fields: [clockOutChallengeId], references: [id], onDelete: SetNull)
+  terminalChallengeRedemptions      TerminalChallengeRedemption[]
+  note                              String?
+  projectId                         String?                       @db.Uuid
+  project                           Project?                      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  serviceOrderId                    String?                       @db.Uuid
+  serviceOrder                      ServiceOrder?                 @relation(fields: [projectId, serviceOrderId], references: [projectId, id], onDelete: Restrict)
   /// Customer-facing description of the work performed (Tätigkeit).
-  activity         String?
+  activity                          String?
   /// Local calendar date for DailyBlock entries. Null for all other entry sources.
-  bookingDate      DateTime?   @db.Date
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  bookingDate                       DateTime?                     @db.Date
+  createdAt                         DateTime                      @default(now())
+  updatedAt                         DateTime                      @updatedAt
 
+  @@unique([employeeId, bookingDate])
   @@index([employeeId, clockIn])
   @@index([status])
   @@index([projectId])
   @@index([serviceOrderId])
-  @@unique([employeeId, bookingDate])
+  @@index([terminalId])
+  @@index([clockOutTerminalId])
+  @@index([clockInChallengeId])
+  @@index([clockOutChallengeId])
+}
+
+/// A configured, wall-mounted time-clock display. Deactivation is reversible;
+/// permanent deletion removes kiosk-only data while TimeEntry audit snapshots remain.
+model Terminal {
+  id                String              @id @default(uuid()) @db.Uuid
+  name              String              @db.VarChar(120)
+  displayText       String              @db.VarChar(500)
+  locationLabel     String              @db.VarChar(200)
+  logoUrl           String?
+  enforceGeofence   Boolean             @default(true)
+  latitude          Decimal?            @db.Decimal(9, 6)
+  longitude         Decimal?            @db.Decimal(9, 6)
+  radiusMeters      Int?
+  maxAccuracyMeters Int?
+  timeZone          String              @default("Europe/Berlin") @db.VarChar(100)
+  isActive          Boolean             @default(false)
+  activatedAt       DateTime?
+  pairingCodeHash   String?             @unique @db.Char(64)
+  pairingExpiresAt  DateTime?
+  devices           TerminalDevice[]
+  challenges        TerminalChallenge[]
+  clockInEntries    TimeEntry[]         @relation("TerminalClockInEntries")
+  clockOutEntries   TimeEntry[]         @relation("TerminalClockOutEntries")
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([isActive])
+}
+
+/// A separately authenticated kiosk installation. Only a hash of the bearer
+/// credential is persisted so a database read does not reveal device tokens.
+model TerminalDevice {
+  id         String              @id @default(uuid()) @db.Uuid
+  terminalId String              @db.Uuid
+  terminal   Terminal            @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  name       String?             @db.VarChar(120)
+  tokenHash  String              @unique @db.Char(64)
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
+  challenges TerminalChallenge[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([terminalId, revokedAt])
+}
+
+/// One opaque, short-lived QR challenge. Redemptions are recorded atomically;
+/// each employee may use the displayed challenge at most once.
+model TerminalChallenge {
+  id                  String                        @id @default(uuid()) @db.Uuid
+  terminalId          String                        @db.Uuid
+  terminal            Terminal                      @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  deviceId            String                        @db.Uuid
+  device              TerminalDevice                @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  tokenHash           String                        @unique @db.Char(64)
+  rootDate            DateTime                      @db.Date
+  expiresAt           DateTime
+  redemptions         TerminalChallengeRedemption[]
+  clockInTimeEntries  TimeEntry[]                   @relation("TerminalChallengeClockIn")
+  clockOutTimeEntries TimeEntry[]                   @relation("TerminalChallengeClockOut")
+  createdAt           DateTime                      @default(now())
+
+  @@index([terminalId, expiresAt])
+  @@index([deviceId, expiresAt])
+  @@index([deviceId, createdAt])
+}
+
+/// Per-employee replay protection for a display challenge. The challenge may
+/// be used by many employees, but never twice by the same employee.
+model TerminalChallengeRedemption {
+  id          String            @id @default(uuid()) @db.Uuid
+  challengeId String            @db.Uuid
+  challenge   TerminalChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  employeeId  String            @db.Uuid
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  timeEntryId String            @db.Uuid
+  timeEntry   TimeEntry         @relation(fields: [timeEntryId], references: [id], onDelete: Restrict)
+  action      String            @db.VarChar(9)
+  createdAt   DateTime          @default(now())
+
+  @@unique([challengeId, employeeId])
+  @@index([employeeId, createdAt])
+  @@index([timeEntryId])
+}
+
+/// Installation-wide acknowledgement for the optional support prompt. No
+/// payment, sponsor, or declined-state is stored here.
+model TerminalSupportPrompt {
+  id               Int       @id @default(1)
+  firstActivatedAt DateTime
+  shownAt          DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
 model Request {
-  id                   String         @id @default(uuid()) @db.Uuid
-  employeeId           String         @db.Uuid
-  employee             Employee       @relation("RequestEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  id                   String              @id @default(uuid()) @db.Uuid
+  employeeId           String              @db.Uuid
+  employee             Employee            @relation("RequestEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
   type                 RequestType
-  status               RequestStatus  @default(Submitted)
-  workflowState        WorkflowState  @default(Submitted)
+  status               RequestStatus       @default(Submitted)
+  workflowState        WorkflowState       @default(Submitted)
   from                 DateTime
   to                   DateTime
   reason               String?
-  requiresApproval     Boolean        @default(false)
-  calculatedDays       Decimal        @default(0) @db.Decimal(6, 2)
-  halfDayStart         Boolean        @default(false)
-  halfDayEnd           Boolean        @default(false)
-  substituteId         String?        @db.Uuid
-  substitute           Employee?      @relation("RequestSubstitute", fields: [substituteId], references: [id], onDelete: SetNull)
+  requiresApproval     Boolean             @default(false)
+  calculatedDays       Decimal             @default(0) @db.Decimal(6, 2)
+  halfDayStart         Boolean             @default(false)
+  halfDayEnd           Boolean             @default(false)
+  substituteId         String?             @db.Uuid
+  substitute           Employee?           @relation("RequestSubstitute", fields: [substituteId], references: [id], onDelete: SetNull)
   substituteAcceptedAt DateTime?
-  currentApproverId    String?        @db.Uuid
-  currentApprover      Employee?      @relation("RequestApprover", fields: [currentApproverId], references: [id], onDelete: SetNull)
-  approverId           String?        @db.Uuid
-  approver             Employee?      @relation("RequestDecider", fields: [approverId], references: [id], onDelete: SetNull)
+  currentApproverId    String?             @db.Uuid
+  currentApprover      Employee?           @relation("RequestApprover", fields: [currentApproverId], references: [id], onDelete: SetNull)
+  approverId           String?             @db.Uuid
+  approver             Employee?           @relation("RequestDecider", fields: [approverId], references: [id], onDelete: SetNull)
   hrConfirmedAt        DateTime?
   cancelledAt          DateTime?
   decidedAt            DateTime?
   decisionNote         String?
   events               RequestEvent[]
   attachments          RequestAttachment[]
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   @@index([employeeId, workflowState])
   @@index([currentApproverId])

@@ -156,18 +156,38 @@ async function ensureTimeEntry(
     where: { employeeId, clockIn },
   });
   if (existing) return;
-  if (legacyClockIn) {
-    const legacy = await prisma.timeEntry.findFirst({
-      where: { employeeId, clockIn: legacyClockIn },
+
+  const legacy = legacyClockIn
+    ? await prisma.timeEntry.findFirst({
+        where: { employeeId, clockIn: legacyClockIn },
+      })
+    : null;
+
+  // Demo data must never displace real attendance records. In particular, a
+  // terminal booking may have been added since the previous container start.
+  // Skip this seeded interval when any non-rejected closed or open entry
+  // overlaps it. Exclude the legacy seed row itself so it can still be moved
+  // from the old UTC-based timestamp to the intended local time.
+  const overlapping = await prisma.timeEntry.findFirst({
+    where: {
+      employeeId,
+      ...(legacy ? { id: { not: legacy.id } } : {}),
+      status: { not: 'Rejected' },
+      clockIn: { lt: clockOut },
+      OR: [{ clockOut: null }, { clockOut: { gt: clockIn } }],
+    },
+    select: { id: true },
+  });
+  if (overlapping) return;
+
+  if (legacy) {
+    await prisma.timeEntry.update({
+      where: { id: legacy.id },
+      data: { clockIn, clockOut },
     });
-    if (legacy) {
-      await prisma.timeEntry.update({
-        where: { id: legacy.id },
-        data: { clockIn, clockOut },
-      });
-      return;
-    }
+    return;
   }
+
   await prisma.timeEntry.create({
     data: {
       employeeId,

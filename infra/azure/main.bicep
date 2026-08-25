@@ -35,6 +35,20 @@ param postgresAdminPassword string
 param jwtSecret string
 
 @secure()
+@description('Independent master secret for daily terminal QR signing keys. Never reuse jwtSecret.')
+param terminalQrSecret string
+
+@minValue(30)
+@maxValue(60)
+@description('Lifetime of a terminal QR challenge in seconds.')
+param terminalChallengeTtlSeconds int = 45
+
+@minValue(60)
+@maxValue(1800)
+@description('Lifetime of a one-time terminal pairing code in seconds.')
+param terminalPairingTtlSeconds int = 600
+
+@secure()
 @description('Static API key for the ERP export endpoint. Rotate by redeploying.')
 param erpApiKey string
 
@@ -47,6 +61,9 @@ param apiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:la
 
 @description('Initial web image. The deploy workflow updates this on every push to main.')
 param webImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
+
+@description('Optional voluntary-support URL shown after first terminal activation. Empty disables the button and never affects terminal availability.')
+param supportUrl string = 'https://github.com/sponsors/patrickschiller'
 
 // Naming convention: <prefix>-<env>-<resource-suffix>.
 // Storage account + ACR need globally-unique lowercase-alphanumeric names so
@@ -148,6 +165,7 @@ module kvSecrets 'modules/keyvault-secrets.bicep' = {
     keyVaultName: kv.outputs.name
     databaseUrl: databaseUrl
     jwtSecret: jwtSecret
+    terminalQrSecret: terminalQrSecret
     erpApiKey: erpApiKey
     cronApiKey: cronApiKey
   }
@@ -175,6 +193,8 @@ module apiApp 'modules/container-app.bicep' = {
       // local time, so the server must run in the deployment's zone.
       { name: 'TZ', value: 'Europe/Berlin' }
       { name: 'API_CORS_ORIGINS', value: 'https://${webAppName}.${acaEnv.outputs.defaultDomain}' }
+      { name: 'TERMINAL_CHALLENGE_TTL_SECONDS', value: string(terminalChallengeTtlSeconds) }
+      { name: 'TERMINAL_PAIRING_TTL_SECONDS', value: string(terminalPairingTtlSeconds) }
       { name: 'STORAGE_BACKEND', value: 'azure-blob' }
       { name: 'AZURE_BLOB_ACCOUNT', value: storage.outputs.accountName }
       { name: 'AZURE_BLOB_CONTAINER', value: storage.outputs.containerName }
@@ -184,6 +204,7 @@ module apiApp 'modules/container-app.bicep' = {
     secretRefs: [
       { name: 'database-url', envVarName: 'DATABASE_URL', keyVaultUrl: '${kv.outputs.uri}secrets/DATABASE-URL' }
       { name: 'jwt-secret', envVarName: 'JWT_SECRET', keyVaultUrl: '${kv.outputs.uri}secrets/JWT-SECRET' }
+      { name: 'terminal-qr-secret', envVarName: 'TERMINAL_QR_SECRET', keyVaultUrl: '${kv.outputs.uri}secrets/TERMINAL-QR-SECRET' }
       { name: 'erp-api-key', envVarName: 'ERP_API_KEY', keyVaultUrl: '${kv.outputs.uri}secrets/ERP-API-KEY' }
       { name: 'cron-api-key', envVarName: 'CRON_API_KEY', keyVaultUrl: '${kv.outputs.uri}secrets/CRON-API-KEY' }
     ]
@@ -207,6 +228,7 @@ module webApp 'modules/container-app.bicep' = {
       // nginx upstream — the internal-only api over the ACA env's HTTPS hop.
       { name: 'API_UPSTREAM', value: 'https://${apiAppName}.internal.${acaEnv.outputs.defaultDomain}' }
       { name: 'DEMO_MODE', value: enableDemoReset && environment == 'demo' ? 'true' : 'false' }
+      { name: 'SUPPORT_URL', value: supportUrl }
     ]
     secretRefs: []
   }

@@ -11,8 +11,14 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  const corsOriginsRaw = config.get<string>('API_CORS_ORIGINS', 'http://localhost:4200');
-  const origins = corsOriginsRaw.split(',').map((o) => o.trim()).filter(Boolean);
+  const corsOriginsRaw = config.get<string>(
+    'API_CORS_ORIGINS',
+    'http://localhost:4200',
+  );
+  const origins = corsOriginsRaw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   app.enableCors({ origin: origins, credentials: true });
 
   app.useGlobalPipes(
@@ -24,12 +30,15 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerEnabled = config.get<string>('SWAGGER_ENABLED', 'false') === 'true';
+  const swaggerEnabled =
+    config.get<string>('SWAGGER_ENABLED', 'false') === 'true';
   if (swaggerEnabled) {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('OpenClockwork API')
-      .setDescription('Self-hostable working-time tracker — REST + WebSocket surface.')
-      .setVersion('1.1.2')
+      .setDescription(
+        'Self-hostable working-time tracker — REST + WebSocket surface.',
+      )
+      .setVersion('1.2.0')
       .addBearerAuth()
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
@@ -39,7 +48,8 @@ async function bootstrap() {
   const port = Number(config.get<string>('API_PORT', '3000'));
   await app.listen(port);
   Logger.log(`OpenClockwork API listening on http://localhost:${port}/api`);
-  if (swaggerEnabled) Logger.log(`Swagger docs at        http://localhost:${port}/api/docs`);
+  if (swaggerEnabled)
+    Logger.log(`Swagger docs at        http://localhost:${port}/api/docs`);
 }
 
 bootstrap().catch((err) => {

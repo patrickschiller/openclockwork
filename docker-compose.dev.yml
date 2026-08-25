@@ -9,6 +9,10 @@
 #   Frontend → http://localhost:8080
 #   API      → http://localhost:3001
 #   DB       → localhost:5432 (user: openclockwork / pass: openclockwork)
+#
+# Host ports bind to loopback by default. For an iPad/LAN test, keep them
+# private and add docker-compose.ipad.yml, which exposes one trusted HTTPS
+# gateway instead.
 # ============================================================
 
 services:
@@ -21,11 +25,15 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openclockwork}
       POSTGRES_DB: ${POSTGRES_DB:-openclockwork}
     ports:
-      - '${DB_PORT:-5432}:5432'
+      - '${DEV_BIND_ADDRESS:-127.0.0.1}:${DB_PORT:-5432}:5432'
     volumes:
       - openclockwork-dev-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-openclockwork} -d ${POSTGRES_DB:-openclockwork}']
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U ${POSTGRES_USER:-openclockwork} -d ${POSTGRES_DB:-openclockwork}',
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -45,19 +53,32 @@ services:
       TZ: ${TZ:-Europe/Berlin}
       DATABASE_URL: postgresql://${POSTGRES_USER:-openclockwork}:${POSTGRES_PASSWORD:-openclockwork}@db:5432/${POSTGRES_DB:-openclockwork}?schema=public
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
+      TERMINAL_QR_SECRET: ${TERMINAL_QR_SECRET:-dev-terminal-qr-secret-change-me}
+      TERMINAL_CHALLENGE_TTL_SECONDS: ${TERMINAL_CHALLENGE_TTL_SECONDS:-45}
+      TERMINAL_PAIRING_TTL_SECONDS: ${TERMINAL_PAIRING_TTL_SECONDS:-600}
       ERP_API_KEY: ${ERP_API_KEY:-dev-erp-key}
       CRON_API_KEY: ${CRON_API_KEY:-dev-cron-key}
-      API_CORS_ORIGINS: http://localhost,http://localhost:8080
+      API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost,http://localhost:8080}
       STORAGE_BACKEND: local
       ATTACHMENTS_DIR: data/attachments
     ports:
-      - '${API_PORT:-3001}:3001'
+      - '${DEV_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-3001}:3001'
     volumes:
-      - ./data:/app/data        # persistent attachments in host dir
-      - /tmp:/tmp               # Prisma schema/query engine cache
-    command: ['sh', '-c', './node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/prisma db seed && node dist/main.js']
+      - ./data:/app/data # persistent attachments in host dir
+    tmpfs:
+      - /tmp # writable Prisma/query-engine scratch space
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/prisma db seed && exec node dist/main.js',
+      ]
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3001/api/health >/dev/null || exit 1']
+      test:
+        [
+          'CMD-SHELL',
+          'wget -qO- http://127.0.0.1:3001/api/health >/dev/null || exit 1',
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -74,8 +95,14 @@ services:
         condition: service_healthy
     environment:
       API_UPSTREAM: http://api:3001
+      # This stack always seeds synthetic demo accounts. Operators can still
+      # override the pre-filled login explicitly with DEMO_MODE=false.
+      DEMO_MODE: ${DEMO_MODE:-true}
+      # `${VAR-default}` deliberately preserves an explicitly empty value so a
+      # self-hoster can disable the optional support button.
+      SUPPORT_URL: ${SUPPORT_URL-https://github.com/sponsors/patrickschiller}
     ports:
-      - '${WEB_PORT:-8080}:8080'
+      - '${DEV_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080'
 
 volumes:
   openclockwork-dev-db-data:

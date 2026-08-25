@@ -20,9 +20,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/api/auth/refresh": {
@@ -44,9 +42,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/api/auth/me": {
@@ -63,9 +59,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/api/auth/me/preferences": {
@@ -92,9 +86,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "auth"
-        ]
+        "tags": ["auth"]
       }
     },
     "/api/health": {
@@ -106,9 +98,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "health"
-        ]
+        "tags": ["health"]
       }
     },
     "/api/employees": {
@@ -129,9 +119,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "employees"
-        ]
+        "tags": ["employees"]
       },
       "post": {
         "operationId": "EmployeesController_create",
@@ -156,9 +144,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "employees"
-        ]
+        "tags": ["employees"]
       }
     },
     "/api/employees/{id}": {
@@ -179,9 +165,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "employees"
-        ]
+        "tags": ["employees"]
       },
       "put": {
         "operationId": "EmployeesController_update",
@@ -215,9 +199,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "employees"
-        ]
+        "tags": ["employees"]
       },
       "delete": {
         "operationId": "EmployeesController_deactivate",
@@ -241,9 +223,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "employees"
-        ]
+        "tags": ["employees"]
       }
     },
     "/api/employees/{id}/password": {
@@ -279,9 +259,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "employees"
-        ]
+        "tags": ["employees"]
       }
     },
     "/api/employees/{id}/reactivate": {
@@ -307,9 +285,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "employees"
-        ]
+        "tags": ["employees"]
       }
     },
     "/api/work-schedules": {
@@ -321,9 +297,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "work-schedules"
-        ]
+        "tags": ["work-schedules"]
       },
       "post": {
         "operationId": "WorkSchedulesController_create",
@@ -348,9 +322,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "work-schedules"
-        ]
+        "tags": ["work-schedules"]
       }
     },
     "/api/work-schedules/{id}": {
@@ -371,9 +343,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "work-schedules"
-        ]
+        "tags": ["work-schedules"]
       },
       "put": {
         "operationId": "WorkSchedulesController_update",
@@ -407,9 +377,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "work-schedules"
-        ]
+        "tags": ["work-schedules"]
       },
       "delete": {
         "operationId": "WorkSchedulesController_remove",
@@ -433,9 +401,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "work-schedules"
-        ]
+        "tags": ["work-schedules"]
       }
     },
     "/api/work-schedules/{id}/assign": {
@@ -471,9 +437,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "work-schedules"
-        ]
+        "tags": ["work-schedules"]
       }
     },
     "/api/work-schedules/{id}/bulk-assign": {
@@ -509,9 +473,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "work-schedules"
-        ]
+        "tags": ["work-schedules"]
       }
     },
     "/api/projects": {
@@ -532,9 +494,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       },
       "post": {
         "operationId": "ProjectsController_create",
@@ -559,9 +519,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/projects/assignments": {
@@ -578,9 +536,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/projects/bookable": {
@@ -601,9 +557,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/projects/{id}": {
@@ -624,9 +578,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       },
       "put": {
         "operationId": "ProjectsController_update",
@@ -660,9 +612,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       },
       "delete": {
         "operationId": "ProjectsController_remove",
@@ -686,9 +636,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/projects/{id}/report": {
@@ -730,9 +678,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/projects/{id}/service-orders": {
@@ -768,9 +714,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/projects/{id}/service-orders/{orderId}": {
@@ -814,9 +758,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       },
       "delete": {
         "operationId": "ProjectsController_removeServiceOrder",
@@ -848,9 +790,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/projects/{id}/assignments/{employeeId}": {
@@ -884,9 +824,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       },
       "delete": {
         "operationId": "ProjectsController_unassign",
@@ -918,9 +856,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "projects"
-        ]
+        "tags": ["projects"]
       }
     },
     "/api/reports/working-times/employees": {
@@ -947,9 +883,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "reports"
-        ]
+        "tags": ["reports"]
       }
     },
     "/api/reports/working-times": {
@@ -1003,9 +937,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "reports"
-        ]
+        "tags": ["reports"]
       }
     },
     "/api/timeentries": {
@@ -1042,9 +974,12 @@
             "description": ""
           }
         },
-        "tags": [
-          "time-entries"
-        ]
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
       }
     },
     "/api/timeentries/clock-in": {
@@ -1066,9 +1001,12 @@
             "description": ""
           }
         },
-        "tags": [
-          "time-entries"
-        ]
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
       }
     },
     "/api/timeentries/clock-out": {
@@ -1090,9 +1028,12 @@
             "description": ""
           }
         },
-        "tags": [
-          "time-entries"
-        ]
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
       }
     },
     "/api/timeentries/daily-block/option": {
@@ -1116,9 +1057,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "time-entries"
-        ]
+        "tags": ["time-entries"]
       }
     },
     "/api/timeentries/daily-block": {
@@ -1145,9 +1084,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "time-entries"
-        ]
+        "tags": ["time-entries"]
       }
     },
     "/api/timeentries/book-project": {
@@ -1174,9 +1111,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "time-entries"
-        ]
+        "tags": ["time-entries"]
       }
     },
     "/api/timeentries/{id}": {
@@ -1212,9 +1147,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "time-entries"
-        ]
+        "tags": ["time-entries"]
       }
     },
     "/api/timeentries/{id}/split": {
@@ -1250,9 +1183,406 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "time-entries"
-        ]
+        "tags": ["time-entries"]
+      }
+    },
+    "/api/terminals/support-prompt": {
+      "get": {
+        "operationId": "TerminalsController_supportPrompt",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportPromptDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/support-prompt/dismiss": {
+      "post": {
+        "operationId": "TerminalsController_dismissSupportPrompt",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportPromptDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/pair": {
+      "post": {
+        "operationId": "TerminalsController_pair",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairTerminalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairedTerminalDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/kiosk": {
+      "get": {
+        "operationId": "TerminalsController_kiosk",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KioskStateDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/scan": {
+      "post": {
+        "operationId": "TerminalsController_scan",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanTerminalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanTerminalResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals": {
+      "get": {
+        "operationId": "TerminalsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerminalDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      },
+      "post": {
+        "operationId": "TerminalsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTerminalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/{id}": {
+      "get": {
+        "operationId": "TerminalsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      },
+      "put": {
+        "operationId": "TerminalsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTerminalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      },
+      "delete": {
+        "operationId": "TerminalsController_deactivate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/{id}/permanent": {
+      "delete": {
+        "operationId": "TerminalsController_deletePermanently",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Permanently deletes the terminal and kiosk-only data. Historical time entries remain."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/{id}/pairing": {
+      "post": {
+        "operationId": "TerminalsController_createPairing",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PairingCodeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
+      }
+    },
+    "/api/terminals/{id}/devices/{deviceId}": {
+      "delete": {
+        "operationId": "TerminalsController_revokeDevice",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "deviceId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminals"]
       }
     },
     "/api/employees/{employeeId}/leave-allowances": {
@@ -1273,9 +1603,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "leave-allowances"
-        ]
+        "tags": ["leave-allowances"]
       }
     },
     "/api/employees/{employeeId}/leave-allowances/{year}": {
@@ -1319,9 +1647,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "leave-allowances"
-        ]
+        "tags": ["leave-allowances"]
       }
     },
     "/api/admin/leave-allowances/expire-carryovers": {
@@ -1338,9 +1664,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "admin"
-        ]
+        "tags": ["admin"]
       }
     },
     "/api/cron/expire-carryovers": {
@@ -1352,9 +1676,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "cron"
-        ]
+        "tags": ["cron"]
       }
     },
     "/api/accounts/{employeeId}": {
@@ -1375,9 +1697,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "accounts"
-        ]
+        "tags": ["accounts"]
       }
     },
     "/api/accounts/{employeeId}/vacation": {
@@ -1406,9 +1726,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "accounts"
-        ]
+        "tags": ["accounts"]
       }
     },
     "/api/requests": {
@@ -1469,9 +1787,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       },
       "post": {
         "operationId": "RequestsController_create",
@@ -1491,9 +1807,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}": {
@@ -1514,9 +1828,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/events": {
@@ -1537,9 +1849,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/vacation": {
@@ -1561,9 +1871,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/approve": {
@@ -1594,9 +1902,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/reject": {
@@ -1627,9 +1933,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/manager-approve": {
@@ -1660,9 +1964,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/manager-reject": {
@@ -1693,9 +1995,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/hr-confirm": {
@@ -1726,9 +2026,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/hr-reject": {
@@ -1759,9 +2057,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/substitute/accept": {
@@ -1792,9 +2088,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/substitute/decline": {
@@ -1825,9 +2119,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/return": {
@@ -1858,9 +2150,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/{id}/cancel": {
@@ -1891,9 +2181,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/bulk-approve": {
@@ -1915,9 +2203,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/requests/bulk-reject": {
@@ -1939,9 +2225,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "requests"
-        ]
+        "tags": ["requests"]
       }
     },
     "/api/absences": {
@@ -1983,9 +2267,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "absences"
-        ]
+        "tags": ["absences"]
       },
       "post": {
         "operationId": "AbsencesController_create",
@@ -2010,9 +2292,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "absences"
-        ]
+        "tags": ["absences"]
       }
     },
     "/api/absences/{id}": {
@@ -2048,9 +2328,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "absences"
-        ]
+        "tags": ["absences"]
       },
       "delete": {
         "operationId": "AbsencesController_remove",
@@ -2074,9 +2352,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "absences"
-        ]
+        "tags": ["absences"]
       }
     },
     "/api/requests/{requestId}/attachments": {
@@ -2104,9 +2380,7 @@
                     "format": "binary"
                   }
                 },
-                "required": [
-                  "file"
-                ]
+                "required": ["file"]
               }
             }
           }
@@ -2121,9 +2395,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "attachments"
-        ]
+        "tags": ["attachments"]
       },
       "get": {
         "operationId": "AttachmentsController_list",
@@ -2147,9 +2419,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "attachments"
-        ]
+        "tags": ["attachments"]
       }
     },
     "/api/attachments/{id}": {
@@ -2175,9 +2445,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "attachments"
-        ]
+        "tags": ["attachments"]
       },
       "delete": {
         "operationId": "AttachmentsController_remove",
@@ -2201,9 +2469,7 @@
             "bearer": []
           }
         ],
-        "tags": [
-          "attachments"
-        ]
+        "tags": ["attachments"]
       }
     },
     "/api/violations": {
@@ -2240,9 +2506,7 @@
             "description": ""
           }
         },
-        "tags": [
-          "violations"
-        ]
+        "tags": ["violations"]
       }
     },
     "/api/erp/timeentries": {
@@ -2287,16 +2551,14 @@
             "description": ""
           }
         },
-        "tags": [
-          "erp"
-        ]
+        "tags": ["erp"]
       }
     }
   },
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "1.1.2",
+    "version": "1.2.0",
     "contact": {}
   },
   "tags": [],
@@ -2322,10 +2584,7 @@
             "example": "openclockwork"
           }
         },
-        "required": [
-          "email",
-          "password"
-        ]
+        "required": ["email", "password"]
       },
       "RefreshDto": {
         "type": "object",
@@ -2335,17 +2594,11 @@
             "description": "A refresh token previously returned from /auth/login or /auth/refresh."
           }
         },
-        "required": [
-          "refreshToken"
-        ]
+        "required": ["refreshToken"]
       },
       "ThemePreference": {
         "type": "string",
-        "enum": [
-          "Light",
-          "Dark",
-          "System"
-        ],
+        "enum": ["Light", "Dark", "System"],
         "description": "Light / Dark / System. System follows the OS color-scheme media query in the browser."
       },
       "UpdatePreferencesDto": {
@@ -2360,9 +2613,7 @@
             ]
           }
         },
-        "required": [
-          "themePreference"
-        ]
+        "required": ["themePreference"]
       },
       "CreateEmployeeDto": {
         "type": "object",
@@ -2395,11 +2646,7 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "Employee",
-              "Manager",
-              "HRAdmin"
-            ],
+            "enum": ["Employee", "Manager", "HRAdmin"],
             "example": "Employee"
           },
           "timeModel": {
@@ -2505,11 +2752,7 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "Employee",
-              "Manager",
-              "HRAdmin"
-            ]
+            "enum": ["Employee", "Manager", "HRAdmin"]
           },
           "timeModel": {
             "type": "string",
@@ -2584,9 +2827,7 @@
             "maxLength": 120
           }
         },
-        "required": [
-          "password"
-        ]
+        "required": ["password"]
       },
       "CoreTimeWindowDto": {
         "type": "object",
@@ -2614,11 +2855,7 @@
             "description": "Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Mo–Fr = 31."
           }
         },
-        "required": [
-          "start",
-          "end",
-          "weekdays"
-        ]
+        "required": ["start", "end", "weekdays"]
       },
       "UpsertWorkScheduleDto": {
         "type": "object",
@@ -2660,12 +2897,7 @@
             }
           }
         },
-        "required": [
-          "name",
-          "frameStart",
-          "frameEnd",
-          "coreTimes"
-        ]
+        "required": ["name", "frameStart", "frameEnd", "coreTimes"]
       },
       "AssignToEmployeeDto": {
         "type": "object",
@@ -2675,9 +2907,7 @@
             "format": "uuid"
           }
         },
-        "required": [
-          "employeeId"
-        ]
+        "required": ["employeeId"]
       },
       "BulkAssignDto": {
         "type": "object",
@@ -2696,9 +2926,7 @@
             "default": false
           }
         },
-        "required": [
-          "timeModel"
-        ]
+        "required": ["timeModel"]
       },
       "UpsertProjectDto": {
         "type": "object",
@@ -2727,10 +2955,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "code",
-          "name"
-        ]
+        "required": ["code", "name"]
       },
       "UpsertServiceOrderDto": {
         "type": "object",
@@ -2754,10 +2979,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "orderNo",
-          "title"
-        ]
+        "required": ["orderNo", "title"]
       },
       "WorkingTimeReportEmployeeDto": {
         "type": "object",
@@ -2773,11 +2995,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "id",
-          "firstName",
-          "lastName"
-        ]
+        "required": ["id", "firstName", "lastName"]
       },
       "WorkingTimeReportRowDto": {
         "type": "object",
@@ -2807,11 +3025,7 @@
           },
           "status": {
             "type": "string",
-            "enum": [
-              "Open",
-              "Pending",
-              "Approved"
-            ]
+            "enum": ["Open", "Pending", "Approved"]
           },
           "grossMinutes": {
             "type": "number",
@@ -2855,11 +3069,7 @@
             "minimum": 0
           }
         },
-        "required": [
-          "grossMinutes",
-          "breakMinutes",
-          "netMinutes"
-        ]
+        "required": ["grossMinutes", "breakMinutes", "netMinutes"]
       },
       "WorkingTimeReportDto": {
         "type": "object",
@@ -2882,68 +3092,78 @@
             "$ref": "#/components/schemas/WorkingTimeReportTotalsDto"
           }
         },
-        "required": [
-          "from",
-          "to",
-          "rows",
-          "totals"
-        ]
+        "required": ["from", "to", "rows", "totals"]
       },
       "ClockInDto": {
         "type": "object",
         "properties": {
           "employeeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "deprecated": true,
+            "description": "Ignored. The employee identity is always taken from the JWT."
           },
           "latitude": {
-            "type": "object",
+            "type": "number",
             "nullable": true,
             "minimum": -90,
             "maximum": 90
           },
           "longitude": {
-            "type": "object",
+            "type": "number",
             "nullable": true,
             "minimum": -180,
             "maximum": 180
           },
           "accuracyMeters": {
-            "type": "object",
+            "type": "number",
             "nullable": true,
             "minimum": 0
           },
           "projectId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "serviceOrderId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "activity": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 500
           }
-        },
-        "required": [
-          "employeeId"
-        ]
+        }
       },
       "ClockOutDto": {
         "type": "object",
         "properties": {
           "employeeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "deprecated": true,
+            "description": "Ignored. The employee identity is always taken from the JWT."
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true,
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true,
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
           }
-        },
-        "required": [
-          "employeeId"
-        ]
+        }
       },
       "DailyBlockOptionDto": {
         "type": "object",
@@ -2988,25 +3208,22 @@
             "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
           },
           "projectId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "serviceOrderId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "activity": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 500
           }
         },
-        "required": [
-          "date",
-          "start"
-        ]
+        "required": ["date", "start"]
       },
       "BookProjectRangeDto": {
         "type": "object",
@@ -3028,38 +3245,33 @@
             "format": "uuid"
           },
           "serviceOrderId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "activity": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 500
           }
         },
-        "required": [
-          "employeeId",
-          "from",
-          "to",
-          "projectId"
-        ]
+        "required": ["employeeId", "from", "to", "projectId"]
       },
       "UpdateTimeEntryDto": {
         "type": "object",
         "properties": {
           "projectId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "serviceOrderId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "activity": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 500
           }
@@ -3073,24 +3285,664 @@
             "format": "date-time"
           },
           "projectId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "serviceOrderId": {
-            "type": "object",
+            "type": "string",
             "format": "uuid",
             "nullable": true
           },
           "activity": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 500
           }
         },
+        "required": ["at"]
+      },
+      "SupportPromptDto": {
+        "type": "object",
+        "properties": {
+          "shownAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "PairTerminalDto": {
+        "type": "object",
+        "properties": {
+          "pairingCode": {
+            "type": "string",
+            "example": "ABC23-DEFG4"
+          },
+          "deviceName": {
+            "type": "string",
+            "example": "iPad Empfang"
+          }
+        },
+        "required": ["pairingCode"]
+      },
+      "KioskTerminalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "displayText": {
+            "type": "string"
+          },
+          "locationLabel": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "timeZone": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "name", "displayText", "locationLabel", "timeZone"]
+      },
+      "PairedTerminalDto": {
+        "type": "object",
+        "properties": {
+          "deviceToken": {
+            "type": "string",
+            "description": "Returned once. Persist securely in the kiosk browser."
+          },
+          "terminal": {
+            "$ref": "#/components/schemas/KioskTerminalDto"
+          }
+        },
+        "required": ["deviceToken", "terminal"]
+      },
+      "TerminalChallengeDto": {
+        "type": "object",
+        "properties": {
+          "payload": {
+            "type": "string",
+            "description": "Opaque value to encode into the displayed QR code."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "refreshAfterSeconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["payload", "expiresAt", "refreshAfterSeconds"]
+      },
+      "KioskStateDto": {
+        "type": "object",
+        "properties": {
+          "terminal": {
+            "$ref": "#/components/schemas/KioskTerminalDto"
+          },
+          "challenge": {
+            "$ref": "#/components/schemas/TerminalChallengeDto"
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["terminal", "challenge", "serverTime"]
+      },
+      "ScanTerminalDto": {
+        "type": "object",
+        "properties": {
+          "qrPayload": {
+            "type": "string",
+            "description": "Opaque QR payload emitted by the kiosk."
+          },
+          "action": {
+            "type": "string",
+            "enum": ["clock-in", "clock-out"]
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyMeters": {
+            "type": "number",
+            "minimum": 0
+          },
+          "positionTimestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp reported by the fresh browser geolocation reading."
+          }
+        },
+        "required": ["qrPayload"]
+      },
+      "TimeSummaryDto": {
+        "type": "object",
+        "properties": {
+          "grossMinutes": {
+            "type": "number"
+          },
+          "breakMinutes": {
+            "type": "number"
+          },
+          "netMinutes": {
+            "type": "number"
+          }
+        },
+        "required": ["grossMinutes", "breakMinutes", "netMinutes"]
+      },
+      "TimeEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clockIn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "clockOut": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "source": {
+            "type": "string",
+            "enum": ["Manual", "Pwa", "Terminal", "Erp", "DailyBlock"]
+          },
+          "status": {
+            "type": "string",
+            "enum": ["Open", "Pending", "Approved", "Rejected"]
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true,
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true,
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "terminalDistanceMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "terminalRadiusMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 10,
+            "maximum": 1000,
+            "description": "Terminal geofence radius that was valid when clock-in was accepted."
+          },
+          "terminalMaxAccuracyMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 5,
+            "maximum": 500,
+            "description": "Terminal maximum GPS accuracy that was valid when clock-in was accepted."
+          },
+          "positionTimestamp": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "clockOutLatitude": {
+            "type": "number",
+            "nullable": true,
+            "minimum": -90,
+            "maximum": 90
+          },
+          "clockOutLongitude": {
+            "type": "number",
+            "nullable": true,
+            "minimum": -180,
+            "maximum": 180
+          },
+          "clockOutAccuracyMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "clockOutTerminalDistanceMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "clockOutTerminalRadiusMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 10,
+            "maximum": 1000,
+            "description": "Terminal geofence radius that was valid when clock-out was accepted."
+          },
+          "clockOutTerminalMaxAccuracyMeters": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 5,
+            "maximum": 500,
+            "description": "Terminal maximum GPS accuracy that was valid when clock-out was accepted."
+          },
+          "clockOutPositionTimestamp": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "terminalId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "clockOutTerminalId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "clockInChallengeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "clockOutChallengeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "projectCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "projectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceOrderId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "serviceOrderNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceOrderTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "activity": {
+            "type": "string",
+            "nullable": true
+          },
+          "summary": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TimeSummaryDto"
+              }
+            ]
+          }
+        },
         "required": [
-          "at"
+          "id",
+          "employeeId",
+          "clockIn",
+          "clockOut",
+          "source",
+          "status",
+          "requiresApproval",
+          "latitude",
+          "longitude",
+          "accuracyMeters",
+          "terminalDistanceMeters",
+          "terminalRadiusMeters",
+          "terminalMaxAccuracyMeters",
+          "positionTimestamp",
+          "clockOutLatitude",
+          "clockOutLongitude",
+          "clockOutAccuracyMeters",
+          "clockOutTerminalDistanceMeters",
+          "clockOutTerminalRadiusMeters",
+          "clockOutTerminalMaxAccuracyMeters",
+          "clockOutPositionTimestamp",
+          "terminalId",
+          "clockOutTerminalId",
+          "clockInChallengeId",
+          "clockOutChallengeId",
+          "projectId",
+          "projectCode",
+          "projectName",
+          "serviceOrderId",
+          "serviceOrderNo",
+          "serviceOrderTitle",
+          "activity",
+          "summary"
         ]
+      },
+      "ScanTerminalResultDto": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["clock-in", "clock-out"]
+          },
+          "entry": {
+            "$ref": "#/components/schemas/TimeEntryDto"
+          },
+          "distanceMeters": {
+            "type": "number",
+            "nullable": true
+          }
+        },
+        "required": ["action", "entry"]
+      },
+      "TerminalDeviceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "revokedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": ["id", "createdAt"]
+      },
+      "TerminalDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "displayText": {
+            "type": "string"
+          },
+          "locationLabel": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "enforceGeofence": {
+            "type": "boolean"
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true
+          },
+          "radiusMeters": {
+            "type": "number",
+            "nullable": true
+          },
+          "maxAccuracyMeters": {
+            "type": "number",
+            "nullable": true
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "isPaired": {
+            "type": "boolean"
+          },
+          "deviceCount": {
+            "type": "number"
+          },
+          "activatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerminalDeviceDto"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "displayText",
+          "locationLabel",
+          "enforceGeofence",
+          "timeZone",
+          "isActive",
+          "isPaired",
+          "deviceCount",
+          "devices",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "CreateTerminalDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Haupteingang"
+          },
+          "displayText": {
+            "type": "string",
+            "example": "Zum Ein- oder Ausstempeln QR-Code scannen"
+          },
+          "locationLabel": {
+            "type": "string",
+            "example": "Büro Würzburg – Empfang"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 85000,
+            "description": "Same-origin path or a PNG/JPEG/WebP data URL (maximum 60 KiB decoded)."
+          },
+          "enforceGeofence": {
+            "type": "boolean",
+            "default": true,
+            "description": "Require a fresh employee position inside the configured geofence."
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true,
+            "example": 49.7913,
+            "minimum": -90,
+            "maximum": 90,
+            "description": "Required unless enforceGeofence is false."
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true,
+            "example": 9.9534,
+            "minimum": -180,
+            "maximum": 180,
+            "description": "Required unless enforceGeofence is false."
+          },
+          "radiusMeters": {
+            "type": "number",
+            "nullable": true,
+            "default": 100,
+            "minimum": 10,
+            "maximum": 1000
+          },
+          "maxAccuracyMeters": {
+            "type": "number",
+            "nullable": true,
+            "default": 100,
+            "minimum": 5,
+            "maximum": 500
+          },
+          "timeZone": {
+            "type": "string",
+            "default": "Europe/Berlin"
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": ["name", "displayText", "locationLabel"]
+      },
+      "UpdateTerminalDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Haupteingang"
+          },
+          "displayText": {
+            "type": "string",
+            "example": "Zum Ein- oder Ausstempeln QR-Code scannen"
+          },
+          "locationLabel": {
+            "type": "string",
+            "example": "Büro Würzburg – Empfang"
+          },
+          "logoUrl": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 85000,
+            "description": "Same-origin path or a PNG/JPEG/WebP data URL (maximum 60 KiB decoded)."
+          },
+          "enforceGeofence": {
+            "type": "boolean",
+            "default": true,
+            "description": "Require a fresh employee position inside the configured geofence."
+          },
+          "latitude": {
+            "type": "number",
+            "nullable": true,
+            "example": 49.7913,
+            "minimum": -90,
+            "maximum": 90,
+            "description": "Required unless enforceGeofence is false."
+          },
+          "longitude": {
+            "type": "number",
+            "nullable": true,
+            "example": 9.9534,
+            "minimum": -180,
+            "maximum": 180,
+            "description": "Required unless enforceGeofence is false."
+          },
+          "radiusMeters": {
+            "type": "number",
+            "nullable": true,
+            "default": 100,
+            "minimum": 10,
+            "maximum": 1000
+          },
+          "maxAccuracyMeters": {
+            "type": "number",
+            "nullable": true,
+            "default": 100,
+            "minimum": 5,
+            "maximum": 500
+          },
+          "timeZone": {
+            "type": "string",
+            "default": "Europe/Berlin"
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "PairingCodeDto": {
+        "type": "object",
+        "properties": {
+          "pairingCode": {
+            "type": "string",
+            "example": "ABC23-DEFG4"
+          },
+          "pairingUrl": {
+            "type": "string",
+            "example": "/kiosk?pairing=ABC23-DEFG4"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["pairingCode", "pairingUrl", "expiresAt"]
       },
       "UpsertLeaveAllowanceDto": {
         "type": "object",
@@ -3120,11 +3972,7 @@
             "nullable": true
           }
         },
-        "required": [
-          "baseDays",
-          "carryOverDays",
-          "adjustmentDays"
-        ]
+        "required": ["baseDays", "carryOverDays", "adjustmentDays"]
       },
       "CreateRequestDto": {
         "type": "object",
@@ -3135,12 +3983,7 @@
           },
           "type": {
             "type": "string",
-            "enum": [
-              "Vacation",
-              "HomeOffice",
-              "SpecialLeave",
-              "TimeAdjustment"
-            ]
+            "enum": ["Vacation", "HomeOffice", "SpecialLeave", "TimeAdjustment"]
           },
           "from": {
             "type": "string",
@@ -3158,12 +4001,7 @@
             "maxLength": 2000
           }
         },
-        "required": [
-          "employeeId",
-          "type",
-          "from",
-          "to"
-        ]
+        "required": ["employeeId", "type", "from", "to"]
       },
       "CreateVacationDto": {
         "type": "object",
@@ -3201,11 +4039,7 @@
             "description": "Take the last day as a half-day"
           }
         },
-        "required": [
-          "employeeId",
-          "from",
-          "to"
-        ]
+        "required": ["employeeId", "from", "to"]
       },
       "TransitionDto": {
         "type": "object",
@@ -3220,9 +4054,7 @@
             "maxLength": 2000
           }
         },
-        "required": [
-          "actorId"
-        ]
+        "required": ["actorId"]
       },
       "ManagerApproveDto": {
         "type": "object",
@@ -3241,9 +4073,7 @@
             "default": false
           }
         },
-        "required": [
-          "actorId"
-        ]
+        "required": ["actorId"]
       },
       "TransitionWithRequiredNoteDto": {
         "type": "object",
@@ -3257,10 +4087,7 @@
             "maxLength": 2000
           }
         },
-        "required": [
-          "actorId",
-          "note"
-        ]
+        "required": ["actorId", "note"]
       },
       "BulkApproveDto": {
         "type": "object",
@@ -3286,10 +4113,7 @@
             "default": false
           }
         },
-        "required": [
-          "actorId",
-          "ids"
-        ]
+        "required": ["actorId", "ids"]
       },
       "BulkRejectDto": {
         "type": "object",
@@ -3310,11 +4134,7 @@
             "maxLength": 2000
           }
         },
-        "required": [
-          "actorId",
-          "ids",
-          "note"
-        ]
+        "required": ["actorId", "ids", "note"]
       },
       "CreateAbsenceDto": {
         "type": "object",
@@ -3325,11 +4145,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": [
-              "Sickness",
-              "Training",
-              "Flextime"
-            ],
+            "enum": ["Sickness", "Training", "Flextime"],
             "default": "Sickness"
           },
           "from": {
@@ -3351,11 +4167,7 @@
             "maxLength": 2000
           }
         },
-        "required": [
-          "employeeId",
-          "from",
-          "to"
-        ]
+        "required": ["employeeId", "from", "to"]
       },
       "UpdateAbsenceDto": {
         "type": "object",

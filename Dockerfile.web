@@ -29,11 +29,13 @@ FROM nginx:1.27-alpine AS runtime
 # NGINX_ENVSUBST_FILTER keeps nginx's own $host / $remote_addr alone.
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
 COPY ops/nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY --chmod=755 ops/15-validate-runtime-config.sh /docker-entrypoint.d/15-validate-runtime-config.sh
 
 # Compose default — overridden in ACA to https://<api>.internal.<env-domain>.
 ENV API_UPSTREAM=http://api:3000 \
     DEMO_MODE=false \
-    NGINX_ENVSUBST_FILTER=^(API_UPSTREAM|DEMO_MODE)$
+    SUPPORT_URL=https://github.com/sponsors/patrickschiller \
+    NGINX_ENVSUBST_FILTER=^(API_UPSTREAM|DEMO_MODE|SUPPORT_URL)$
 
 EXPOSE 8080
 

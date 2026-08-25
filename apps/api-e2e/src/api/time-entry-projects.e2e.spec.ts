@@ -127,8 +127,10 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
   describe('clock-in with project', () => {
     it('books the entry onto an assigned active project', async () => {
       const { worker, assigned } = await fixture();
+      const token = await login(ctx.http, worker.email);
       const res = await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id, projectId: assigned.id })
         .expect(201);
       expect(res.body.projectId).toBe(assigned.id);
@@ -137,8 +139,10 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
 
     it('clock-in without a project still works (projectId null)', async () => {
       const { worker } = await fixture();
+      const token = await login(ctx.http, worker.email);
       const res = await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id })
         .expect(201);
       expect(res.body.projectId).toBeNull();
@@ -147,16 +151,20 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
 
     it('rejects unassigned (403), inactive (400), and unknown (404) projects', async () => {
       const { worker, foreign, inactive } = await fixture();
+      const token = await login(ctx.http, worker.email);
       await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id, projectId: foreign.id })
         .expect(403);
       await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id, projectId: inactive.id })
         .expect(400);
       await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           employeeId: worker.id,
           projectId: '00000000-0000-4000-8000-000000000000',
@@ -195,6 +203,7 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       // Open entries can be (re)assigned as well.
       const open = await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id })
         .expect(201);
       await ctx.http
@@ -377,6 +386,7 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       // Open entries cannot be split.
       const open = await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id })
         .expect(201);
       await ctx.http
@@ -512,17 +522,20 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
   describe('service orders & activity (Epic 5.1)', () => {
     it('clock-in enforces the conditional-mandatory service order', async () => {
       const { worker, ordered, assigned } = await fixture();
+      const token = await login(ctx.http, worker.email);
       const activeOrder = ordered.serviceOrders.find((o) => o.isActive);
       const inactiveOrder = ordered.serviceOrders.find((o) => !o.isActive);
 
       // Project has an active order → picking one is mandatory.
       await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id, projectId: ordered.id })
         .expect(400);
       // Inactive orders are not bookable.
       await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           employeeId: worker.id,
           projectId: ordered.id,
@@ -532,6 +545,7 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       // Orders of another project are rejected.
       await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           employeeId: worker.id,
           projectId: assigned.id,
@@ -541,11 +555,13 @@ describe('TimeEntries × Projects — clock-in, retroactive assignment, split', 
       // serviceOrderId without a project makes no sense.
       await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({ employeeId: worker.id, serviceOrderId: activeOrder?.id })
         .expect(400);
 
       const ok = await ctx.http
         .post('/api/timeentries/clock-in')
+        .set('Authorization', `Bearer ${token}`)
         .send({
           employeeId: worker.id,
           projectId: ordered.id,

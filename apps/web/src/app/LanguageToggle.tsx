@@ -18,6 +18,7 @@ export function LanguageToggle() {
         <Button
           variant="outline"
           size="icon"
+          className="text-foreground"
           aria-label={t('language.change')}
           title={t('language.change')}
         >

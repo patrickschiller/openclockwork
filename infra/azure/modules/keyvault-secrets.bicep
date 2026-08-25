@@ -9,6 +9,8 @@ param databaseUrl string
 @secure()
 param jwtSecret string
 @secure()
+param terminalQrSecret string
+@secure()
 param erpApiKey string
 @secure()
 param cronApiKey string
@@ -27,6 +29,12 @@ resource secretJwt 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kv
   name: 'JWT-SECRET'
   properties: { value: jwtSecret }
+}
+
+resource secretTerminalQr 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: kv
+  name: 'TERMINAL-QR-SECRET'
+  properties: { value: terminalQrSecret }
 }
 
 resource secretErp 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {

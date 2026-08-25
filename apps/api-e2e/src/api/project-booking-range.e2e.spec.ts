@@ -58,7 +58,14 @@ describe('POST /timeentries/book-project — retroactive range booking', () => {
   function todayUtc(hour: number): Date {
     const now = new Date();
     return new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, hour * 60, 0),
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        0,
+        hour * 60,
+        0,
+      ),
     );
   }
 
@@ -110,6 +117,18 @@ describe('POST /timeentries/book-project — retroactive range booking', () => {
     const entry = await seedEntry(worker.id, 9, 15, {
       latitude: 50.94,
       longitude: 6.96,
+      accuracyMeters: 12,
+      terminalDistanceMeters: 8,
+      terminalRadiusMeters: 100,
+      terminalMaxAccuracyMeters: 50,
+      positionTimestamp: todayUtc(9),
+      clockOutLatitude: 50.94,
+      clockOutLongitude: 6.96,
+      clockOutAccuracyMeters: 15,
+      clockOutTerminalDistanceMeters: 9,
+      clockOutTerminalRadiusMeters: 150,
+      clockOutTerminalMaxAccuracyMeters: 60,
+      clockOutPositionTimestamp: todayUtc(15),
       note: 'Onsite',
       activity: 'Alt',
     });
@@ -132,14 +151,26 @@ describe('POST /timeentries/book-project — retroactive range booking', () => {
     expect(segments[0].projectId).toBeNull();
     expect(segments[0].activity).toBe('Alt');
     expect(segments[0].latitude).toBeCloseTo(50.94);
+    expect(segments[0].terminalRadiusMeters).toBe(100);
+    expect(segments[0].terminalMaxAccuracyMeters).toBe(50);
+    expect(segments[0].clockOutTerminalRadiusMeters).toBeNull();
+    expect(segments[0].clockOutTerminalMaxAccuracyMeters).toBeNull();
     expect(segments[1].clockIn).toBe(todayUtc(11).toISOString());
     expect(segments[1].clockOut).toBe(todayUtc(13).toISOString());
     expect(segments[1].projectCode).toBe('P-RANGE');
     expect(segments[1].latitude).toBeNull();
+    expect(segments[1].terminalRadiusMeters).toBeNull();
+    expect(segments[1].terminalMaxAccuracyMeters).toBeNull();
+    expect(segments[1].clockOutTerminalRadiusMeters).toBeNull();
+    expect(segments[1].clockOutTerminalMaxAccuracyMeters).toBeNull();
     expect(segments[2].clockIn).toBe(todayUtc(13).toISOString());
     expect(segments[2].clockOut).toBe(todayUtc(15).toISOString());
     expect(segments[2].projectId).toBeNull();
     expect(segments[2].activity).toBe('Alt');
+    expect(segments[2].terminalRadiusMeters).toBeNull();
+    expect(segments[2].terminalMaxAccuracyMeters).toBeNull();
+    expect(segments[2].clockOutTerminalRadiusMeters).toBe(150);
+    expect(segments[2].clockOutTerminalMaxAccuracyMeters).toBe(60);
   });
 
   it('cases B+C: a range across two contiguous entries carves both', async () => {
@@ -164,7 +195,12 @@ describe('POST /timeentries/book-project — retroactive range booking', () => {
     const booked = segments.filter(
       (s: { projectCode: string | null }) => s.projectCode === 'P-RANGE',
     );
-    expect(booked.map((s: { clockIn: string; clockOut: string }) => [s.clockIn, s.clockOut])).toEqual([
+    expect(
+      booked.map((s: { clockIn: string; clockOut: string }) => [
+        s.clockIn,
+        s.clockOut,
+      ]),
+    ).toEqual([
       [todayUtc(10).toISOString(), todayUtc(12).toISOString()],
       [todayUtc(12).toISOString(), todayUtc(14).toISOString()],
     ]);
@@ -194,7 +230,12 @@ describe('POST /timeentries/book-project — retroactive range booking', () => {
     const token = await login(ctx.http, worker.email);
     await seedEntry(worker.id, 9, 15, { status: 'Rejected' });
     await ctx.prisma.timeEntry.create({
-      data: { employeeId: worker.id, clockIn: todayUtc(15), clockOut: null, status: 'Open' },
+      data: {
+        employeeId: worker.id,
+        clockIn: todayUtc(15),
+        clockOut: null,
+        status: 'Open',
+      },
     });
 
     for (const [from, to] of [
@@ -246,9 +287,11 @@ describe('POST /timeentries/book-project — retroactive range booking', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ ...base, projectId: ordered.id, serviceOrderId: order.id })
       .expect(201);
-    expect(ok.body.entries.some((e: { serviceOrderNo: string | null }) => e.serviceOrderNo === 'SA-1')).toBe(
-      true,
-    );
+    expect(
+      ok.body.entries.some(
+        (e: { serviceOrderNo: string | null }) => e.serviceOrderNo === 'SA-1',
+      ),
+    ).toBe(true);
   });
 
   it('foreign ranges need Manager/HRAdmin', async () => {
@@ -263,7 +306,10 @@ describe('POST /timeentries/book-project — retroactive range booking', () => {
       to: todayUtc(11).toISOString(),
       projectId: project.id,
     };
-    await ctx.http.post('/api/timeentries/book-project').send(payload).expect(401);
+    await ctx.http
+      .post('/api/timeentries/book-project')
+      .send(payload)
+      .expect(401);
     await ctx.http
       .post('/api/timeentries/book-project')
       .set('Authorization', `Bearer ${otherToken}`)

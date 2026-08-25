@@ -35,12 +35,13 @@ const KIND_BADGE: Record<AbsenceKind, 'destructive' | 'secondary' | 'outline'> =
     Flextime: 'outline',
   };
 
-function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
+export function toLocalDateInputValue(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('de-DE');
+function isoToday(): string {
+  return toLocalDateInputValue(new Date());
 }
 
 function daysBetween(fromIso: string, toIso: string): number {
@@ -50,7 +51,7 @@ function daysBetween(fromIso: string, toIso: string): number {
 
 export function AbsencesPage() {
   const user = useCurrentUser();
-  const { t, enumLabel } = useI18n();
+  const { t, enumLabel, formatDate } = useI18n();
   const canManageOthers = user.role === 'Manager' || user.role === 'HRAdmin';
   const qc = useQueryClient();
 
@@ -79,23 +80,23 @@ export function AbsencesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between gap-4">
-        <div>
+    <div className="min-w-0 max-w-full space-y-6">
+      <div className="flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl font-semibold tracking-tight">
             {t('absences.title')}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="break-words text-sm text-muted-foreground">
             {t('absences.description')}
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full shrink-0 sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> {t('absences.create')}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
             <NewAbsenceForm
               defaultEmployeeId={user.id}
               employees={employees.data ?? []}
@@ -110,13 +111,17 @@ export function AbsencesPage() {
       </div>
 
       {canManageOthers && (
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
-            <CardTitle className="text-base">Anzeigen</CardTitle>
+            <CardTitle className="text-base">{t('absences.show')}</CardTitle>
             <CardDescription>{t('absences.employeeHint')}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
+            <Label htmlFor="absence-employee-filter" className="sr-only">
+              {t('absences.employeeFilter')}
+            </Label>
             <select
+              id="absence-employee-filter"
               value={employeeFilter}
               onChange={(e) => setEmployeeFilter(e.target.value)}
               className="flex h-10 w-full max-w-md rounded-md border border-input bg-background px-3 text-sm"
@@ -132,43 +137,49 @@ export function AbsencesPage() {
         </Card>
       )}
 
-      <Card>
+      <Card className="min-w-0">
         <CardHeader>
           <CardTitle>
             {t('absences.entries', { count: absences.data?.length ?? 0 })}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0">
           {absences.data && absences.data.length > 0 ? (
             <ul className="divide-y text-sm">
               {absences.data.map((a) => (
                 <li
                   key={a.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                  className="flex min-w-0 flex-col items-stretch gap-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
-                    <p className="font-medium">
-                      <Badge variant={KIND_BADGE[a.kind]} className="mr-2">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                      <Badge variant={KIND_BADGE[a.kind]}>
                         {enumLabel(a.kind)}
                       </Badge>
-                      {fmtDate(a.from)} – {fmtDate(a.to)}
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span>
+                        {formatDate(a.from)} – {formatDate(a.to)}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
                         {daysBetween(a.from, a.to)} {t('common.calendarDays')}
                       </span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
+                    </div>
+                    <p className="break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">
                       {canManageOthers && a.employeeId !== user.id && (
                         <span>{employeeName(a.employeeId)} · </span>
                       )}
-                      {a.note ?? <em>keine Notiz</em>}
+                      {a.note ?? <em>{t('absences.noNote')}</em>}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 self-end sm:self-auto">
                     {a.kind === 'Sickness' && a.certified && (
-                      <Badge variant="secondary">Attest vorgelegt</Badge>
+                      <Badge variant="secondary">
+                        {t('absences.certificateProvided')}
+                      </Badge>
                     )}
                     {a.kind === 'Sickness' && !a.certified && (
-                      <Badge variant="outline">ohne Attest</Badge>
+                      <Badge variant="outline">
+                        {t('absences.withoutCertificate')}
+                      </Badge>
                     )}
                     <Button
                       variant="ghost"
@@ -241,7 +252,7 @@ function NewAbsenceForm({
     <>
       <DialogHeader>
         <DialogTitle>{t('absences.create')}</DialogTitle>
-        <DialogDescription>Typ, Zeitraum, optionale Notiz</DialogDescription>
+        <DialogDescription>{t('absences.editorDescription')}</DialogDescription>
       </DialogHeader>
       <div className="space-y-4 py-2">
         {canPickOther && (
@@ -276,13 +287,14 @@ function NewAbsenceForm({
             ))}
           </select>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="from">{t('common.from')}</Label>
             <Input
               id="from"
               type="date"
               value={from}
+              className="min-w-0"
               onChange={(e) => setFrom(e.target.value)}
             />
           </div>
@@ -292,6 +304,7 @@ function NewAbsenceForm({
               id="to"
               type="date"
               value={to}
+              className="min-w-0"
               onChange={(e) => setTo(e.target.value)}
             />
           </div>
@@ -307,7 +320,7 @@ function NewAbsenceForm({
           </label>
         )}
         <div className="space-y-2">
-          <Label htmlFor="note">Notiz (optional)</Label>
+          <Label htmlFor="note">{t('absences.noteOptional')}</Label>
           <Input
             id="note"
             value={note}
@@ -316,12 +329,7 @@ function NewAbsenceForm({
         </div>
         {kind === 'Flextime' && (
           <Alert>
-            <AlertDescription>
-              Hinweis: Gleittage reduzieren das Überstundenkonto aktuell{' '}
-              <strong>nicht</strong> automatisch — die rechnerische Verrechnung
-              kommt in einer späteren Iteration. Der Kalender und die Liste
-              zeigen den Eintrag korrekt.
-            </AlertDescription>
+            <AlertDescription>{t('absences.flextimeNotice')}</AlertDescription>
           </Alert>
         )}
         {error && (

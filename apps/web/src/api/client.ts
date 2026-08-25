@@ -151,6 +151,21 @@ export interface TimeEntryDto {
   latitude: number | null;
   longitude: number | null;
   accuracyMeters: number | null;
+  terminalDistanceMeters: number | null;
+  terminalRadiusMeters: number | null;
+  terminalMaxAccuracyMeters: number | null;
+  positionTimestamp: string | null;
+  clockOutLatitude: number | null;
+  clockOutLongitude: number | null;
+  clockOutAccuracyMeters: number | null;
+  clockOutTerminalDistanceMeters: number | null;
+  clockOutTerminalRadiusMeters: number | null;
+  clockOutTerminalMaxAccuracyMeters: number | null;
+  clockOutPositionTimestamp: string | null;
+  terminalId: string | null;
+  clockOutTerminalId: string | null;
+  clockInChallengeId: string | null;
+  clockOutChallengeId: string | null;
   projectId: string | null;
   projectCode: string | null;
   projectName: string | null;
@@ -518,6 +533,75 @@ export interface ClockInPayload {
   activity: string | null;
 }
 
+export interface TerminalDto {
+  id: string;
+  name: string;
+  displayText: string;
+  locationLabel: string;
+  logoUrl: string | null;
+  timeZone: string;
+  enforceGeofence: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  radiusMeters: number | null;
+  maxAccuracyMeters: number | null;
+  isActive: boolean;
+  isPaired: boolean;
+  deviceCount: number;
+  activatedAt: string | null;
+  lastSeenAt: string | null;
+  devices: Array<{
+    id: string;
+    name: string | null;
+    createdAt: string;
+    lastSeenAt: string | null;
+    revokedAt: string | null;
+  }>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertTerminalPayload {
+  name: string;
+  displayText: string;
+  locationLabel: string;
+  logoUrl: string | null;
+  timeZone: string;
+  enforceGeofence: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  radiusMeters: number | null;
+  maxAccuracyMeters: number | null;
+  isActive: boolean;
+}
+
+export interface TerminalPairingDto {
+  pairingCode: string;
+  pairingUrl: string;
+  expiresAt: string;
+}
+
+export interface TerminalSupportPromptDto {
+  shownAt: string | null;
+}
+
+export type TerminalBookingAction = 'clock-in' | 'clock-out';
+
+export interface TerminalBookingPayload {
+  qrPayload: string;
+  action: TerminalBookingAction;
+  latitude?: number;
+  longitude?: number;
+  accuracyMeters?: number;
+  positionTimestamp?: string;
+}
+
+export interface TerminalBookingResultDto {
+  action: TerminalBookingAction;
+  entry: TimeEntryDto;
+  distanceMeters: number | null;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -548,6 +632,7 @@ export interface RefreshResponse {
 
 export const TOKEN_STORAGE_KEY = 'openclockwork.accessToken';
 export const REFRESH_STORAGE_KEY = 'openclockwork.refreshToken';
+export const AUTH_SESSION_EXPIRED_EVENT = 'openclockwork:auth-session-expired';
 
 function safeLocalStorage(): Storage | null {
   try {
@@ -565,6 +650,12 @@ function readRefreshToken(): string | null {
   return safeLocalStorage()?.getItem(REFRESH_STORAGE_KEY) ?? null;
 }
 
+function notifySessionExpired(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(AUTH_SESSION_EXPIRED_EVENT));
+  }
+}
+
 function storeTokens(access: string | null, refresh: string | null): void {
   const ls = safeLocalStorage();
   if (!ls) return;
@@ -572,6 +663,12 @@ function storeTokens(access: string | null, refresh: string | null): void {
   else ls.removeItem(TOKEN_STORAGE_KEY);
   if (refresh) ls.setItem(REFRESH_STORAGE_KEY, refresh);
   else ls.removeItem(REFRESH_STORAGE_KEY);
+
+  // `storage` events are only delivered to *other* documents. Notify the
+  // current React tree as well when a failed refresh invalidates this tab's
+  // session, otherwise the cached profile could keep showing an authenticated
+  // shell that can only produce 401 responses.
+  if (!access && !refresh) notifySessionExpired();
 }
 
 /**
@@ -584,7 +681,10 @@ let refreshInFlight: Promise<string | null> | null = null;
 async function tryRefreshOnce(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   const refreshToken = readRefreshToken();
-  if (!refreshToken) return null;
+  if (!refreshToken) {
+    notifySessionExpired();
+    return null;
+  }
   refreshInFlight = (async () => {
     try {
       const res = await fetch(`${baseUrl}/api/auth/refresh`, {
@@ -1014,6 +1114,41 @@ export const api = {
         body: JSON.stringify({ timeModel, overrideExisting }),
       },
     ),
+
+  terminals: () => request<TerminalDto[]>('/api/terminals'),
+  createTerminal: (payload: UpsertTerminalPayload) =>
+    request<TerminalDto>('/api/terminals', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateTerminal: (id: string, payload: UpsertTerminalPayload) =>
+    request<TerminalDto>(`/api/terminals/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deactivateTerminal: (id: string) =>
+    request<TerminalDto>(`/api/terminals/${id}`, { method: 'DELETE' }),
+  deleteTerminalPermanently: (id: string) =>
+    request<void>(`/api/terminals/${id}/permanent`, { method: 'DELETE' }),
+  createTerminalPairing: (id: string) =>
+    request<TerminalPairingDto>(`/api/terminals/${id}/pairing`, {
+      method: 'POST',
+    }),
+  revokeTerminalDevice: (terminalId: string, deviceId: string) =>
+    request<TerminalDto>(`/api/terminals/${terminalId}/devices/${deviceId}`, {
+      method: 'DELETE',
+    }),
+  terminalSupportPrompt: () =>
+    request<TerminalSupportPromptDto>('/api/terminals/support-prompt'),
+  dismissTerminalSupportPrompt: () =>
+    request<TerminalSupportPromptDto>('/api/terminals/support-prompt/dismiss', {
+      method: 'POST',
+    }),
+  bookAtTerminal: (payload: TerminalBookingPayload) =>
+    request<TerminalBookingResultDto>('/api/terminals/scan', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   listAttachments: (requestId: string) =>
     request<AttachmentDto[]>(`/api/requests/${requestId}/attachments`),

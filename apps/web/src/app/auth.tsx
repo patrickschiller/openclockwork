@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  AUTH_SESSION_EXPIRED_EVENT,
   api,
   REFRESH_STORAGE_KEY,
   TOKEN_STORAGE_KEY,
@@ -57,8 +58,25 @@ function writeStored(key: string, value: string | null): void {
   }
 }
 
+function readStoredUser(): AuthUser | null {
+  const user = readStored<AuthUser>(USER_STORAGE_KEY);
+  if (!user) return null;
+
+  // A cached profile is not an authenticated session on its own. This also
+  // prevents a stale admin shell after another same-origin tab handed the
+  // browser over to kiosk mode and removed the employee tokens.
+  try {
+    const hasToken =
+      Boolean(window.localStorage?.getItem(TOKEN_STORAGE_KEY)) ||
+      Boolean(window.localStorage?.getItem(REFRESH_STORAGE_KEY));
+    return hasToken ? user : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(() => readStored<AuthUser>(USER_STORAGE_KEY));
+  const [user, setUser] = useState<AuthUser | null>(readStoredUser);
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
 
@@ -82,12 +100,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [queryClient],
   );
 
-  const logout = useCallback(() => {
+  const clearSession = useCallback(() => {
     writeStored(TOKEN_STORAGE_KEY, null);
     writeStored(REFRESH_STORAGE_KEY, null);
+    // Clear the cached profile synchronously as well. This matters when an
+    // admin hands the same browser over to a shared paired kiosk and the page
+    // is reloaded before React effects have a chance to run.
+    writeStored(USER_STORAGE_KEY, null);
     setUser(null);
     queryClient.clear();
   }, [queryClient]);
+
+  const logout = clearSession;
+
+  useEffect(() => {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === USER_STORAGE_KEY) {
+        setUser(readStoredUser());
+        return;
+      }
+
+      if (
+        (event.key === TOKEN_STORAGE_KEY ||
+          event.key === REFRESH_STORAGE_KEY) &&
+        event.newValue === null
+      ) {
+        clearSession();
+      }
+    };
+    const handleExpiredSession = () => clearSession();
+    const reconcileStoredSession = () => {
+      const storedUser = readStoredUser();
+      if (storedUser) setUser(storedUser);
+      // A normal kiosk/login document has no employee user and may keep its
+      // own React Query data. Only clear the cache when this React tree still
+      // holds a stale authenticated profile that no longer has tokens.
+      else if (user) clearSession();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleExpiredSession);
+    // Safari can restore an older React tree from its back/forward cache.
+    // Reconcile again when that document becomes active so it cannot retain
+    // an editor whose tokens were cleared during a kiosk hand-over.
+    window.addEventListener('pageshow', reconcileStoredSession);
+    window.addEventListener('focus', reconcileStoredSession);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(
+        AUTH_SESSION_EXPIRED_EVENT,
+        handleExpiredSession,
+      );
+      window.removeEventListener('pageshow', reconcileStoredSession);
+      window.removeEventListener('focus', reconcileStoredSession);
+    };
+  }, [clearSession, user]);
 
   const patchUser = useCallback((patch: Partial<AuthUser>) => {
     setUser((current) => (current ? { ...current, ...patch } : current));
@@ -109,6 +176,9 @@ export function useAuth(): AuthContextValue {
 
 export function useCurrentUser(): AuthUser {
   const { user } = useAuth();
-  if (!user) throw new Error('No authenticated user (this hook must be used inside an authenticated route)');
+  if (!user)
+    throw new Error(
+      'No authenticated user (this hook must be used inside an authenticated route)',
+    );
   return user;
 }

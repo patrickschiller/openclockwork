@@ -46,17 +46,17 @@ export class CreateDailyBlockDto {
   @Matches(HHMM, { message: 'start must be HH:mm' })
   start!: string;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   projectId?: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   serviceOrderId?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 500 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 500 })
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -64,32 +64,47 @@ export class CreateDailyBlockDto {
 }
 
 export class ClockInDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    deprecated: true,
+    description: 'Ignored. The employee identity is always taken from the JWT.',
+  })
+  @IsOptional()
   @IsUUID()
-  employeeId!: string;
+  employeeId?: string;
 
-  @ApiPropertyOptional({ nullable: true, minimum: -90, maximum: 90 })
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: -90,
+    maximum: 90,
+  })
   @IsOptional()
   @IsNumber()
   @Min(-90)
   @Max(90)
   latitude?: number | null;
 
-  @ApiPropertyOptional({ nullable: true, minimum: -180, maximum: 180 })
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: -180,
+    maximum: 180,
+  })
   @IsOptional()
   @IsNumber()
   @Min(-180)
   @Max(180)
   longitude?: number | null;
 
-  @ApiPropertyOptional({ nullable: true, minimum: 0 })
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0 })
   @IsOptional()
   @IsNumber()
   @Min(0)
   accuracyMeters?: number | null;
 
   /** Active project assigned to the employee; the whole entry books onto it. */
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   projectId?: string | null;
@@ -98,13 +113,13 @@ export class ClockInDto {
    * Service order of the project. Mandatory when the project has ≥1 active
    * service order; must be omitted/null otherwise.
    */
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   serviceOrderId?: string | null;
 
   /** Customer-facing description of the work performed (Tätigkeit). */
-  @ApiPropertyOptional({ nullable: true, maxLength: 500 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 500 })
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -112,9 +127,44 @@ export class ClockInDto {
 }
 
 export class ClockOutDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    deprecated: true,
+    description: 'Ignored. The employee identity is always taken from the JWT.',
+  })
+  @IsOptional()
   @IsUUID()
-  employeeId!: string;
+  employeeId?: string;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: -90,
+    maximum: 90,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @ApiPropertyOptional({
+    type: Number,
+    nullable: true,
+    minimum: -180,
+    maximum: 180,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  accuracyMeters?: number | null;
 }
 
 /**
@@ -123,17 +173,17 @@ export class ClockOutDto {
  * mandatory service-order rule applies); activity is editable on its own.
  */
 export class UpdateTimeEntryDto {
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   projectId?: string | null;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   serviceOrderId?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 500 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 500 })
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -151,19 +201,19 @@ export class SplitTimeEntryDto {
    * order, and activity of the original entry; explicit null → second
    * segment has no project.
    */
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   projectId?: string | null;
 
   /** Service order for the second segment (only with an explicit projectId). */
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   serviceOrderId?: string | null;
 
   /** Activity for the second segment (only with an explicit projectId). */
-  @ApiPropertyOptional({ nullable: true, maxLength: 500 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 500 })
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -191,37 +241,156 @@ export class BookProjectRangeDto {
   @IsUUID()
   projectId!: string;
 
-  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
   serviceOrderId?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 500 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 500 })
   @IsOptional()
   @IsString()
   @MaxLength(500)
   activity?: string | null;
 }
 
-export interface TimeEntryDto {
-  id: string;
-  employeeId: string;
-  clockIn: string;
-  clockOut: string | null;
-  source: string;
-  status: string;
-  requiresApproval: boolean;
-  latitude: number | null;
-  longitude: number | null;
-  accuracyMeters: number | null;
-  projectId: string | null;
-  projectCode: string | null;
-  projectName: string | null;
-  serviceOrderId: string | null;
-  serviceOrderNo: string | null;
-  serviceOrderTitle: string | null;
-  activity: string | null;
-  summary: TimeSummary | null;
+export class TimeSummaryDto implements TimeSummary {
+  @ApiProperty()
+  grossMinutes!: number;
+
+  @ApiProperty()
+  breakMinutes!: number;
+
+  @ApiProperty()
+  netMinutes!: number;
+}
+
+export class TimeEntryDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  employeeId!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  clockIn!: string;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  clockOut!: string | null;
+
+  @ApiProperty({ enum: ['Manual', 'Pwa', 'Terminal', 'Erp', 'DailyBlock'] })
+  source!: string;
+
+  @ApiProperty({ enum: ['Open', 'Pending', 'Approved', 'Rejected'] })
+  status!: string;
+
+  @ApiProperty()
+  requiresApproval!: boolean;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: -90, maximum: 90 })
+  latitude!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: -180, maximum: 180 })
+  longitude!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  accuracyMeters!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  terminalDistanceMeters!: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    minimum: 10,
+    maximum: 1000,
+    description:
+      'Terminal geofence radius that was valid when clock-in was accepted.',
+  })
+  terminalRadiusMeters!: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    minimum: 5,
+    maximum: 500,
+    description:
+      'Terminal maximum GPS accuracy that was valid when clock-in was accepted.',
+  })
+  terminalMaxAccuracyMeters!: number | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  positionTimestamp!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: -90, maximum: 90 })
+  clockOutLatitude!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: -180, maximum: 180 })
+  clockOutLongitude!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  clockOutAccuracyMeters!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  clockOutTerminalDistanceMeters!: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    minimum: 10,
+    maximum: 1000,
+    description:
+      'Terminal geofence radius that was valid when clock-out was accepted.',
+  })
+  clockOutTerminalRadiusMeters!: number | null;
+
+  @ApiProperty({
+    type: Number,
+    nullable: true,
+    minimum: 5,
+    maximum: 500,
+    description:
+      'Terminal maximum GPS accuracy that was valid when clock-out was accepted.',
+  })
+  clockOutTerminalMaxAccuracyMeters!: number | null;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  clockOutPositionTimestamp!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  terminalId!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  clockOutTerminalId!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  clockInChallengeId!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  clockOutChallengeId!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  projectId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  projectCode!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  projectName!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  serviceOrderId!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  serviceOrderNo!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  serviceOrderTitle!: string | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  activity!: string | null;
+
+  @ApiProperty({ type: TimeSummaryDto, nullable: true })
+  summary!: TimeSummary | null;
 }
 
 export interface SplitTimeEntryResult {
@@ -251,6 +420,34 @@ export function toTimeEntryDto(e: TimeEntryWithRelations): TimeEntryDto {
     latitude: e.latitude !== null ? Number(e.latitude) : null,
     longitude: e.longitude !== null ? Number(e.longitude) : null,
     accuracyMeters: e.accuracyMeters !== null ? Number(e.accuracyMeters) : null,
+    terminalDistanceMeters:
+      e.terminalDistanceMeters !== null
+        ? Number(e.terminalDistanceMeters)
+        : null,
+    terminalRadiusMeters: e.terminalRadiusMeters ?? null,
+    terminalMaxAccuracyMeters: e.terminalMaxAccuracyMeters ?? null,
+    positionTimestamp: e.positionTimestamp?.toISOString() ?? null,
+    clockOutLatitude:
+      e.clockOutLatitude !== null ? Number(e.clockOutLatitude) : null,
+    clockOutLongitude:
+      e.clockOutLongitude !== null ? Number(e.clockOutLongitude) : null,
+    clockOutAccuracyMeters:
+      e.clockOutAccuracyMeters !== null
+        ? Number(e.clockOutAccuracyMeters)
+        : null,
+    clockOutTerminalDistanceMeters:
+      e.clockOutTerminalDistanceMeters !== null
+        ? Number(e.clockOutTerminalDistanceMeters)
+        : null,
+    clockOutTerminalRadiusMeters: e.clockOutTerminalRadiusMeters ?? null,
+    clockOutTerminalMaxAccuracyMeters:
+      e.clockOutTerminalMaxAccuracyMeters ?? null,
+    clockOutPositionTimestamp:
+      e.clockOutPositionTimestamp?.toISOString() ?? null,
+    terminalId: e.terminalId ?? null,
+    clockOutTerminalId: e.clockOutTerminalId ?? null,
+    clockInChallengeId: e.clockInChallengeId ?? null,
+    clockOutChallengeId: e.clockOutChallengeId ?? null,
     projectId: e.projectId ?? null,
     projectCode: e.project?.code ?? null,
     projectName: e.project?.name ?? null,
