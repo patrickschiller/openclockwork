@@ -28,8 +28,10 @@ FROM nginx:1.27-alpine AS runtime
 # substitutes ${API_UPSTREAM} into default.conf at container start; the
 # NGINX_ENVSUBST_FILTER keeps nginx's own $host / $remote_addr alone.
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+COPY --from=builder /app/package.json /app/package.json
 COPY ops/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --chmod=755 ops/15-validate-runtime-config.sh /docker-entrypoint.d/15-validate-runtime-config.sh
+COPY --chmod=755 ops/16-wait-for-compatible-api.sh /docker-entrypoint.d/16-wait-for-compatible-api.sh
 
 # Compose default — overridden in ACA to https://<api>.internal.<env-domain>.
 ENV API_UPSTREAM=http://api:3000 \

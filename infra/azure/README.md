@@ -127,6 +127,11 @@ file to hide it. It is never an entitlement or a prerequisite for the terminal.
 The required `terminalQrSecret` is stored separately in Key Vault and must not
 reuse `jwtSecret`; the example parameter file generates both independently.
 
+The web image verifies `/api/health` before nginx starts and only accepts an API
+that reports the same OpenClockwork version. Update the API revision (and run
+the migration job) before updating the web revision. This prevents a partial
+rollout from exposing frontend features whose API routes are not deployed yet.
+
 ## Disposable public demo reset
 
 For the public demo, set these values in the local, gitignored

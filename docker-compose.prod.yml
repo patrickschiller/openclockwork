@@ -67,7 +67,8 @@ services:
     image: ghcr.io/patrickschiller/openclockwork-web:${OPENCLOCKWORK_VERSION}
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       SUPPORT_URL: ${SUPPORT_URL-https://github.com/sponsors/patrickschiller}
     ports:

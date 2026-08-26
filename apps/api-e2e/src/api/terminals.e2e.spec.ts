@@ -107,6 +107,52 @@ describe('Tablet terminals', () => {
     };
   }
 
+  it('creates the first terminal after bootstrapping a production-style empty database', async () => {
+    const hr = await seedEmployee(ctx.prisma, {
+      personalNo: 'PROD-HR-1',
+      firstName: 'Production',
+      lastName: 'Admin',
+      email: 'production-admin@terminal.test',
+      role: 'HRAdmin',
+    });
+    const hrToken = await login(ctx.http, hr.email);
+
+    const before = await ctx.http
+      .get('/api/terminals')
+      .set('Authorization', `Bearer ${hrToken}`)
+      .expect(200);
+    expect(before.body).toEqual([]);
+    expect(await ctx.prisma.terminalSupportPrompt.count()).toBe(0);
+
+    const created = await ctx.http
+      .post('/api/terminals')
+      .set('Authorization', `Bearer ${hrToken}`)
+      .send({
+        name: 'Empfang',
+        displayText: 'QR-Code zum Ein- oder Ausstempeln scannen',
+        locationLabel: 'Musterfirma – Empfang',
+        enforceGeofence: false,
+        latitude: null,
+        longitude: null,
+        radiusMeters: null,
+        maxAccuracyMeters: null,
+        timeZone: 'Europe/Berlin',
+        isActive: true,
+      })
+      .expect(201);
+
+    expect(created.body).toMatchObject({
+      name: 'Empfang',
+      enforceGeofence: false,
+      latitude: null,
+      longitude: null,
+      isActive: true,
+      isPaired: false,
+    });
+    expect(await ctx.prisma.terminal.count()).toBe(1);
+    expect(await ctx.prisma.terminalSupportPrompt.count()).toBe(1);
+  });
+
   it('restricts administration to HRAdmin and records the opt-in prompt once', async () => {
     const { hrToken, managerToken } = await actors();
     await ctx.http
