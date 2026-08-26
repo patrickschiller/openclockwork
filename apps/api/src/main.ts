@@ -38,7 +38,7 @@ async function bootstrap() {
       .setDescription(
         'Self-hostable working-time tracker — REST + WebSocket surface.',
       )
-      .setVersion('1.2.1')
+      .setVersion('1.2.2')
       .addBearerAuth()
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);

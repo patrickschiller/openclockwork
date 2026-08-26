@@ -1131,6 +1131,16 @@ export interface components {
       /** @description Light / Dark / System. System follows the OS color-scheme media query in the browser. */
       themePreference: components['schemas']['ThemePreference'];
     };
+    HealthResponseDto: {
+      /** @example ok */
+      status: string;
+      /** @example openclockwork-api */
+      service: string;
+      /** @example 1.2.2 */
+      version: string;
+      /** Format: date-time */
+      utcTimestamp: string;
+    };
     CreateEmployeeDto: {
       /** @example 1001 */
       personalNo: string;
@@ -1857,7 +1867,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['HealthResponseDto'];
+        };
       };
     };
   };

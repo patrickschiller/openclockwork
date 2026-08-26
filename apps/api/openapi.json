@@ -95,7 +95,14 @@
         "parameters": [],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
           }
         },
         "tags": ["health"]
@@ -2558,7 +2565,7 @@
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "contact": {}
   },
   "tags": [],
@@ -2614,6 +2621,28 @@
           }
         },
         "required": ["themePreference"]
+      },
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok"
+          },
+          "service": {
+            "type": "string",
+            "example": "openclockwork-api"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.2.2"
+          },
+          "utcTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["status", "service", "version", "utcTimestamp"]
       },
       "CreateEmployeeDto": {
         "type": "object",
