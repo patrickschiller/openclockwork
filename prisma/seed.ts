@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 const DEFAULT_PASSWORD = 'openclockwork';
+const DEMO_TERMINAL_ID = '00000000-0000-4000-8000-000000000120';
 
 const UMLAUT_MAP: Record<string, string> = {
   ä: 'ae',
@@ -253,6 +254,46 @@ async function ensureProjectAssignment(employeeId: string, projectId: string) {
     where: { employeeId_projectId: { employeeId, projectId } },
     create: { employeeId, projectId },
     update: {},
+  });
+}
+
+async function ensureDemoTerminal() {
+  const activatedAt = new Date();
+  return prisma.$transaction(async (tx) => {
+    // A stable ID keeps the seed idempotent without making terminal names
+    // globally unique. Re-running the seed preserves any pairing or edits made
+    // during a demo session; the nightly public-demo reset recreates this
+    // ready-to-pair baseline from an empty database.
+    const terminal = await tx.terminal.upsert({
+      where: { id: DEMO_TERMINAL_ID },
+      create: {
+        id: DEMO_TERMINAL_ID,
+        name: 'Demo-Empfang',
+        displayText: 'QR-Code zum Ein- oder Ausstempeln scannen',
+        locationLabel: 'Musterfirma – Empfang',
+        enforceGeofence: false,
+        latitude: null,
+        longitude: null,
+        radiusMeters: null,
+        maxAccuracyMeters: null,
+        timeZone: 'Europe/Berlin',
+        isActive: true,
+        activatedAt,
+      },
+      update: {},
+    });
+
+    // Direct seed writes must maintain the same first-activation invariant as
+    // the terminal service. No pairing code or device credential is seeded.
+    if (terminal.activatedAt) {
+      await tx.terminalSupportPrompt.upsert({
+        where: { id: 1 },
+        create: { id: 1, firstActivatedAt: terminal.activatedAt },
+        update: {},
+      });
+    }
+
+    return terminal;
   });
 }
 
@@ -553,9 +594,11 @@ async function main() {
     }
   }
 
+  const demoTerminal = await ensureDemoTerminal();
+
   // eslint-disable-next-line no-console
   console.log(
-    `Seed complete: ${created.length} employees (default password: "${DEFAULT_PASSWORD}")`,
+    `Seed complete: ${created.length} employees (default password: "${DEFAULT_PASSWORD}"), terminal "${demoTerminal.name}" (ready to pair)`,
   );
 }
 

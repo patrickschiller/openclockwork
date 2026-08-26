@@ -1,66 +1,53 @@
-# OpenClockwork v1.2.0
+# OpenClockwork v1.2.1
 
 ## Highlights
 
-- Adds a complete tablet terminal workflow: HR administrators can configure,
-  activate, pair, monitor, re-pair, deactivate, and permanently delete kiosks,
-  while employees scan rotating QR challenges from the authenticated PWA to
-  clock in or out.
-- Adds optional server-enforced geofencing with freshness and accuracy checks.
-  Location, accuracy, distance, radius, and terminal snapshots remain available
-  for historical audits even after a terminal is deleted.
-- Separates kiosk access from employee sessions with hash-only device
-  credentials, short-lived and rate-limited challenges, daily signing-key
-  rotation, per-employee replay protection, and a dedicated QR secret.
-- Adds a trusted-HTTPS Docker overlay and a detailed German iPad setup and
-  operations guide, plus matching Azure Key Vault and Container Apps settings.
-- Refreshes the responsive German/English PWA, mobile navigation, account menu,
-  absence layouts, branding, screenshots, kiosk manifest, and visible admin
-  version information.
-- Hardens live time booking so employee identity always comes from the bearer
-  token and concurrent clock-in/out or daily-block requests are serialised.
+- Adds an active, ready-to-pair `Demo-Empfang` tablet terminal to the synthetic
+  development seed and the disposable public-demo reset. Visitors can discover
+  and test the tablet workflow immediately after signing in as the demo HR
+  administrator.
+- Disables geofencing for the seeded terminal so evaluation does not require a
+  physical office location or GPS permission. No pairing code, bearer token, or
+  reusable device credential is stored in the public seed; visitors exercise
+  the real short-lived pairing flow themselves.
+- Gives the demo terminal a stable identifier. Ordinary repeated seed runs
+  preserve terminal edits and pairings, while the guarded nightly public-demo
+  reset recreates the clean, unpaired baseline from an empty database.
+- Adds a browser smoke test for the seeded terminal and updates the German iPad
+  guide and Azure demo-reset documentation with the fastest evaluation path.
+- Updates contributor guidance so it no longer requires an unavailable
+  `nx-workspace` skill while retaining the repository's Nx and pnpm rules.
 
 ## Upgrade notes
 
 - Back up PostgreSQL and request attachments before upgrading.
-- Before starting the new API, add an independent random
-  `TERMINAL_QR_SECRET` of at least 32 characters. Do not reuse `JWT_SECRET`.
-  Azure deployments must set the secure `terminalQrSecret` Bicep parameter.
-- External clients of the live-booking endpoints must send an employee bearer
-  token and should be regenerated from the updated OpenAPI specification.
-- Set `OPENCLOCKWORK_VERSION=1.2.0` and follow the
-  [upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v1.2.0/UPGRADING.md).
+- Set `OPENCLOCKWORK_VERSION=1.2.1` and follow the
+  [upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v1.2.1/UPGRADING.md).
 - Existing production volumes are retained; do not use `docker compose down -v`.
-- The API applies the three forward-only Prisma migrations automatically during
-  production startup. No manual data backfill is required.
-- For a local or managed tablet rollout, follow the
-  [iPad terminal guide](https://github.com/patrickschiller/openclockwork/blob/v1.2.0/docs/IPAD_TERMINAL_SETUP.de.md)
-  before pairing a kiosk.
+- This patch contains no new database migration. Production startup remains
+  seed-free, so normal self-hosted installations do not receive demo data.
+- For the disposable Azure public demo, deploy the `1.2.1` API image so the
+  reset job is pinned to it, then start that job once manually or wait for its
+  next scheduled run. The reset recreates `Demo-Empfang` automatically.
+- Local development installations can run `pnpm db:seed` to add the terminal.
+  Re-running the seed does not overwrite an existing terminal session with the
+  stable demo identifier.
+- Follow the updated
+  [iPad terminal guide](https://github.com/patrickschiller/openclockwork/blob/v1.2.1/docs/IPAD_TERMINAL_SETUP.de.md)
+  to pair the seeded terminal and test employee QR bookings.
 
 ## Database migrations
 
-- `20260824120000_terminal_kiosk` creates terminal, device, challenge,
-  redemption, and support-prompt records and adds terminal/geofence audit fields
-  to time entries.
-- `20260824180000_optional_terminal_geofence` lets administrators explicitly
-  operate a terminal without collecting employee GPS data while preserving the
-  location-bound default for existing terminals.
-- `20260825120000_terminal_permanent_delete` permits permanent terminal cleanup
-  while retaining existing time entries and their scalar audit snapshots.
+None.
 
 ## Breaking changes
 
-- `GET /api/timeentries`, `POST /api/timeentries/clock-in`, and
-  `POST /api/timeentries/clock-out` now require an employee bearer token.
-  Clock-in/out uses the authenticated employee identity; a legacy `employeeId`
-  request property is ignored.
-- Production Compose and Azure deployments require the new independent
-  `TERMINAL_QR_SECRET`/`terminalQrSecret` configuration before the API starts.
+None.
 
 ## Docker images
 
-- `ghcr.io/patrickschiller/openclockwork-api:1.2.0`
-- `ghcr.io/patrickschiller/openclockwork-web:1.2.0`
+- `ghcr.io/patrickschiller/openclockwork-api:1.2.1`
+- `ghcr.io/patrickschiller/openclockwork-web:1.2.1`
 
 ## Known issues
 

@@ -213,33 +213,39 @@ Produktions-Deployments bleibt sie deaktiviert.
 Verwenden Sie einen anderen Seed-Benutzer für den eigentlichen Scan. Testen Sie
 den Kiosk und die Mitarbeiterbuchung nicht mit derselben Browser-Sitzung.
 
-## 6. Terminal als HRAdmin anlegen
+## 6. Seed-Terminal koppeln oder eigenes Terminal anlegen
 
 1. Melden Sie sich auf einem normalen Admin-Gerät als `HRAdmin` an.
 2. Öffnen Sie **Administration → Einstellungen → Terminals** bzw.
    `/admin/settings/terminals`.
-3. Legen Sie ein Terminal mit eindeutigem Namen, Logo, frei konfigurierbarem
-   Text und sichtbarer Ortsbezeichnung an.
-4. Entscheiden Sie unter **Standortprüfung**, ob beim Scan ein GPS-Standort
+3. Für den schnellen Test enthält der Development- und Demo-Seed bereits das
+   aktive Terminal **Demo-Empfang**. Es ist noch nicht mit einem Gerät gekoppelt
+   und verlangt keine GPS-Freigabe. Fahren Sie für dieses Terminal direkt mit
+   Schritt 10 fort.
+4. Für ein eigenes Terminal wählen Sie **Terminal einrichten** und vergeben
+   einen eindeutigen Namen, ein optionales Logo, einen frei konfigurierbaren
+   Text und eine sichtbare Ortsbezeichnung.
+5. Entscheiden Sie unter **Standortprüfung**, ob beim Scan ein GPS-Standort
    verlangt werden soll. Deaktivieren Sie die Option, wenn das Terminal ohne
    Standortfreigabe funktionieren soll; Koordinaten und GPS-Grenzwerte sind dann
    nicht erforderlich.
-5. Bei aktivierter Standortprüfung tragen Sie Breiten- und Längengrad des
+6. Bei aktivierter Standortprüfung tragen Sie Breiten- und Längengrad des
    Montageorts ein oder verwenden am Montagepunkt über die HTTPS-Origin
    **Aktuellen Standort verwenden**. Koordinaten werden als Dezimalgrad
    gespeichert, beispielsweise `49.7913`, `9.9534`.
-6. Legen Sie dann den zulässigen Radius und die maximal akzeptierte
+7. Legen Sie dann den zulässigen Radius und die maximal akzeptierte
    GPS-Ungenauigkeit fest. Für den Pilot ist ein Radius von 50–100 Metern
    praktikabel; für den späteren Betrieb muss der Wert am realen Montageort
    vermessen werden.
-7. Wählen Sie die IANA-Zeitzone des Montageorts aus der Dropdown-Liste. Sie
+8. Wählen Sie die IANA-Zeitzone des Montageorts aus der Dropdown-Liste. Sie
    bestimmt den lokalen Tageswechsel für die täglich erneuerte QR-Signatur.
-8. Aktivieren Sie das Terminal. Die Funktion ist zu diesem Zeitpunkt bereits
-   vollständig aktiv. Der anschließend einmalig angebotene Unterstützungslink
-   ist freiwillig und darf geschlossen oder übersprungen werden.
-9. Wählen Sie **Gerät koppeln** und lassen Sie den einmaligen Pairing-Link bzw.
-   Code geöffnet, bis das iPad gekoppelt ist. Veröffentlichen Sie ihn nicht in
-   Tickets, Chats oder Screenshots.
+9. Aktivieren Sie das neu angelegte Terminal. Die Funktion ist zu diesem
+   Zeitpunkt bereits vollständig aktiv. Der anschließend einmalig angebotene
+   Unterstützungslink ist freiwillig und darf geschlossen oder übersprungen
+   werden.
+10. Wählen Sie **Gerät koppeln** und lassen Sie den einmaligen Pairing-Link bzw.
+    Code geöffnet, bis das iPad gekoppelt ist. Veröffentlichen Sie ihn nicht in
+    Tickets, Chats oder Screenshots.
 
 Für einen schnellen Funktionstest liegt ein synthetisches PNG-Logo unter
 `docs/assets/fiktives-terminal-logo.png`. Beim Hochladen wird das Logo als

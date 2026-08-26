@@ -57,7 +57,7 @@ external clients before rollout and regenerate them from
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, for example `1.2.0`. Do not use `latest` for a controlled production
+Release, for example `1.2.1`. Do not use `latest` for a controlled production
 upgrade.
 
 ```bash

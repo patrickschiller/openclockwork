@@ -138,6 +138,11 @@ param enableDemoReset = true
 param demoResetCronExpression = '0 3 * * *'
 ```
 
+Each reset restores the synthetic employees, projects, bookings, and one active
+`Demo-Empfang` terminal. The terminal deliberately has geofencing disabled and
+no seeded device credential, so visitors can test the real one-time pairing
+flow without exposing a reusable kiosk secret.
+
 Redeploy the Bicep once after the public demo reset feature lands. Then
 store `demoResetJobName` from the deployment outputs as the repository
 variable `AZURE_DEMO_RESET_JOB_NAME`. The deploy workflow treats this
