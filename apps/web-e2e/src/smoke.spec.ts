@@ -13,8 +13,9 @@ import AxeBuilder from '@axe-core/playwright';
  *   pnpm nx e2e web-e2e
  *
  * The seed creates `hannah.roth@openclockwork.test` / `openclockwork` as a
- * default HR admin — see prisma/seed.ts. If your local seed differs, override
- * via the SMOKE_EMAIL / SMOKE_PASSWORD env vars before running the test.
+ * default HR admin and an active, ready-to-pair `Demo-Empfang` terminal — see
+ * prisma/seed.ts. If your local seed differs, override via the SMOKE_EMAIL /
+ * SMOKE_PASSWORD env vars before running the test.
  */
 const EMAIL = process.env.SMOKE_EMAIL ?? 'hannah.roth@openclockwork.test';
 const PASSWORD = process.env.SMOKE_PASSWORD ?? 'openclockwork';
@@ -67,6 +68,34 @@ test('the unpaired kiosk is public and uses its dedicated home-screen manifest',
     'href',
     '/kiosk.webmanifest',
   );
+});
+
+test('the demo seed includes an active terminal ready for tablet pairing', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByLabel('E-Mail').fill(EMAIL);
+  await page.getByLabel('Passwort').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Anmelden' }).click();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+
+  await page.goto('/admin/settings/terminals');
+  await expect(
+    page.getByRole('heading', { name: 'Login-Terminals' }),
+  ).toBeVisible();
+  const terminalCard = page
+    .getByText('Demo-Empfang', { exact: true })
+    .locator(
+      'xpath=ancestor::div[.//button[normalize-space()="Tablet koppeln"]][1]',
+    );
+  await expect(terminalCard).toBeVisible();
+  await expect(terminalCard.getByText('Musterfirma – Empfang')).toBeVisible();
+  await expect(
+    terminalCard.getByText('nicht gekoppelt', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    terminalCard.getByRole('button', { name: 'Tablet koppeln' }),
+  ).toBeEnabled();
 });
 
 test('login page has no critical or serious WCAG-2.1-AA accessibility violations', async ({
