@@ -248,6 +248,7 @@ export class RequestsService {
     const request = await this.assertRequest(id);
     if (request.type === 'Vacation') {
       // Vacation must use the multi-stage workflow.
+      await this.assertApprover(request, actorId);
       return this.transitionVacation(request, 'manager_approve', actorId, note);
     }
     if (requiresTwoStageApproval(request)) {
@@ -294,6 +295,7 @@ export class RequestsService {
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.type === 'Vacation') {
+      await this.assertApprover(request, actorId);
       return this.transitionVacation(request, 'manager_reject', actorId, note);
     }
     await this.assertApprover(request, actorId);
