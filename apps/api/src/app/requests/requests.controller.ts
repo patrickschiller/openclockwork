@@ -1,5 +1,17 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { RequestsService } from './requests.service';
 import {
   BulkApproveDto,
@@ -15,6 +27,8 @@ import {
 } from './requests.dto';
 
 @ApiTags('requests')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('requests')
 export class RequestsController {
   constructor(private readonly service: RequestsService) {}
@@ -28,7 +42,14 @@ export class RequestsController {
     @Query('currentApproverId') currentApproverId?: string,
     @Query('substituteId') substituteId?: string,
   ): Promise<RequestDto[]> {
-    return this.service.list({ employeeId, status, workflowState, approverId, currentApproverId, substituteId });
+    return this.service.list({
+      employeeId,
+      status,
+      workflowState,
+      approverId,
+      currentApproverId,
+      substituteId,
+    });
   }
 
   @Get(':id')
@@ -37,30 +58,46 @@ export class RequestsController {
   }
 
   @Get(':id/events')
-  events(@Param('id', new ParseUUIDPipe()) id: string): Promise<RequestEventDto[]> {
+  events(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<RequestEventDto[]> {
     return this.service.events(id);
   }
 
   @Post()
-  create(@Body() dto: CreateRequestDto): Promise<RequestDto> {
-    return this.service.create(dto);
+  create(
+    @Body() dto: CreateRequestDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.create({ ...dto, employeeId: user.id });
   }
 
   @Post('vacation')
-  createVacation(@Body() dto: CreateVacationDto): Promise<RequestDto> {
-    return this.service.createVacation(dto);
+  createVacation(
+    @Body() dto: CreateVacationDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.createVacation({ ...dto, employeeId: user.id });
   }
 
   // ----- Generic approve / reject (legacy convenience) -----
 
   @Post(':id/approve')
-  approve(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: TransitionDto): Promise<RequestDto> {
-    return this.service.approve(id, body.actorId, body.note ?? null);
+  approve(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: TransitionDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.approve(id, user.id, body.note ?? null);
   }
 
   @Post(':id/reject')
-  reject(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: TransitionDto): Promise<RequestDto> {
-    return this.service.reject(id, body.actorId, body.note ?? null);
+  reject(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: TransitionDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.reject(id, user.id, body.note ?? null);
   }
 
   // ----- Vacation workflow -----
@@ -69,66 +106,88 @@ export class RequestsController {
   managerApprove(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: ManagerApproveDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.managerApprove(id, body.actorId, body.note ?? null, !!body.requiresHrConfirmation);
+    return this.service.managerApprove(
+      id,
+      user.id,
+      body.note ?? null,
+      !!body.requiresHrConfirmation,
+    );
   }
 
   @Post(':id/manager-reject')
   managerReject(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.managerReject(id, body.actorId, body.note ?? null);
+    return this.service.managerReject(id, user.id, body.note ?? null);
   }
 
   @Post(':id/hr-confirm')
-  hrConfirm(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: TransitionDto): Promise<RequestDto> {
-    return this.service.hrConfirm(id, body.actorId, body.note ?? null);
+  hrConfirm(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: TransitionDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.hrConfirm(id, user.id, body.note ?? null);
   }
 
   @Post(':id/hr-reject')
   hrReject(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionWithRequiredNoteDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.hrReject(id, body.actorId, body.note);
+    return this.service.hrReject(id, user.id, body.note);
   }
 
   @Post(':id/substitute/accept')
   substituteAccept(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.substituteAccept(id, body.actorId, body.note ?? null);
+    return this.service.substituteAccept(id, user.id, body.note ?? null);
   }
 
   @Post(':id/substitute/decline')
   substituteDecline(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionWithRequiredNoteDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.substituteDecline(id, body.actorId, body.note);
+    return this.service.substituteDecline(id, user.id, body.note);
   }
 
   @Post(':id/return')
   returnForRevision(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionWithRequiredNoteDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.returnForRevision(id, body.actorId, body.note);
+    return this.service.returnForRevision(id, user.id, body.note);
   }
 
   @Post(':id/cancel')
-  cancel(@Param('id', new ParseUUIDPipe()) id: string, @Body() body: TransitionDto): Promise<RequestDto> {
-    return this.service.cancel(id, body.actorId, body.note ?? null);
+  cancel(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: TransitionDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.cancel(id, user.id, body.note ?? null);
   }
 
   // ----- Bulk -----
 
   @Post('bulk-approve')
-  bulkApprove(@Body() body: BulkApproveDto): Promise<BulkResult[]> {
+  bulkApprove(
+    @Body() body: BulkApproveDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<BulkResult[]> {
     return this.service.bulkApprove(
-      body.actorId,
+      user.id,
       body.ids,
       body.note ?? null,
       !!body.requiresHrConfirmation,
@@ -136,7 +195,10 @@ export class RequestsController {
   }
 
   @Post('bulk-reject')
-  bulkReject(@Body() body: BulkRejectDto): Promise<BulkResult[]> {
-    return this.service.bulkReject(body.actorId, body.ids, body.note);
+  bulkReject(
+    @Body() body: BulkRejectDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<BulkResult[]> {
+    return this.service.bulkReject(user.id, body.ids, body.note);
   }
 }

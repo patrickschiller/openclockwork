@@ -74,6 +74,57 @@ describe('Vacation workflow — POST /api/requests/vacation + transitions', () =
     await ctx.reset();
   });
 
+  it('requires authentication for employee and request APIs', async () => {
+    await ctx.http.get('/api/employees').expect(401);
+    await ctx.http
+      .post('/api/requests')
+      .send({
+        employeeId: '00000000-0000-0000-0000-000000000001',
+        type: 'TimeAdjustment',
+        from: `${YEAR}-08-03T09:00:00.000Z`,
+        to: `${YEAR}-08-03T11:00:00.000Z`,
+      })
+      .expect(401);
+  });
+
+  it('derives requester and approver identities from the bearer token', async () => {
+    const cast = await setupOrgChart(ctx);
+    const outsider = await seedEmployee(ctx.prisma, {
+      personalNo: '0011',
+      firstName: 'Mara',
+      lastName: 'Schulz',
+      email: 'mara@test.local',
+      role: 'Manager',
+      managerId: cast.hannah.id,
+    });
+    const outsiderToken = await login(ctx.http, outsider.email);
+
+    const created = await ctx.http
+      .post('/api/requests')
+      .set('Authorization', `Bearer ${cast.anna.token}`)
+      .send({
+        employeeId: cast.erik.id,
+        type: 'TimeAdjustment',
+        from: `${YEAR}-08-03T09:00:00.000Z`,
+        to: `${YEAR}-08-03T11:00:00.000Z`,
+      })
+      .expect(201);
+    expect(created.body.employeeId).toBe(cast.anna.id);
+
+    await ctx.http
+      .post(`/api/requests/${created.body.id}/approve`)
+      .set('Authorization', `Bearer ${outsiderToken}`)
+      .send({ actorId: cast.hannah.id })
+      .expect(403);
+
+    const approved = await ctx.http
+      .post(`/api/requests/${created.body.id}/approve`)
+      .set('Authorization', `Bearer ${cast.marc.token}`)
+      .send({ actorId: cast.hannah.id })
+      .expect(201);
+    expect(approved.body.approverId).toBe(cast.marc.id);
+  });
+
   it('happy path without substitute: Submitted → PendingManager → Approved', async () => {
     const cast = await setupOrgChart(ctx);
 
