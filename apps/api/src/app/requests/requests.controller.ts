@@ -35,6 +35,7 @@ export class RequestsController {
 
   @Get()
   list(
+    @CurrentUser() user: JwtUser,
     @Query('employeeId') employeeId?: string,
     @Query('status') status?: string,
     @Query('workflowState') workflowState?: string,
@@ -42,26 +43,33 @@ export class RequestsController {
     @Query('currentApproverId') currentApproverId?: string,
     @Query('substituteId') substituteId?: string,
   ): Promise<RequestDto[]> {
-    return this.service.list({
-      employeeId,
-      status,
-      workflowState,
-      approverId,
-      currentApproverId,
-      substituteId,
-    });
+    return this.service.list(
+      {
+        employeeId,
+        status,
+        workflowState,
+        approverId,
+        currentApproverId,
+        substituteId,
+      },
+      user.id,
+    );
   }
 
   @Get(':id')
-  get(@Param('id', new ParseUUIDPipe()) id: string): Promise<RequestDto> {
-    return this.service.getById(id);
+  get(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.getById(id, user.id);
   }
 
   @Get(':id/events')
   events(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<RequestEventDto[]> {
-    return this.service.events(id);
+    return this.service.events(id, user.id);
   }
 
   @Post()
