@@ -25,12 +25,16 @@ import {
 } from './employees.dto';
 
 @ApiTags('employees')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('employees')
 export class EmployeesController {
   constructor(private readonly employees: EmployeesService) {}
 
   @Get()
-  list(@Query('includeInactive') includeInactive?: string): Promise<EmployeeDto[]> {
+  list(
+    @Query('includeInactive') includeInactive?: string,
+  ): Promise<EmployeeDto[]> {
     return this.employees.list({ includeInactive: includeInactive === 'true' });
   }
 
@@ -40,16 +44,14 @@ export class EmployeesController {
   }
 
   @Post()
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   create(@Body() dto: CreateEmployeeDto): Promise<EmployeeDto> {
     return this.employees.create(dto);
   }
 
   @Put(':id')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -59,8 +61,7 @@ export class EmployeesController {
   }
 
   @Post(':id/password')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   @HttpCode(HttpStatus.NO_CONTENT)
   setPassword(
@@ -71,18 +72,20 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
-  deactivate(@Param('id', new ParseUUIDPipe()) id: string): Promise<EmployeeDto> {
+  deactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<EmployeeDto> {
     return this.employees.deactivate(id);
   }
 
   @Post(':id/reactivate')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
-  reactivate(@Param('id', new ParseUUIDPipe()) id: string): Promise<EmployeeDto> {
+  reactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<EmployeeDto> {
     return this.employees.reactivate(id);
   }
 }
