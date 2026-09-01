@@ -1322,6 +1322,12 @@ export interface components {
       firstName: string;
       lastName: string;
     };
+    WorkingTimeReportLocationDto: {
+      label: string | null;
+      latitude: number | null;
+      longitude: number | null;
+      accuracyMeters: number | null;
+    };
     WorkingTimeReportRowDto: {
       /** Format: uuid */
       id: string;
@@ -1339,6 +1345,12 @@ export interface components {
       grossMinutes: number;
       breakMinutes: number;
       netMinutes: number;
+      clockInLocation?:
+        | components['schemas']['WorkingTimeReportLocationDto']
+        | null;
+      clockOutLocation?:
+        | components['schemas']['WorkingTimeReportLocationDto']
+        | null;
     };
     WorkingTimeReportTotalsDto: {
       grossMinutes: number;
@@ -2452,6 +2464,7 @@ export interface operations {
         from: string;
         to: string;
         employeeId?: string;
+        includeLocations?: boolean;
       };
       header?: never;
       path?: never;

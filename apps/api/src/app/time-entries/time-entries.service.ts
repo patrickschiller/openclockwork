@@ -672,6 +672,7 @@ export class TimeEntriesService {
             clockOutTerminalRadiusMeters: null,
             clockOutTerminalMaxAccuracyMeters: null,
             clockOutPositionTimestamp: null,
+            clockOutTerminalLocationLabel: null,
             clockOutTerminalId: null,
             clockOutChallengeId: null,
           },
@@ -694,6 +695,7 @@ export class TimeEntriesService {
             clockOutTerminalMaxAccuracyMeters:
               entry.clockOutTerminalMaxAccuracyMeters,
             clockOutPositionTimestamp: entry.clockOutPositionTimestamp,
+            clockOutTerminalLocationLabel: entry.clockOutTerminalLocationLabel,
             clockOutTerminalId: entry.clockOutTerminalId,
             clockOutChallengeId: entry.clockOutChallengeId,
             ...second,
@@ -1067,6 +1069,7 @@ export class TimeEntriesService {
       clockOutTerminalRadiusMeters: null,
       clockOutTerminalMaxAccuracyMeters: null,
       clockOutPositionTimestamp: null,
+      clockOutTerminalLocationLabel: null,
       clockOutTerminalId: null,
       clockOutChallengeId: null,
     };
@@ -1082,6 +1085,7 @@ export class TimeEntriesService {
       clockOutTerminalMaxAccuracyMeters:
         entry.clockOutTerminalMaxAccuracyMeters,
       clockOutPositionTimestamp: entry.clockOutPositionTimestamp,
+      clockOutTerminalLocationLabel: entry.clockOutTerminalLocationLabel,
       clockOutTerminalId: entry.clockOutTerminalId,
       clockOutChallengeId: entry.clockOutChallengeId,
     };

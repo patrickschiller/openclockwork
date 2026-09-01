@@ -66,6 +66,13 @@ describe('Project-independent working-time reports', () => {
           clockIn: new Date('2026-08-10T07:00:00.000Z'),
           clockOut: new Date('2026-08-10T15:00:00.000Z'),
           status: 'Approved',
+          terminalLocationLabel: 'Büro Würzburg',
+          latitude: 49.791304,
+          longitude: 9.953355,
+          accuracyMeters: 12,
+          clockOutLatitude: 49.8,
+          clockOutLongitude: 9.94,
+          clockOutAccuracyMeters: 18.4,
         },
         {
           employeeId: manager.id,
@@ -105,11 +112,36 @@ describe('Project-independent working-time reports', () => {
       .set('Authorization', `Bearer ${hrToken}`)
       .expect(200);
     expect(hrReport.body.rows).toHaveLength(3);
+    expect(hrReport.body.rows[0]).not.toHaveProperty('clockInLocation');
+    expect(hrReport.body.rows[0]).not.toHaveProperty('clockOutLocation');
     expect(hrReport.body.totals).toEqual({
       grossMinutes: 660,
       breakMinutes: 30,
       netMinutes: 630,
     });
+
+    const reportWithLocations = await ctx.http
+      .get(
+        '/api/reports/working-times?from=2026-08-01&to=2026-08-31&includeLocations=true',
+      )
+      .set('Authorization', `Bearer ${hrToken}`)
+      .expect(200);
+    expect(reportWithLocations.body.rows[0]).toMatchObject({
+      clockInLocation: {
+        label: 'Büro Würzburg',
+        latitude: 49.791304,
+        longitude: 9.953355,
+        accuracyMeters: 12,
+      },
+      clockOutLocation: {
+        label: null,
+        latitude: 49.8,
+        longitude: 9.94,
+        accuracyMeters: 18.4,
+      },
+    });
+    expect(reportWithLocations.body.rows[1].clockInLocation).toBeNull();
+    expect(reportWithLocations.body.rows[1].clockOutLocation).toBeNull();
 
     const onlyDirect = await ctx.http
       .get(
@@ -144,6 +176,12 @@ describe('Project-independent working-time reports', () => {
       .expect(400);
     await ctx.http
       .get('/api/reports/working-times?from=2025-01-01&to=2026-12-31')
+      .set('Authorization', `Bearer ${hrToken}`)
+      .expect(400);
+    await ctx.http
+      .get(
+        '/api/reports/working-times?from=2026-08-01&to=2026-08-31&includeLocations=yes',
+      )
       .set('Authorization', `Bearer ${hrToken}`)
       .expect(400);
     await ctx.http

@@ -583,6 +583,7 @@ export class TerminalsService {
                   ? fresh.terminal.maxAccuracyMeters
                   : null,
                 positionTimestamp: freshPosition?.positionTimestamp ?? null,
+                terminalLocationLabel: fresh.terminal.locationLabel,
                 terminalId: fresh.terminalId,
                 clockInChallengeId: fresh.id,
               },
@@ -617,6 +618,7 @@ export class TerminalsService {
                   : null,
                 clockOutPositionTimestamp:
                   freshPosition?.positionTimestamp ?? null,
+                clockOutTerminalLocationLabel: fresh.terminal.locationLabel,
                 clockOutTerminalId: fresh.terminalId,
                 clockOutChallengeId: fresh.id,
               },
