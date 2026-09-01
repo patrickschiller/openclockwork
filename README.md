@@ -58,7 +58,7 @@ installable PWA on phones, tablets, and desktops.
   bulk actions, and workflow history.
 - **Projects and reporting.** Assign employees, structure projects by service
   order, compare PLAN and IST hours, edit booking targets, split entries, and
-  export customer or working-time reports.
+  export customer or working-time reports with optional clock-in/out locations.
 - **Self-hosted and API-first.** PostgreSQL, NestJS, React, OpenAPI, Socket.IO,
   Docker, and an Azure reference deployment—without SaaS lock-in.
 - **German and English.** Centralised translations, locale-aware dates, and a
@@ -85,8 +85,9 @@ The security model is deliberately separate from an employee session:
 - daily signing material is derived from a dedicated `TERMINAL_QR_SECRET`, not
   from `JWT_SECRET`;
 - clock-in/out uses the authenticated employee identity from the bearer token;
-- geofence, position, accuracy, and radius snapshots remain in the historical
-  booking audit record even if the terminal is later deleted permanently;
+- terminal location labels, geofence positions, accuracy, and radius snapshots
+  remain in the historical booking audit record even if the terminal is later
+  deleted permanently;
 - pairing, kiosk, and mobile camera/location flows are documented for trusted
   local HTTPS and managed iPad deployments.
 
@@ -105,6 +106,11 @@ Operators must still validate organisation-specific working-time rules,
 collective agreements, payroll integrations, privacy requirements, backups,
 monitoring, and incident procedures. OpenClockwork provides technical controls;
 it is not legal advice.
+
+Exact clock-in and clock-out locations are excluded from HR working-time reports
+by default. HR administrators must explicitly include them in the on-screen
+report and CSV export; operators remain responsible for a lawful purpose,
+appropriate access, and retention periods for this personal data.
 
 See the [latest release](https://github.com/patrickschiller/openclockwork/releases/latest)
 and read [UPGRADING.md](UPGRADING.md) before changing an existing installation.

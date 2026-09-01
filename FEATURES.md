@@ -142,7 +142,7 @@ Employee submits
 | Absence administration  | Record and review sickness, training, and flextime entries                                             |
 | Approval operations     | Manager/HR inboxes, bulk actions, correction loops, and workflow history                               |
 | Terminal administration | Configure, activate, pair, monitor, revoke, re-pair, deactivate, or permanently delete tablet kiosks   |
-| Working-time reports    | HR-only start, end, break, gross, net, approval, and CSV reporting independent of projects             |
+| Working-time reports    | HR-only start, end, break, gross, net, approval, and CSV reporting, with optional clocking locations   |
 
 Production starts with an empty database. The interactive
 `prisma/create-admin.ts` bootstrap creates exactly one first HR administrator,
@@ -166,9 +166,14 @@ bookings, and customer-facing activity reports in one administrative workflow.
 - Detailed evaluations filtered by period, employee, project, and order
 - Customer-facing activity report and CSV export
 - Project-independent HR working-time report for all closed, non-rejected entries
+- Opt-in clock-in and clock-out locations in the report table and CSV export,
+  combining durable terminal labels with available GPS coordinates and accuracy
 
 Exports contain employee names and working-time data and must be handled as
-personal data under the organisation's access and retention policies.
+personal data under the organisation's access and retention policies. Exact
+clocking locations are excluded by default and require an explicit HR action;
+operators must document a lawful purpose and suitable retention period before
+using them.
 
 ## Compliance-oriented domain logic
 

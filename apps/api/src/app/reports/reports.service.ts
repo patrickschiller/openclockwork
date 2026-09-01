@@ -15,6 +15,21 @@ interface LocalDay {
   dayNumber: number;
 }
 
+function reportLocation(
+  label: string | null,
+  latitude: { toString(): string } | null,
+  longitude: { toString(): string } | null,
+  accuracyMeters: { toString(): string } | null,
+) {
+  if (label === null && latitude === null && longitude === null) return null;
+  return {
+    label,
+    latitude: latitude === null ? null : Number(latitude),
+    longitude: longitude === null ? null : Number(longitude),
+    accuracyMeters: accuracyMeters === null ? null : Number(accuracyMeters),
+  };
+}
+
 function parseLocalDay(value: string): LocalDay {
   const [year, month, day] = value.split('-').map(Number);
   const date = new Date(year, month - 1, day);
@@ -54,6 +69,7 @@ export class ReportsService {
   async workingTimes(
     query: WorkingTimeReportQueryDto,
   ): Promise<WorkingTimeReportDto> {
+    const includeLocations = query.includeLocations === 'true';
     const from = parseLocalDay(query.from);
     const to = parseLocalDay(query.to);
     const inclusiveDays = to.dayNumber - from.dayNumber + 1;
@@ -94,6 +110,22 @@ export class ReportsService {
         clockIn: entry.clockIn.toISOString(),
         clockOut: (entry.clockOut as Date).toISOString(),
         status: entry.status,
+        ...(includeLocations
+          ? {
+              clockInLocation: reportLocation(
+                entry.terminalLocationLabel,
+                entry.latitude,
+                entry.longitude,
+                entry.accuracyMeters,
+              ),
+              clockOutLocation: reportLocation(
+                entry.clockOutTerminalLocationLabel,
+                entry.clockOutLatitude,
+                entry.clockOutLongitude,
+                entry.clockOutAccuracyMeters,
+              ),
+            }
+          : {}),
         ...summary,
       };
     });

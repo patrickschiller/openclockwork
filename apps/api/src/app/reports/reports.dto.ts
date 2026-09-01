@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsUUID, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsUUID, Matches } from 'class-validator';
 
 const DATE_ONLY_PATTERN = '^\\d{4}-\\d{2}-\\d{2}$';
 
@@ -16,6 +16,11 @@ export class WorkingTimeReportQueryDto {
   @IsOptional()
   @IsUUID()
   employeeId?: string;
+
+  @ApiPropertyOptional({ type: Boolean, default: false })
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  includeLocations?: string;
 }
 
 export class WorkingTimeReportEmployeeDto {
@@ -27,6 +32,20 @@ export class WorkingTimeReportEmployeeDto {
 
   @ApiProperty()
   lastName!: string;
+}
+
+export class WorkingTimeReportLocationDto {
+  @ApiProperty({ type: String, nullable: true })
+  label!: string | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: -90, maximum: 90 })
+  latitude!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: -180, maximum: 180 })
+  longitude!: number | null;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  accuracyMeters!: number | null;
 }
 
 export class WorkingTimeReportRowDto {
@@ -59,6 +78,12 @@ export class WorkingTimeReportRowDto {
 
   @ApiProperty({ minimum: 0 })
   netMinutes!: number;
+
+  @ApiPropertyOptional({ type: WorkingTimeReportLocationDto, nullable: true })
+  clockInLocation?: WorkingTimeReportLocationDto | null;
+
+  @ApiPropertyOptional({ type: WorkingTimeReportLocationDto, nullable: true })
+  clockOutLocation?: WorkingTimeReportLocationDto | null;
 }
 
 export class WorkingTimeReportTotalsDto {

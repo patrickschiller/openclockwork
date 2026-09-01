@@ -47,17 +47,31 @@ secrets. Azure deployments must likewise set the secure
 `terminalQrSecret` Bicep parameter (for example in an untracked private
 parameter file); the deployment stores it as a separate Key Vault secret.
 
-This release also hardens the existing live-booking API. `GET /api/timeentries`,
+Existing releases from 1.2.0 onward also harden the live-booking API. `GET /api/timeentries`,
 `POST /api/timeentries/clock-in`, and `POST /api/timeentries/clock-out` now
 require an employee bearer token. Clock-in/out always use the employee identity
 from that token; a legacy `employeeId` in the request body is ignored. Update
 external clients before rollout and regenerate them from
 `apps/api/openapi.json` where applicable.
 
+## Required for 1.3.0
+
+All employee-directory and request-workflow endpoints now require a JWT bearer
+token. Request creation, approval, rejection, substitution, cancellation, and
+bulk operations derive the acting employee from that token instead of trusting
+`employeeId` or `actorId` in a request body. Update external clients to
+authenticate these calls and use the regenerated OpenAPI contract before the
+rollout.
+
+Release 1.3.0 adds nullable clock-in and clock-out terminal-location snapshots
+to `TimeEntry`. The forward migration backfills labels for entries that still
+reference a terminal. No manual SQL is required; normal API startup applies the
+migration before serving traffic.
+
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, for example `1.2.2`. Do not use `latest` for a controlled production
+Release, for example `1.3.0`. Do not use `latest` for a controlled production
 upgrade.
 
 ```bash

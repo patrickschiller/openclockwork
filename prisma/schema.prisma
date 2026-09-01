@@ -193,6 +193,8 @@ model TimeEntry {
   terminalRadiusMeters              Int?
   terminalMaxAccuracyMeters         Int?
   positionTimestamp                 DateTime?
+  /// Visible terminal location captured when clock-in was accepted.
+  terminalLocationLabel             String?                       @db.VarChar(200)
   clockOutLatitude                  Decimal?                      @db.Decimal(9, 6)
   clockOutLongitude                 Decimal?                      @db.Decimal(9, 6)
   clockOutAccuracyMeters            Decimal?                      @db.Decimal(7, 2)
@@ -200,6 +202,8 @@ model TimeEntry {
   clockOutTerminalRadiusMeters      Int?
   clockOutTerminalMaxAccuracyMeters Int?
   clockOutPositionTimestamp         DateTime?
+  /// Visible terminal location captured when clock-out was accepted.
+  clockOutTerminalLocationLabel     String?                       @db.VarChar(200)
   /// Terminal used for the physical clock-in. Null for non-terminal entries.
   terminalId                        String?                       @db.Uuid
   terminal                          Terminal?                     @relation("TerminalClockInEntries", fields: [terminalId], references: [id], onDelete: SetNull)

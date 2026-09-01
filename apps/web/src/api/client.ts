@@ -296,6 +296,15 @@ export interface WorkingTimeReportRowDto {
   grossMinutes: number;
   breakMinutes: number;
   netMinutes: number;
+  clockInLocation?: WorkingTimeReportLocationDto | null;
+  clockOutLocation?: WorkingTimeReportLocationDto | null;
+}
+
+export interface WorkingTimeReportLocationDto {
+  label: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracyMeters: number | null;
 }
 
 export interface WorkingTimeReportEmployeeDto {
@@ -863,9 +872,15 @@ export const api = {
       `/api/projects/${id}/report${qs ? `?${qs}` : ''}`,
     );
   },
-  workingTimeReport: (from: string, to: string, employeeId?: string) => {
+  workingTimeReport: (
+    from: string,
+    to: string,
+    employeeId?: string,
+    includeLocations = false,
+  ) => {
     const params = new URLSearchParams({ from, to });
     if (employeeId) params.set('employeeId', employeeId);
+    if (includeLocations) params.set('includeLocations', 'true');
     return request<WorkingTimeReportDto>(
       `/api/reports/working-times?${params.toString()}`,
     );
