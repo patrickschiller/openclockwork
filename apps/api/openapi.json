@@ -2669,7 +2669,7 @@
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "1.2.2",
+    "version": "1.3.0",
     "contact": {}
   },
   "tags": [],
@@ -2739,7 +2739,7 @@
           },
           "version": {
             "type": "string",
-            "example": "1.2.2"
+            "example": "1.3.0"
           },
           "utcTimestamp": {
             "type": "string",

@@ -4,8 +4,8 @@ Only publish a release from a green `main` commit. Stable releases follow
 semantic versioning and use matching metadata in five places:
 
 - `package.json`: `MAJOR.MINOR.PATCH`
-- `apps/api/src/main.ts` and `apps/api/src/generate-openapi.ts`:
-  `MAJOR.MINOR.PATCH`
+- `apps/api/src/main.ts`, `apps/api/src/generate-openapi.ts`, and the health DTO
+  example: `MAJOR.MINOR.PATCH`
 - `RELEASE_NOTES.md`: `# OpenClockwork vMAJOR.MINOR.PATCH`
 - `.env.prod.example`: `OPENCLOCKWORK_VERSION=MAJOR.MINOR.PATCH`
 - Git tag: `vMAJOR.MINOR.PATCH`
@@ -30,8 +30,8 @@ annotated tag on the exact merge commit and push it:
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v1.2.2 -m "OpenClockwork v1.2.2"
-git push origin v1.2.2
+git tag -a v1.3.0 -m "OpenClockwork v1.3.0"
+git push origin v1.3.0
 ```
 
 The release workflow verifies the tag and notes, runs Nx and API end-to-end
@@ -46,8 +46,8 @@ pulled anonymously by self-hosted installations.
 ## Verify the published release
 
 ```bash
-docker pull ghcr.io/patrickschiller/openclockwork-api:1.2.2
-docker pull ghcr.io/patrickschiller/openclockwork-web:1.2.2
+docker pull ghcr.io/patrickschiller/openclockwork-api:1.3.0
+docker pull ghcr.io/patrickschiller/openclockwork-web:1.3.0
 ```
 
 Confirm that the GitHub Release is marked latest, contains the curated upgrade
