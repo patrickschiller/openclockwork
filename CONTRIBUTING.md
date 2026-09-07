@@ -19,13 +19,13 @@ If you forgot to sign off, fix the latest commit with `git commit --amend -s` or
 ## Reporting issues
 
 - **Bugs:** open a GitHub issue with reproduction steps, expected vs. actual behaviour, environment details (OS, Node version, browser).
-- **Security vulnerabilities:** do *not* open a public issue. See [SECURITY.md](SECURITY.md).
+- **Security vulnerabilities:** do _not_ open a public issue. See [SECURITY.md](SECURITY.md).
 - **Feature ideas:** open a GitHub Discussion or a "proposal" issue first. We prefer to discuss design before code.
 
 ## Working on a change
 
 1. Fork the repo and create a feature branch from `main`.
-2. Review the [README](README.md), [feature overview](FEATURES.md), and existing code before changing domain rules — OpenClockwork models a real working-time-tracking system, and the rules around break deduction, approval thresholds, etc. are not invented.
+2. Review the [README](README.md), [feature overview](FEATURES.md), [roadmap](ROADMAP.md), and existing domain tests before changing working-time rules. Country-specific policies must be explicit configuration or optional presets, with existing installations preserved by migrations.
 3. Keep new dependencies aligned with the existing TypeScript, Nx, NestJS, React, Prisma, and Tailwind stack unless the pull request clearly explains the reason for a change.
 4. Run `pnpm install` at the repo root, then use `pnpm nx run <project>:<target>` (e.g. `pnpm nx serve api`) for local dev.
 5. Add tests. New endpoints, business rules, or UI flows without tests will not be merged.
@@ -34,8 +34,8 @@ If you forgot to sign off, fix the latest commit with `git commit --amend -s` or
 
 ## Pull request expectations
 
-- One logical change per PR. If your branch fixes a bug *and* refactors something, split it.
-- The PR description should explain *why*, not just *what*. Link to the issue or discussion.
+- One logical change per PR. If your branch fixes a bug _and_ refactors something, split it.
+- The PR description should explain _why_, not just _what_. Link to the issue or discussion.
 - All checks (lint, type-check, tests, DCO) must be green before review.
 - A reviewer will respond within a few days. Larger changes may take longer; please be patient.
 - We reserve the right to decline contributions that do not align with the project goals stated in the README.
@@ -47,6 +47,7 @@ If you forgot to sign off, fix the latest commit with `git commit --amend -s` or
 - Frontend: Tailwind for styling. Component-local state via React; cross-cutting state via the patterns established in `apps/web`.
 - Database: schema changes go through Prisma migrations. Never edit a migration after it has been merged to `main`.
 - All public APIs are documented through their OpenAPI spec (NestJS Swagger). UI uses the generated client.
+- Keep user-facing text in the English/German translation catalogue. Do not infer holiday calendars, working-time rules, currencies, or tax settings from the UI language.
 
 ## Code of Conduct
 

@@ -83,7 +83,17 @@ function SubstituteRow({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-medium">
-            {formatDate(request.from)} – {formatDate(request.to)}
+            {formatDate(
+              request.type === 'TimeAdjustment'
+                ? request.from
+                : request.from.slice(0, 10),
+            )}{' '}
+            –{' '}
+            {formatDate(
+              request.type === 'TimeAdjustment'
+                ? request.to
+                : request.to.slice(0, 10),
+            )}
           </p>
           <p className="text-xs text-muted-foreground">
             {Number(request.calculatedDays).toFixed(1)} Werktage

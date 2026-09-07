@@ -58,8 +58,8 @@ function parsePlanHours(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-function fmtHours(minutes: number): string {
-  return `${(minutes / 60).toLocaleString('de-DE', { maximumFractionDigits: 1 })} h`;
+function fmtHours(minutes: number, languageTag: string): string {
+  return `${(minutes / 60).toLocaleString(languageTag, { maximumFractionDigits: 1 })} h`;
 }
 
 /** IST/PLAN progress bar; turns red once the booked hours exceed the plan. */
@@ -70,10 +70,11 @@ function PlanBar({
   planHours: number | null;
   bookedMinutes: number;
 }) {
+  const { t, languageTag } = useI18n();
   if (planHours === null || planHours <= 0) {
     return (
       <p className="text-xs text-muted-foreground">
-        IST {fmtHours(bookedMinutes)} · kein PLAN definiert
+        {t('projects.noPlan', { hours: fmtHours(bookedMinutes, languageTag) })}
       </p>
     );
   }
@@ -84,11 +85,15 @@ function PlanBar({
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
         <span>
-          IST {fmtHours(bookedMinutes)} / PLAN{' '}
-          {planHours.toLocaleString('de-DE', { maximumFractionDigits: 1 })} h
+          {t('projects.planComparison', {
+            actual: fmtHours(bookedMinutes, languageTag),
+            planned: `${planHours.toLocaleString(languageTag, { maximumFractionDigits: 1 })} h`,
+          })}
         </span>
         {over && (
-          <span className="font-medium text-destructive">Überbucht</span>
+          <span className="font-medium text-destructive">
+            {t('projects.overbooked')}
+          </span>
         )}
       </div>
       <div
@@ -227,9 +232,7 @@ function ProjectCard({
     mutationFn: () => api.deleteProject(project.id),
     onSuccess: onChanged,
     onError: (e) =>
-      setError(
-        e instanceof Error ? e.message : 'Projekt konnte nicht gelöscht werden',
-      ),
+      setError(e instanceof Error ? e.message : t('projects.deleteFailed')),
   });
 
   return (
@@ -281,7 +284,7 @@ function ProjectCard({
               setError(null);
               remove.mutate();
             }}
-            title="Löschen ist nur möglich, solange keine Zeiten gebucht sind"
+            title={t('projects.deleteHint')}
           >
             <Trash2 className="mr-1 h-4 w-4" /> {t('common.delete')}
           </Button>
@@ -315,7 +318,7 @@ function ServiceOrderList({
       onChanged();
     },
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Anlegen fehlgeschlagen'),
+      setError(e instanceof Error ? e.message : t('projects.createFailed')),
   });
 
   return (
@@ -342,7 +345,7 @@ function ServiceOrderList({
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div>
           <Label htmlFor={`so-no-${project.id}`} className="text-xs">
-            Auftragsnr.
+            {t('projects.orderNo')}
           </Label>
           <Input
             id={`so-no-${project.id}`}
@@ -354,19 +357,19 @@ function ServiceOrderList({
         </div>
         <div className="flex-1">
           <Label htmlFor={`so-title-${project.id}`} className="text-xs">
-            Titel
+            {t('projects.orderTitle')}
           </Label>
           <Input
             id={`so-title-${project.id}`}
             value={draft.title}
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-            placeholder="z. B. Konzeption & Design"
+            placeholder={t('projects.orderPlaceholder')}
             className="mt-1 h-8 text-sm"
           />
         </div>
         <div>
           <Label htmlFor={`so-plan-${project.id}`} className="text-xs">
-            PLAN (h)
+            {t('projects.planHours')}
           </Label>
           <Input
             id={`so-plan-${project.id}`}
@@ -385,7 +388,7 @@ function ServiceOrderList({
           }
           onClick={() => create.mutate()}
         >
-          <Plus className="mr-1 h-4 w-4" /> Hinzufügen
+          <Plus className="mr-1 h-4 w-4" /> {t('common.add')}
         </Button>
       </div>
       {error && (
@@ -406,6 +409,7 @@ function ServiceOrderRow({
   order: ServiceOrderDto;
   onChanged: () => void;
 }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({
     orderNo: order.orderNo,
@@ -427,13 +431,13 @@ function ServiceOrderRow({
       onChanged();
     },
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Speichern fehlgeschlagen'),
+      setError(e instanceof Error ? e.message : t('common.saveFailed')),
   });
   const remove = useMutation({
     mutationFn: () => api.deleteServiceOrder(projectId, order.id),
     onSuccess: onChanged,
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Löschen fehlgeschlagen'),
+      setError(e instanceof Error ? e.message : t('common.deleteFailed')),
   });
 
   if (editing) {
@@ -443,20 +447,20 @@ function ServiceOrderRow({
           value={draft.orderNo}
           onChange={(e) => setDraft({ ...draft, orderNo: e.target.value })}
           className="h-8 w-28 text-sm"
-          aria-label="Auftragsnr."
+          aria-label={t('projects.orderNo')}
         />
         <Input
           value={draft.title}
           onChange={(e) => setDraft({ ...draft, title: e.target.value })}
           className="h-8 flex-1 text-sm"
-          aria-label="Titel"
+          aria-label={t('projects.orderTitle')}
         />
         <Input
           value={draft.planHours}
           onChange={(e) => setDraft({ ...draft, planHours: e.target.value })}
           className="h-8 w-20 text-sm"
           inputMode="decimal"
-          aria-label="PLAN (h)"
+          aria-label={t('projects.planHours')}
         />
         <Button
           size="sm"
@@ -473,10 +477,10 @@ function ServiceOrderRow({
             })
           }
         >
-          Speichern
+          {t('common.save')}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-          Abbrechen
+          {t('common.cancel')}
         </Button>
         {error && (
           <span className="w-full text-xs text-destructive">{error}</span>
@@ -492,7 +496,9 @@ function ServiceOrderRow({
         <span className={order.isActive ? '' : 'line-through opacity-60'}>
           {order.title}
         </span>
-        {!order.isActive && <Badge variant="secondary">Inaktiv</Badge>}
+        {!order.isActive && (
+          <Badge variant="secondary">{t('common.inactive')}</Badge>
+        )}
         <span className="ml-auto flex items-center gap-1">
           <Button
             size="sm"
@@ -505,15 +511,17 @@ function ServiceOrderRow({
                 planHours: order.planHours,
               })
             }
-            title={order.isActive ? 'Deaktivieren' : 'Aktivieren'}
+            title={
+              order.isActive ? t('common.deactivate') : t('common.activate')
+            }
           >
-            {order.isActive ? 'Deaktivieren' : 'Aktivieren'}
+            {order.isActive ? t('common.deactivate') : t('common.activate')}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setEditing(true)}
-            aria-label="Bearbeiten"
+            aria-label={t('common.edit')}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -523,8 +531,8 @@ function ServiceOrderRow({
             className="text-destructive"
             disabled={remove.isPending}
             onClick={() => remove.mutate()}
-            aria-label="Löschen"
-            title="Löschen ist nur möglich, solange keine Zeiten auf den Auftrag gebucht sind"
+            aria-label={t('common.delete')}
+            title={t('projects.deleteOrderHint')}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -551,6 +559,7 @@ interface MatrixProps {
 }
 
 function AssignmentMatrix({ projects, employees, assignments }: MatrixProps) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const assigned = useMemo(
     () => new Set(assignments.map((a) => `${a.employeeId}:${a.projectId}`)),
@@ -599,17 +608,16 @@ function AssignmentMatrix({ projects, employees, assignments }: MatrixProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Zuweisungsmatrix</CardTitle>
+        <CardTitle className="text-lg">{t('projects.assignments')}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Nur zugewiesene Mitarbeiter:innen können Zeiten auf ein Projekt
-          buchen.
+          {t('projects.assignmentsHint')}
         </p>
       </CardHeader>
       <CardContent className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left">
-              <th className="py-2 pr-4 font-medium">Mitarbeiter:in</th>
+              <th className="py-2 pr-4 font-medium">{t('common.employee')}</th>
               {projects.map((p) => (
                 <th
                   key={p.id}
@@ -732,9 +740,7 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="p-plan">
-              PLAN-Zeit (Stunden, leer = kein Plan)
-            </Label>
+            <Label htmlFor="p-plan">{t('projects.planHoursHint')}</Label>
             <Input
               id="p-plan"
               value={draft.planHours}
@@ -783,37 +789,54 @@ function ProjectEditor({ state, onClose, onSaved }: ProjectEditorProps) {
 }
 
 function csvEscape(value: string): string {
-  return /[";\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  return /[",;\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
-function reportToCsv(report: ProjectReportDto): string {
+export function reportToCsv(
+  report: ProjectReportDto,
+  languageTag: string,
+  t: (key: string) => string,
+): string {
+  const number = new Intl.NumberFormat(languageTag, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  });
+  const delimiter = number.format(1.5).includes(',') ? ';' : ',';
   const header = [
-    'Datum',
-    'Mitarbeiter:in',
-    'Service-Auftrag',
-    'Stunden',
-    'Tätigkeit',
+    t('projects.reportDate'),
+    t('common.employee'),
+    t('booking.serviceOrder'),
+    t('common.hours'),
+    t('common.activity'),
   ];
   const lines = report.rows.map((r) =>
     [
       r.date,
       r.employeeName,
       r.orderNo ? `${r.orderNo} ${r.orderTitle ?? ''}`.trim() : '',
-      (r.grossMinutes / 60).toFixed(2).replace('.', ','),
+      number.format(r.grossMinutes / 60),
       r.activity ?? '',
     ]
       .map(csvEscape)
-      .join(';'),
+      .join(delimiter),
   );
   const total = [
-    'Gesamt',
+    t('projects.reportTotal'),
     '',
     '',
-    (report.totalGrossMinutes / 60).toFixed(2).replace('.', ','),
+    number.format(report.totalGrossMinutes / 60),
     '',
   ];
-  // BOM so Excel detects UTF-8; semicolons for the German locale.
-  return '﻿' + [header.join(';'), ...lines, total.join(';')].join('\r\n');
+  // Keep UTF-8 detectable in spreadsheet tools; match the selected decimal convention.
+  return (
+    '﻿' +
+    [
+      header.map(csvEscape).join(delimiter),
+      ...lines,
+      total.map(csvEscape).join(delimiter),
+    ].join('\r\n')
+  );
 }
 
 function ProjectReportDialog({
@@ -823,6 +846,7 @@ function ProjectReportDialog({
   project: ProjectDto;
   onClose: () => void;
 }) {
+  const { t, languageTag, formatDate } = useI18n();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
@@ -835,13 +859,13 @@ function ProjectReportDialog({
 
   const downloadCsv = () => {
     if (!report.data) return;
-    const blob = new Blob([reportToCsv(report.data)], {
+    const blob = new Blob([reportToCsv(report.data, languageTag, t)], {
       type: 'text/csv;charset=utf-8',
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${project.code.toLowerCase()}-auswertung.csv`;
+    a.download = `${project.code.toLowerCase()}-report.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -851,17 +875,16 @@ function ProjectReportDialog({
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>
-            Auswertung {project.code} · {project.name}
+            {t('projects.report')} {project.code} · {project.name}
           </DialogTitle>
           <DialogDescription>
-            Gebuchte Zeiten mit Tätigkeiten — zur Weitergabe an den Kunden als
-            CSV exportierbar.
+            {t('projects.reportDescription')}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <Label htmlFor="report-from">Von</Label>
+            <Label htmlFor="report-from">{t('common.from')}</Label>
             <Input
               id="report-from"
               type="date"
@@ -871,7 +894,7 @@ function ProjectReportDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="report-to">Bis</Label>
+            <Label htmlFor="report-to">{t('common.to')}</Label>
             <Input
               id="report-to"
               type="date"
@@ -886,7 +909,7 @@ function ProjectReportDialog({
             disabled={!report.data || report.data.rows.length === 0}
             onClick={downloadCsv}
           >
-            <Download className="mr-1 h-4 w-4" /> CSV herunterladen
+            <Download className="mr-1 h-4 w-4" /> {t('projects.downloadCsv')}
           </Button>
         </div>
 
@@ -895,31 +918,33 @@ function ProjectReportDialog({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-3">Datum</th>
-                  <th className="py-2 pr-3">Mitarbeiter:in</th>
-                  <th className="py-2 pr-3">Auftrag</th>
-                  <th className="py-2 pr-3 text-right">Stunden</th>
-                  <th className="py-2">Tätigkeit</th>
+                  <th className="py-2 pr-3">{t('projects.reportDate')}</th>
+                  <th className="py-2 pr-3">{t('common.employee')}</th>
+                  <th className="py-2 pr-3">{t('projects.reportOrder')}</th>
+                  <th className="py-2 pr-3 text-right">{t('common.hours')}</th>
+                  <th className="py-2">{t('common.activity')}</th>
                 </tr>
               </thead>
               <tbody>
                 {report.data.rows.map((r, i) => (
                   <tr key={i} className="border-b last:border-0 align-top">
-                    <td className="py-2 pr-3 whitespace-nowrap">{r.date}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {formatDate(r.date)}
+                    </td>
                     <td className="py-2 pr-3">{r.employeeName}</td>
                     <td className="py-2 pr-3">{r.orderNo ?? '—'}</td>
                     <td className="py-2 pr-3 text-right">
-                      {fmtHours(r.grossMinutes)}
+                      {fmtHours(r.grossMinutes, languageTag)}
                     </td>
                     <td className="py-2">{r.activity ?? '—'}</td>
                   </tr>
                 ))}
                 <tr className="font-medium">
                   <td className="py-2 pr-3" colSpan={3}>
-                    Gesamt
+                    {t('projects.reportTotal')}
                   </td>
                   <td className="py-2 pr-3 text-right">
-                    {fmtHours(report.data.totalGrossMinutes)}
+                    {fmtHours(report.data.totalGrossMinutes, languageTag)}
                   </td>
                   <td />
                 </tr>
@@ -928,15 +953,15 @@ function ProjectReportDialog({
           ) : (
             <p className="py-6 text-center text-sm text-muted-foreground">
               {report.isLoading
-                ? 'Lädt …'
-                : 'Keine Buchungen im gewählten Zeitraum.'}
+                ? t('common.loading')
+                : t('projects.reportEmpty')}
             </p>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
-            Schließen
+            {t('common.close')}
           </Button>
         </DialogFooter>
       </DialogContent>

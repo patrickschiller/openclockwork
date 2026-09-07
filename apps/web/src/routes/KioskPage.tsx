@@ -77,7 +77,7 @@ function formatKioskTime(
 }
 
 export function KioskPage() {
-  const { t, locale } = useI18n();
+  const { t, languageTag } = useI18n();
   const { logout } = useAuth();
   const online = useOnline();
   const [initialPairingCode] = useState(readPairingCodeFromUrl);
@@ -225,9 +225,9 @@ export function KioskPage() {
       formatKioskTime(
         new Date(serverNowMs),
         state?.terminal.timeZone,
-        locale === 'de' ? 'de-DE' : 'en-US',
+        languageTag,
       ),
-    [locale, serverNowMs, state?.terminal.timeZone],
+    [languageTag, serverNowMs, state?.terminal.timeZone],
   );
 
   if (!deviceToken || !state) {

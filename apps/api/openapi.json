@@ -2669,7 +2669,7 @@
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "contact": {}
   },
   "tags": [],
@@ -2739,7 +2739,7 @@
           },
           "version": {
             "type": "string",
-            "example": "1.3.0"
+            "example": "1.4.0"
           },
           "utcTimestamp": {
             "type": "string",
@@ -2805,7 +2805,7 @@
           "startDate": {
             "type": "string",
             "example": "2026-04-01",
-            "description": "ISO date when the employee starts; Soll-Stunden are counted from here."
+            "description": "ISO date when the employee starts; target working hours are counted from here."
           },
           "overtimeOpeningBalanceMinutes": {
             "type": "number",
@@ -2832,8 +2832,40 @@
               "SH",
               "TH"
             ],
-            "default": "NW",
-            "description": "ISO-3166-2 code of the German state — drives the holiday calendar."
+            "deprecated": true,
+            "description": "Legacy alias for a DE-XX holidayCalendar; use holidayCalendar for new clients."
+          },
+          "holidayCalendar": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "DE-BW",
+              "DE-BY",
+              "DE-BE",
+              "DE-BB",
+              "DE-HB",
+              "DE-HH",
+              "DE-HE",
+              "DE-MV",
+              "DE-NI",
+              "DE-NW",
+              "DE-RP",
+              "DE-SL",
+              "DE-SN",
+              "DE-ST",
+              "DE-SH",
+              "DE-TH"
+            ],
+            "default": "NONE",
+            "description": "Optional holiday preset. NONE makes no public-holiday assumptions; explicit holidayDates work in every country."
+          },
+          "holidayDates": {
+            "example": ["2026-07-01"],
+            "description": "Explicit non-working dates in YYYY-MM-DD format; supplement the selected preset.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "allowDailyBlockBooking": {
             "type": "boolean",
@@ -2930,7 +2962,40 @@
               "ST",
               "SH",
               "TH"
-            ]
+            ],
+            "deprecated": true
+          },
+          "holidayCalendar": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "DE-BW",
+              "DE-BY",
+              "DE-BE",
+              "DE-BB",
+              "DE-HB",
+              "DE-HH",
+              "DE-HE",
+              "DE-MV",
+              "DE-NI",
+              "DE-NW",
+              "DE-RP",
+              "DE-SL",
+              "DE-SN",
+              "DE-ST",
+              "DE-SH",
+              "DE-TH"
+            ],
+            "default": "NONE",
+            "description": "Optional holiday preset. NONE makes no public-holiday assumptions; explicit holidayDates work in every country."
+          },
+          "holidayDates": {
+            "example": ["2026-07-01"],
+            "description": "Explicit non-working dates in YYYY-MM-DD format; supplement the selected preset.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "allowDailyBlockBooking": {
             "type": "boolean",
@@ -2961,6 +3026,24 @@
           }
         },
         "required": ["password"]
+      },
+      "BreakRuleDto": {
+        "type": "object",
+        "properties": {
+          "afterMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440,
+            "description": "Inclusive attendance threshold in minutes."
+          },
+          "breakMinutes": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1440,
+            "description": "Total deduction in minutes; must not exceed afterMinutes."
+          }
+        },
+        "required": ["afterMinutes", "breakMinutes"]
       },
       "CoreTimeWindowDto": {
         "type": "object",
@@ -3022,6 +3105,14 @@
             "maximum": 127,
             "default": 31,
             "description": "Working-day bitmask. Mon=1, Tue=2, …, Sun=64. Mo–Fr = 31, Mo–Sa = 63."
+          },
+          "breakRules": {
+            "default": [],
+            "description": "Automatic break deductions. Empty means none. The largest matching total applies; not a legal compliance guarantee. Omission on update preserves the policy.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BreakRuleDto"
+            }
           },
           "coreTimes": {
             "type": "array",
@@ -3355,7 +3446,7 @@
           },
           "grossMinutes": {
             "type": "number",
-            "description": "Attendance minutes including the automatic statutory break."
+            "description": "Attendance minutes including the configured automatic break deduction."
           },
           "breakMinutes": {
             "type": "number"
@@ -4029,7 +4120,7 @@
           },
           "timeZone": {
             "type": "string",
-            "default": "Europe/Berlin"
+            "default": "UTC"
           },
           "isActive": {
             "type": "boolean",
@@ -4096,7 +4187,7 @@
           },
           "timeZone": {
             "type": "string",
-            "default": "Europe/Berlin"
+            "default": "UTC"
           },
           "isActive": {
             "type": "boolean",

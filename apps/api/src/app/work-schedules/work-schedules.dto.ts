@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
+  ArrayMaxSize,
   IsBoolean,
   IsEnum,
   IsInt,
@@ -15,6 +16,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { WorkSchedule, WorkScheduleCoreTime } from '@prisma/client';
+import { parseBreakRules, type BreakRule } from 'shared';
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const HHMM_PATTERN = '^([01]\\d|2[0-3]):[0-5]\\d$';
@@ -37,12 +39,35 @@ export class CoreTimeWindowDto {
   @ApiProperty({
     minimum: 0,
     maximum: 127,
-    description: 'Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Mo–Fr = 31.',
+    description:
+      'Bitmask: Mon=1, Tue=2, Wed=4, Thu=8, Fri=16, Sat=32, Sun=64. Mo–Fr = 31.',
   })
   @IsInt()
   @Min(0)
   @Max(127)
   weekdays!: number;
+}
+
+export class BreakRuleDto implements BreakRule {
+  @ApiProperty({
+    minimum: 0,
+    maximum: 1440,
+    description: 'Inclusive attendance threshold in minutes.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(1440)
+  afterMinutes!: number;
+
+  @ApiProperty({
+    minimum: 0,
+    maximum: 1440,
+    description: 'Total deduction in minutes; must not exceed afterMinutes.',
+  })
+  @IsInt()
+  @Min(0)
+  @Max(1440)
+  breakMinutes!: number;
 }
 
 export class UpsertWorkScheduleDto {
@@ -74,13 +99,27 @@ export class UpsertWorkScheduleDto {
     minimum: 0,
     maximum: 127,
     default: 31,
-    description: 'Working-day bitmask. Mon=1, Tue=2, …, Sun=64. Mo–Fr = 31, Mo–Sa = 63.',
+    description:
+      'Working-day bitmask. Mon=1, Tue=2, …, Sun=64. Mo–Fr = 31, Mo–Sa = 63.',
   })
   @IsOptional()
   @IsInt()
   @Min(0)
   @Max(127)
   workingDays?: number;
+
+  @ApiPropertyOptional({
+    type: [BreakRuleDto],
+    default: [],
+    description:
+      'Automatic break deductions. Empty means none. The largest matching total applies; not a legal compliance guarantee. Omission on update preserves the policy.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @ValidateNested({ each: true })
+  @Type(() => BreakRuleDto)
+  breakRules?: BreakRuleDto[];
 
   @ApiProperty({ type: [CoreTimeWindowDto] })
   @IsArray()
@@ -95,7 +134,12 @@ export class AssignToEmployeeDto {
   employeeId!: string;
 }
 
-const TIME_MODELS = ['Teilzeit', 'Vollzeit', 'Vertrauensarbeitszeit', 'Gleitzeit'] as const;
+const TIME_MODELS = [
+  'Teilzeit',
+  'Vollzeit',
+  'Vertrauensarbeitszeit',
+  'Gleitzeit',
+] as const;
 
 export class BulkAssignDto {
   @ApiProperty({ enum: TIME_MODELS })
@@ -124,6 +168,7 @@ export interface WorkScheduleResponse {
   frameEnd: string;
   isDefault: boolean;
   workingDays: number;
+  breakRules: BreakRule[];
   coreTimes: CoreTimeWindowResponse[];
   employeeCount: number;
   updatedAt: string;
@@ -141,6 +186,7 @@ export function toScheduleResponse(
     frameEnd: schedule.frameEnd,
     isDefault: schedule.isDefault,
     workingDays: schedule.workingDays,
+    breakRules: parseBreakRules(schedule.breakRules),
     coreTimes: schedule.coreTimes.map((c) => ({
       id: c.id,
       label: c.label,

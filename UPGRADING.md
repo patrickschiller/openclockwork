@@ -68,10 +68,47 @@ to `TimeEntry`. The forward migration backfills labels for entries that still
 reference a terminal. No manual SQL is required; normal API startup applies the
 migration before serving traffic.
 
+## Required for 1.4.0
+
+The migration `20260907120000_international_work_policies` introduces explicit
+holiday calendars, custom holiday dates, and configurable automatic break
+deductions. Normal API startup applies it before serving traffic. Back up the
+installation and explicitly retain its working timezone before deploying 1.4.0.
+
+- Existing employee state selections become the equivalent `DE-XX` calendar.
+  Existing German calendar behaviour remains in place. New employees default
+  to `holidayCalendar: "NONE"` and an empty `holidayDates` list.
+- Existing schedules retain the previous 360-minute/30-minute and
+  540-minute/45-minute deduction thresholds. If employees previously relied on
+  an implicit schedule and no default schedule exists, the migration assigns
+  them an explicit schedule preserving that policy. New schedules default to
+  an empty `breakRules` list.
+- Existing time entries receive a snapshot of the previous deduction policy.
+  New entries capture the active schedule policy; changing a schedule later
+  does not recalculate those stored entries' break deductions.
+- External clients should use `holidayCalendar` and `holidayDates`. The
+  deprecated `bundesland` field remains accepted for German state selections;
+  responses can now return `null` there. Conflicting legacy and canonical calendar
+  selections are rejected. Regenerate clients from `apps/api/openapi.json` and
+  configure new schedule `breakRules` explicitly where deductions are required.
+  Persisted time-model enum identifiers remain compatible; the UI translates
+  their labels.
+- Bootstrap and employee forms no longer assume a 30-day leave entitlement.
+  Enter the contractual allowance explicitly. Existing allowances are retained.
+- Docker and Azure defaults become `UTC`. **Set `TZ` explicitly to your existing
+  working timezone before upgrading**, especially if you previously relied on
+  the implicit `Europe/Berlin` default. For Azure, set the `timeZone` parameter
+  for both the API and scheduled job. Existing terminal display timezones stay
+  unchanged.
+
+Review calendars and break policies after the upgrade. Custom holidays are
+explicit dates rather than recurring rules: supply each relevant year. The API
+still uses one deployment working timezone for day and schedule boundaries.
+
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, for example `1.3.0`. Do not use `latest` for a controlled production
+Release, for example `1.4.0`. Do not use `latest` for a controlled production
 upgrade.
 
 ```bash

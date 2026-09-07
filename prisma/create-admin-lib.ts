@@ -31,6 +31,11 @@ export const INITIAL_ADMIN_BUNDESLAENDER = [
   'TH',
 ] as const;
 
+export const INITIAL_ADMIN_HOLIDAY_CALENDARS = [
+  'NONE',
+  ...INITIAL_ADMIN_BUNDESLAENDER.map((state) => `DE-${state}` as const),
+] as const;
+
 export interface InitialAdminInput {
   personalNo: string;
   firstName: string;
@@ -40,7 +45,9 @@ export interface InitialAdminInput {
   weeklyHours: number;
   annualLeaveDays: number;
   startDate: string;
-  bundesland: (typeof INITIAL_ADMIN_BUNDESLAENDER)[number];
+  /** Deprecated alias for existing setup scripts. */
+  bundesland?: (typeof INITIAL_ADMIN_BUNDESLAENDER)[number];
+  holidayCalendar?: (typeof INITIAL_ADMIN_HOLIDAY_CALENDARS)[number];
 }
 
 export class InitialAdminAlreadyExistsError extends Error {
@@ -97,7 +104,10 @@ export async function createInitialAdmin(
               weeklyHours: normalized.weeklyHours,
               annualLeaveDays: normalized.annualLeaveDays,
               startDate: new Date(`${normalized.startDate}T00:00:00.000Z`),
-              bundesland: normalized.bundesland,
+              holidayCalendar: normalized.holidayCalendar,
+              bundesland: normalized.holidayCalendar?.startsWith('DE-')
+                ? normalized.holidayCalendar.slice(3)
+                : null,
               isActive: true,
             },
           });
@@ -132,9 +142,33 @@ function validateInitialAdminInput(
       `Time model must be one of: ${INITIAL_ADMIN_TIME_MODELS.join(', ')}.`,
     );
   }
-  if (!INITIAL_ADMIN_BUNDESLAENDER.includes(input.bundesland)) {
+  if (
+    input.bundesland &&
+    !INITIAL_ADMIN_BUNDESLAENDER.includes(input.bundesland)
+  ) {
     throw new Error(
-      `Bundesland must be one of: ${INITIAL_ADMIN_BUNDESLAENDER.join(', ')}.`,
+      `Legacy state alias must be one of: ${INITIAL_ADMIN_BUNDESLAENDER.join(', ')}.`,
+    );
+  }
+  if (
+    input.bundesland &&
+    input.holidayCalendar &&
+    input.holidayCalendar !== `DE-${input.bundesland}`
+  ) {
+    throw new Error(
+      'bundesland and holidayCalendar must identify the same calendar.',
+    );
+  }
+  const holidayCalendar =
+    input.holidayCalendar ??
+    (input.bundesland ? `DE-${input.bundesland}` : 'NONE');
+  if (
+    !(INITIAL_ADMIN_HOLIDAY_CALENDARS as readonly string[]).includes(
+      holidayCalendar,
+    )
+  ) {
+    throw new Error(
+      `Holiday calendar must be one of: ${INITIAL_ADMIN_HOLIDAY_CALENDARS.join(', ')}.`,
     );
   }
   assertNonNegativeNumber(input.weeklyHours, 'Weekly hours');
@@ -143,6 +177,7 @@ function validateInitialAdminInput(
 
   return {
     ...input,
+    holidayCalendar,
     personalNo,
     firstName,
     lastName,

@@ -14,6 +14,113 @@ type Catalog = Record<string, string>;
 const STORAGE_KEY = 'openclockwork.locale';
 
 const de: Catalog = {
+  'projects.deleteFailed': 'Projekt konnte nicht gelöscht werden',
+  'projects.deleteHint':
+    'Löschen ist nur möglich, solange keine Zeiten gebucht sind',
+  'projects.deleteOrderHint':
+    'Löschen ist nur möglich, solange keine Zeiten auf den Auftrag gebucht sind',
+  'projects.createFailed': 'Anlegen fehlgeschlagen',
+  'common.deleteFailed': 'Löschen fehlgeschlagen',
+  'projects.orderNo': 'Auftragsnr.',
+  'projects.orderTitle': 'Titel',
+  'projects.orderPlaceholder': 'z. B. Konzeption & Design',
+  'projects.planHours': 'PLAN (h)',
+  'projects.planHoursHint': 'PLAN-Zeit (Stunden, leer = kein Plan)',
+  'projects.assignments': 'Zuweisungsmatrix',
+  'projects.assignmentsHint':
+    'Nur zugewiesene Mitarbeiter:innen können Zeiten auf ein Projekt buchen.',
+  'booking.splitFailed': 'Aufteilen fehlgeschlagen',
+  'booking.rangeFailed': 'Nachtrag fehlgeschlagen',
+  'booking.inheritProject': '— wie erster Teil ({project}) —',
+  'booking.inheritNoProject': '— wie erster Teil (ohne Projekt) —',
+  'booking.splitInvalid':
+    'Der Zeitpunkt muss strikt zwischen Kommen und Gehen liegen.',
+  'booking.rangeAction': 'Nachtragen',
+  'employees.passwordFailed': 'Setzen fehlgeschlagen',
+  'employees.passwordSetting': 'Setze…',
+  'employees.passwordSet': 'Setzen',
+  'projects.noPlan': 'IST {hours} · kein PLAN definiert',
+  'projects.planComparison': 'IST {actual} / PLAN {planned}',
+  'projects.reportDescription':
+    'Gebuchte Zeiten mit Tätigkeiten — zur Weitergabe an den Kunden als CSV exportierbar.',
+  'projects.reportDate': 'Datum',
+  'projects.reportOrder': 'Auftrag',
+  'projects.reportTotal': 'Gesamt',
+  'projects.reportEmpty': 'Keine Buchungen im gewählten Zeitraum.',
+  'projects.downloadCsv': 'CSV herunterladen',
+  'booking.summary': 'Brutto {gross} · Pause {break}min · Netto {net}',
+  'booking.since': 'Seit {date}',
+  'booking.failed': 'Buchung fehlgeschlagen',
+  'booking.clockOutFailed': 'Ausstempeln fehlgeschlagen',
+  'booking.splitDescription':
+    '{from} – {to} wird am gewählten Zeitpunkt in zwei Buchungen geteilt, z. B. für einen Projektwechsel.',
+  'booking.splitAt': 'Zeitpunkt',
+  'booking.splitProject': 'Projekt für den zweiten Teil',
+  'booking.splitKeepProject': 'Projekt beibehalten',
+  'booking.splitOtherProject': 'Anderes Projekt wählen…',
+  'booking.rangeDescription':
+    'Bucht ein Zeitintervall nachträglich auf ein Projekt. Voraussetzung: Der Zeitraum ist bereits als Arbeitszeit erfasst.',
+  'requests.submitFailed': 'Antrag fehlgeschlagen',
+  'requests.firstHalfDay': 'Erster Tag halb',
+  'requests.lastHalfDay': 'Letzter Tag halb',
+  'requests.attachmentLabel': 'Beleg (optional, max 10 MB)',
+  'requests.balanceHint':
+    '{remaining} Tage verfügbar ({total} gesamt − {approved} genehmigt − {pending} eingereicht).',
+  'requests.timeAdjustmentPolicy':
+    'Genehmigungen richten sich nach deinem Arbeitszeitplan. Zeiten außerhalb des konfigurierten Rahmens benötigen eine zusätzliche Genehmigung vor der HR-Bestätigung.',
+  'requests.invalidTimeRange': '"Bis" muss nach "Von" liegen.',
+  'requests.invalidDateRange': '"Bis" darf nicht vor "Von" liegen.',
+  'schedules.breakRules': 'Automatischer Pausenabzug',
+  'schedules.breakRulesHint':
+    'Leere Regeln bedeuten keinen automatischen Abzug. Ab der angegebenen Anwesenheitsdauer wird die größte zutreffende Gesamtpause abgezogen. Regeln passend zu Vertrag und örtlichen Vorgaben festlegen.',
+  'schedules.noBreakRules': 'Kein automatischer Pausenabzug',
+  'schedules.addBreakRule': 'Pausenregel hinzufügen',
+  'schedules.breakAfter': 'Ab Anwesenheit (Minuten)',
+  'schedules.breakMinutes': 'Gesamtabzug (Minuten)',
+  'schedules.breakRuleSummary': 'ab {after} min: {deduction} min',
+  'schedules.frame': 'Rahmen',
+  'schedules.frameStart': 'Rahmen Start',
+  'schedules.frameEnd': 'Rahmen Ende',
+  'schedules.workingDays': 'Arbeitstage',
+  'schedules.workingDaysHint':
+    'Nur die ausgewählten Tage zählen für Soll-Stunden und Urlaubsabrechnung. Die Auswahl muss zum Arbeitsvertrag passen.',
+  'schedules.defaultHint':
+    'Als Standardplan verwenden, wenn kein eigener Plan zugewiesen ist',
+  'schedules.assignedResult': '{assigned} zugewiesen, {skipped} übersprungen',
+  'schedules.assigning': 'Weise zu…',
+  'schedules.bulkAssign': 'Bulk zuweisen',
+  'schedules.deleteHint':
+    'Zuerst alle Mitarbeiter:innen einem anderen Plan zuweisen',
+  'schedules.coreLabel': 'Bezeichnung',
+  'schedules.corePlaceholder': 'z. B. Vormittag',
+  'schedules.start': 'Start',
+  'schedules.end': 'Ende',
+  'requests.auditHistory': 'Audit-Verlauf',
+  'approvals.reviseDefault': 'Bitte überarbeiten',
+  'employees.holidayCalendar': 'Feiertagskalender',
+  'employees.holidayCalendarNone': 'Kein vorkonfigurierter Kalender',
+  'employees.holidayCalendarGermany': 'Deutschland · {region}',
+  'employees.holidayDates': 'Zusätzliche Feiertage',
+  'employees.holidayDatesHint':
+    'Für jedes Land: Feiertage als YYYY-MM-DD eingeben, getrennt durch Komma oder Zeilenumbruch. Diese ergänzen den gewählten Kalender. Ohne Kalender und Datumsangaben werden keine Feiertage abgezogen.',
+  'employees.holidaySummary': '{calendar} · {count} zusätzliche Tage',
+  'employees.holidayDatesInvalid':
+    'Bitte gültige Datumsangaben im Format YYYY-MM-DD verwenden.',
+  'employees.personalNo': 'Personal-Nr',
+  'employees.timeModel': 'Zeitmodell',
+  'employees.weeklyHours': 'Wochenstunden',
+  'employees.annualLeaveDays': 'Jahresurlaub (Tage)',
+  'employees.startDate': 'Eintrittsdatum',
+  'employees.overtimeBalance': 'Übertrag Überstunden (Minuten, ± erlaubt)',
+  'employees.overtimeBalanceShort': 'Übertrag',
+  'employees.overtimeBalanceHint': '{minutes} min Übertrag',
+  'employees.workSchedule': 'Arbeitszeitplan',
+  'employees.firstName': 'Vorname',
+  'employees.lastName': 'Nachname',
+  'employees.initialPassword': 'Initial-Passwort (≥ 8 Zeichen)',
+  'employees.activeHint':
+    'Aktiv (deaktivierte Mitarbeiter:innen können sich nicht einloggen)',
+  'employees.passwordFor': 'Für {name} ({email})',
   'language.de': 'Deutsch',
   'language.en': 'Englisch',
   'language.change': 'Sprache ändern',
@@ -175,7 +282,7 @@ const de: Catalog = {
     'Keine Verbindung zum Server. Buchungen sind aktuell deaktiviert — sobald wieder online, ist die Schaltfläche freigegeben.',
   'booking.offHours': 'Außerhalb der Regelzeit',
   'booking.offHoursDescription':
-    'Buchungen vor 07:00 oder nach 23:00 sind genehmigungspflichtig.',
+    'Buchungen außerhalb des konfigurierten Arbeitszeitrahmens sind genehmigungspflichtig.',
   'booking.startHint': 'Drücke „Kommen“, um eine neue Session zu starten.',
   'booking.sendLocation': 'Standort beim Stempeln mitsenden (optional)',
   'booking.orderRequired':
@@ -569,7 +676,111 @@ const de: Catalog = {
 };
 
 const en: Catalog = {
-  ...de,
+  'projects.deleteFailed': 'Could not delete project',
+  'projects.deleteHint':
+    'Deletion is available only while no time has been recorded',
+  'projects.deleteOrderHint':
+    'Deletion is available only while no time has been recorded against the order',
+  'projects.createFailed': 'Creation failed',
+  'common.deleteFailed': 'Deletion failed',
+  'projects.orderNo': 'Order number',
+  'projects.orderTitle': 'Title',
+  'projects.orderPlaceholder': 'e.g. Concept & design',
+  'projects.planHours': 'Planned hours',
+  'projects.planHoursHint': 'Planned hours (empty = no plan)',
+  'projects.assignments': 'Assignment matrix',
+  'projects.assignmentsHint':
+    'Only assigned employees can record time against a project.',
+  'booking.splitFailed': 'Split failed',
+  'booking.rangeFailed': 'Retroactive booking failed',
+  'booking.inheritProject': '— same as first part ({project}) —',
+  'booking.inheritNoProject': '— same as first part (no project) —',
+  'booking.splitInvalid':
+    'The split time must be strictly between clock-in and clock-out.',
+  'booking.rangeAction': 'Add time',
+  'employees.passwordFailed': 'Could not set password',
+  'employees.passwordSetting': 'Setting…',
+  'employees.passwordSet': 'Set password',
+  'projects.noPlan': 'Actual {hours} · no plan defined',
+  'projects.planComparison': 'Actual {actual} / Planned {planned}',
+  'projects.reportDescription':
+    'Recorded time and activities, available as a CSV export to share with the client.',
+  'projects.reportDate': 'Date',
+  'projects.reportOrder': 'Order',
+  'projects.reportTotal': 'Total',
+  'projects.reportEmpty': 'No entries in the selected period.',
+  'projects.downloadCsv': 'Download CSV',
+  'booking.summary': 'Gross {gross} · Break {break}min · Net {net}',
+  'booking.since': 'Since {date}',
+  'booking.failed': 'Booking failed',
+  'booking.clockOutFailed': 'Clock-out failed',
+  'booking.splitDescription':
+    '{from} – {to} is split into two entries at the selected time, for example to switch projects.',
+  'booking.splitAt': 'Split time',
+  'booking.splitProject': 'Project for the second part',
+  'booking.splitKeepProject': 'Keep project',
+  'booking.splitOtherProject': 'Choose another project…',
+  'booking.rangeDescription':
+    'Assign a previously recorded work interval to a project. The interval must already be recorded as working time.',
+  'requests.submitFailed': 'Request failed',
+  'requests.firstHalfDay': 'Half first day',
+  'requests.lastHalfDay': 'Half last day',
+  'requests.attachmentLabel': 'Attachment (optional, max 10 MB)',
+  'requests.balanceHint':
+    '{remaining} days available ({total} total − {approved} approved − {pending} submitted).',
+  'requests.timeAdjustmentPolicy':
+    'Approvals follow your work schedule. Time outside its configured frame requires additional approval before HR confirmation.',
+  'requests.invalidTimeRange': '"To" must be after "From".',
+  'requests.invalidDateRange': '"To" must not be before "From".',
+  'schedules.breakRules': 'Automatic break deduction',
+  'schedules.breakRulesHint':
+    'Empty rules mean no automatic deduction. At the specified attendance duration, the largest matching total break is deducted. Set rules according to the contract and local requirements.',
+  'schedules.noBreakRules': 'No automatic break deduction',
+  'schedules.addBreakRule': 'Add break rule',
+  'schedules.breakAfter': 'Attendance threshold (minutes)',
+  'schedules.breakMinutes': 'Total deduction (minutes)',
+  'schedules.breakRuleSummary': 'at {after} min: {deduction} min',
+  'schedules.frame': 'Working-time frame',
+  'schedules.frameStart': 'Frame start',
+  'schedules.frameEnd': 'Frame end',
+  'schedules.workingDays': 'Working days',
+  'schedules.workingDaysHint':
+    'Only selected days count toward target hours and leave deductions. Match this selection to the employment contract.',
+  'schedules.defaultHint':
+    'Use as the default when no individual schedule is assigned',
+  'schedules.assignedResult': '{assigned} assigned, {skipped} skipped',
+  'schedules.assigning': 'Assigning…',
+  'schedules.bulkAssign': 'Assign in bulk',
+  'schedules.deleteHint': 'Assign all employees to another schedule first',
+  'schedules.coreLabel': 'Label',
+  'schedules.corePlaceholder': 'e.g. Morning',
+  'schedules.start': 'Start',
+  'schedules.end': 'End',
+  'requests.auditHistory': 'Audit history',
+  'approvals.reviseDefault': 'Please revise',
+  'employees.holidayCalendar': 'Holiday calendar',
+  'employees.holidayCalendarNone': 'No preset calendar',
+  'employees.holidayCalendarGermany': 'Germany · {region}',
+  'employees.holidayDates': 'Additional holidays',
+  'employees.holidayDatesHint':
+    'For any country: enter holidays as YYYY-MM-DD, separated by commas or line breaks. These supplement the selected calendar. Without a calendar or dates, no holidays are deducted.',
+  'employees.holidaySummary': '{calendar} · {count} additional dates',
+  'employees.holidayDatesInvalid': 'Use valid dates in YYYY-MM-DD format.',
+  'employees.personalNo': 'Employee number',
+  'employees.timeModel': 'Time model',
+  'employees.weeklyHours': 'Weekly hours',
+  'employees.annualLeaveDays': 'Annual leave (days)',
+  'employees.startDate': 'Employment start date',
+  'employees.overtimeBalance': 'Opening overtime balance (minutes, ± allowed)',
+  'employees.overtimeBalanceShort': 'Opening balance',
+  'employees.overtimeBalanceHint': '{minutes} min opening balance',
+  'employees.workSchedule': 'Work schedule',
+  'employees.firstName': 'First name',
+  'employees.lastName': 'Last name',
+  'employees.initialPassword': 'Initial password (≥ 8 characters)',
+  'employees.activeHint': 'Active (inactive employees cannot sign in)',
+  'employees.passwordFor': 'For {name} ({email})',
+  'nav.dashboard': 'Dashboard',
   'language.de': 'German',
   'language.en': 'English',
   'language.change': 'Change language',
@@ -730,7 +941,7 @@ const en: Catalog = {
     'No connection to the server. Booking is currently disabled and will be available again when you are online.',
   'booking.offHours': 'Outside regular hours',
   'booking.offHoursDescription':
-    'Bookings before 07:00 or after 23:00 require approval.',
+    'Bookings outside the configured working-time frame require approval.',
   'booking.startHint': 'Press “Clock in” to start a new session.',
   'booking.sendLocation': 'Send location when clocking in or out (optional)',
   'booking.orderRequired': 'This project requires selecting a service order.',
@@ -1132,6 +1343,7 @@ function interpolate(value: string, variables?: Variables): string {
 
 interface I18nContextValue {
   locale: Locale;
+  languageTag: string;
   setLocale: (locale: Locale) => void;
   t: (key: string, variables?: Variables) => string;
   enumLabel: (value: string) => string;
@@ -1148,27 +1360,64 @@ function initialLocale(): Locale {
   } catch {
     // Storage can be unavailable in private browsing and isolated tests.
   }
-  return 'de';
+  for (const language of browserLanguages()) {
+    const candidate = language.toLowerCase().split('-')[0];
+    if (candidate === 'de' || candidate === 'en') return candidate;
+  }
+  return 'en';
+}
+
+function browserLanguages(): readonly string[] {
+  return typeof navigator === 'undefined'
+    ? []
+    : navigator.languages?.length
+      ? navigator.languages
+      : [navigator.language];
+}
+
+/** Keep regional date/number conventions without tying a UI language to a country. */
+function languageTagFor(locale: Locale): string {
+  for (const language of browserLanguages()) {
+    if (language?.toLowerCase().split('-')[0] !== locale) continue;
+    try {
+      return Intl.getCanonicalLocales(language)[0];
+    } catch {
+      // Ignore malformed browser language preferences.
+    }
+  }
+  return locale;
+}
+
+function localizedDate(raw: Date | string): Date {
+  // Date-only API values are calendar dates, not instants at midnight UTC.
+  return typeof raw === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T00:00:00`)
+    : new Date(raw);
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>(initialLocale);
 
   useEffect(() => {
-    window.localStorage?.setItem(STORAGE_KEY, locale);
+    try {
+      window.localStorage?.setItem(STORAGE_KEY, locale);
+    } catch {
+      // Language selection must work when browser storage is unavailable.
+    }
     document.documentElement.lang = locale;
   }, [locale]);
 
   const value = useMemo<I18nContextValue>(() => {
     const t = (key: string, variables?: Variables) =>
-      interpolate(catalogs[locale][key] ?? catalogs.de[key] ?? key, variables);
-    const languageTag = locale === 'de' ? 'de-DE' : 'en-US';
+      interpolate(catalogs[locale][key] ?? catalogs.en[key] ?? key, variables);
+    const languageTag = languageTagFor(locale);
     return {
       locale,
+      languageTag,
       setLocale,
       t,
       enumLabel: (raw) => t(`enum.${raw}`),
-      formatDate: (raw) => new Date(raw).toLocaleDateString(languageTag),
+      formatDate: (raw) => localizedDate(raw).toLocaleDateString(languageTag),
       formatDateTime: (raw) => new Date(raw).toLocaleString(languageTag),
     };
   }, [locale]);
@@ -1179,14 +1428,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 export function useI18n(): I18nContextValue {
   const context = useContext(I18nContext);
   if (context) return context;
+  const locale = initialLocale();
+  const languageTag = languageTagFor(locale);
   const t = (key: string, variables?: Variables) =>
-    interpolate(catalogs.de[key] ?? key, variables);
+    interpolate(catalogs[locale][key] ?? catalogs.en[key] ?? key, variables);
   return {
-    locale: 'de',
+    locale,
+    languageTag,
     setLocale: () => undefined,
     t,
     enumLabel: (raw) => t(`enum.${raw}`),
-    formatDate: (raw) => new Date(raw).toLocaleDateString('de-DE'),
-    formatDateTime: (raw) => new Date(raw).toLocaleString('de-DE'),
+    formatDate: (raw) => localizedDate(raw).toLocaleDateString(languageTag),
+    formatDateTime: (raw) => new Date(raw).toLocaleString(languageTag),
   };
 }

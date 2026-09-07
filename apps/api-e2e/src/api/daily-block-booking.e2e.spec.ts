@@ -41,6 +41,10 @@ describe('TimeEntries — direct daily-block booking', () => {
         frameStart: '07:00',
         frameEnd: '23:00',
         workingDays: 15, // Monday through Thursday
+        breakRules: [
+          { afterMinutes: 360, breakMinutes: 30 },
+          { afterMinutes: 540, breakMinutes: 45 },
+        ],
         isDefault: true,
       },
     });

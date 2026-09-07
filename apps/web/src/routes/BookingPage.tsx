@@ -51,23 +51,6 @@ function captureGps(): Promise<{
   });
 }
 
-function fmtDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('de-DE');
-}
-
-function fmtSummary(entry: TimeEntryDto): string {
-  if (!entry.summary) return '— offen';
-  const { grossMinutes, breakMinutes, netMinutes } = entry.summary;
-  const h = (n: number) =>
-    `${Math.floor(n / 60)}h ${(n % 60).toString().padStart(2, '0')}min`;
-  return `Brutto ${h(grossMinutes)} · Pause ${breakMinutes}min · Netto ${h(netMinutes)}`;
-}
-
-function fmtDate(date: string): string {
-  const [year, month, day] = date.split('-');
-  return `${day}.${month}.${year}`;
-}
-
 const DAILY_BLOCK_ERROR_KEYS: Record<string, string> = {
   DAILY_BLOCK_INVALID_DATE_TIME: 'booking.dailyBlockErrorInvalidDateTime',
   DAILY_BLOCK_DISABLED: 'booking.dailyBlockErrorDisabled',
@@ -241,7 +224,7 @@ function BookingTargetFields({
 
 export function BookingPage() {
   const user = useCurrentUser();
-  const { t, enumLabel } = useI18n();
+  const { t, enumLabel, formatDate, formatDateTime } = useI18n();
   const employeeId = user.id;
   const qc = useQueryClient();
   const online = useOnline();
@@ -357,7 +340,7 @@ export function BookingPage() {
     },
     onError: (e, _v, context) => {
       if (context?.previous) qc.setQueryData(entriesKey, context.previous);
-      setError(e instanceof Error ? e.message : 'Buchung fehlgeschlagen');
+      setError(e instanceof Error ? e.message : t('booking.failed'));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: entriesKey }),
   });
@@ -380,13 +363,10 @@ export function BookingPage() {
     },
     onError: (e, _v, context) => {
       if (context?.previous) qc.setQueryData(entriesKey, context.previous);
-      setError(e instanceof Error ? e.message : 'Ausstempeln fehlgeschlagen');
+      setError(e instanceof Error ? e.message : t('booking.clockOutFailed'));
     },
     onSettled: () => qc.invalidateQueries({ queryKey: entriesKey }),
   });
-
-  const now = new Date();
-  const offHours = now.getHours() < 7 || now.getHours() >= 23;
 
   return (
     <div className="space-y-6">
@@ -406,15 +386,6 @@ export function BookingPage() {
         </Alert>
       )}
 
-      {offHours && (
-        <Alert>
-          <AlertTitle>{t('booking.offHours')}</AlertTitle>
-          <AlertDescription>
-            {t('booking.offHoursDescription')}
-          </AlertDescription>
-        </Alert>
-      )}
-
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -428,7 +399,7 @@ export function BookingPage() {
           </CardTitle>
           <CardDescription>
             {open
-              ? `Seit ${fmtDateTime(open.clockIn)}${entryBadge(open) ? ` · ${entryBadge(open)}` : ''}`
+              ? `${t('booking.since', { date: formatDateTime(open.clockIn) })}${entryBadge(open) ? ` · ${entryBadge(open)}` : ''}`
               : t('booking.startHint')}
           </CardDescription>
         </CardHeader>
@@ -536,7 +507,7 @@ export function BookingPage() {
                 >
                   <div>
                     <p className="font-medium">
-                      {fmtDate(violation.date)} ·{' '}
+                      {formatDate(violation.date)} ·{' '}
                       {violation.windowLabel ?? t('booking.coreTime')}{' '}
                       {violation.boundary}
                     </p>
@@ -582,13 +553,19 @@ export function BookingPage() {
                 >
                   <div>
                     <p className="font-medium">
-                      {fmtDateTime(e.clockIn)}
+                      {formatDateTime(e.clockIn)}
                       {e.clockOut
-                        ? ` – ${fmtDateTime(e.clockOut)}`
-                        : ' – offen'}
+                        ? ` – ${formatDateTime(e.clockOut)}`
+                        : ` – ${t('booking.open')}`}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {fmtSummary(e)}
+                      {e.summary
+                        ? t('booking.summary', {
+                            gross: formatDuration(e.summary.grossMinutes),
+                            break: e.summary.breakMinutes,
+                            net: formatDuration(e.summary.netMinutes),
+                          })
+                        : `— ${t('booking.open')}`}
                     </p>
                     {e.activity && (
                       <p className="text-xs italic text-muted-foreground">
@@ -717,7 +694,7 @@ function DailyBlockDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t, locale } = useI18n();
+  const { t, languageTag } = useI18n();
   const today = localDateInputValue();
   const [date, setDate] = useState(today);
   const [start, setStart] = useState('08:00');
@@ -732,7 +709,7 @@ function DailyBlockDialog({
     !Number.isNaN(startDate.getTime()) &&
     !Number.isNaN(endDate.getTime());
   const end = previewValid
-    ? endDate.toLocaleTimeString(locale === 'de' ? 'de-DE' : 'en-US', {
+    ? endDate.toLocaleTimeString(languageTag, {
         hour: '2-digit',
         minute: '2-digit',
       })
@@ -957,12 +934,12 @@ function SplitEntryDialog({
     },
     onSuccess: onSaved,
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Aufteilen fehlgeschlagen'),
+      setError(e instanceof Error ? e.message : t('booking.splitFailed')),
   });
 
   const inheritLabel = entryBadge(entry)
-    ? `— wie erster Teil (${entryBadge(entry)}) —`
-    : '— wie erster Teil (ohne Projekt) —';
+    ? t('booking.inheritProject', { project: entryBadge(entry) ?? '' })
+    : t('booking.inheritNoProject');
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -970,14 +947,15 @@ function SplitEntryDialog({
         <DialogHeader>
           <DialogTitle>{t('booking.split')}</DialogTitle>
           <DialogDescription>
-            {formatDateTime(entry.clockIn)} – {formatDateTime(clockOut)} wird am
-            gewählten Zeitpunkt in zwei Buchungen geteilt, z. B. für einen
-            Projektwechsel.
+            {t('booking.splitDescription', {
+              from: formatDateTime(entry.clockIn),
+              to: formatDateTime(clockOut),
+            })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="split-at">Zeitpunkt</Label>
+            <Label htmlFor="split-at">{t('booking.splitAt')}</Label>
             <Input
               id="split-at"
               type="datetime-local"
@@ -988,12 +966,12 @@ function SplitEntryDialog({
             />
             {!atValid && (
               <p className="text-xs text-destructive">
-                Der Zeitpunkt muss strikt zwischen Kommen und Gehen liegen.
+                {t('booking.splitInvalid')}
               </p>
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="split-mode">Projekt für den zweiten Teil</Label>
+            <Label htmlFor="split-mode">{t('booking.splitProject')}</Label>
             <select
               id="split-mode"
               value={mode}
@@ -1005,7 +983,7 @@ function SplitEntryDialog({
             >
               <option value="">{inheritLabel}</option>
               <option value="none">{t('booking.noProject')}</option>
-              <option value="project">Anderes Projekt wählen…</option>
+              <option value="project">{t('booking.splitOtherProject')}</option>
             </select>
           </div>
           {mode === 'project' && (
@@ -1099,7 +1077,7 @@ function BookProjectDialog({
       }),
     onSuccess: onSaved,
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Nachtrag fehlgeschlagen'),
+      setError(e instanceof Error ? e.message : t('booking.rangeFailed')),
   });
 
   return (
@@ -1107,11 +1085,7 @@ function BookProjectDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('booking.bookProjectTime')}</DialogTitle>
-          <DialogDescription>
-            Bucht ein Zeitintervall nachträglich auf ein Projekt. Voraussetzung:
-            Du warst im gesamten Intervall eingestempelt — die bestehenden
-            Buchungen werden entsprechend aufgeteilt.
-          </DialogDescription>
+          <DialogDescription>{t('booking.rangeDescription')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
@@ -1163,7 +1137,9 @@ function BookProjectDialog({
               save.mutate();
             }}
           >
-            {save.isPending ? 'Buche…' : 'Nachtragen'}
+            {save.isPending
+              ? t('booking.dailyBlockSaving')
+              : t('booking.rangeAction')}
           </Button>
         </DialogFooter>
       </DialogContent>

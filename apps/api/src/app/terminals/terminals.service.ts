@@ -566,6 +566,7 @@ export class TerminalsService {
                 employeeId,
                 clockIn: bookingNow,
                 source: 'Terminal',
+                breakRules: schedule.breakRules,
                 status: 'Open',
                 requiresApproval: requiresSpecialApproval(
                   bookingNow,
@@ -689,7 +690,7 @@ export class TerminalsService {
   }
 
   private createData(dto: CreateTerminalDto) {
-    const timeZone = (dto.timeZone ?? 'Europe/Berlin').trim();
+    const timeZone = (dto.timeZone ?? 'UTC').trim();
     this.assertTimeZone(timeZone);
     const enforceGeofence = dto.enforceGeofence ?? true;
     const geofence = this.resolveGeofenceConfiguration(enforceGeofence, dto);

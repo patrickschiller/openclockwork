@@ -81,6 +81,8 @@ export interface SeedEmployeeInput {
   startDate?: Date;
   overtimeOpeningBalanceMinutes?: number;
   bundesland?: string;
+  holidayCalendar?: string;
+  holidayDates?: string[];
   allowDailyBlockBooking?: boolean;
   managerId?: string | null;
   workScheduleId?: string | null;
@@ -110,6 +112,11 @@ export async function seedEmployee(
       startDate: input.startDate ?? defaultStart,
       overtimeOpeningBalanceMinutes: input.overtimeOpeningBalanceMinutes ?? 0,
       bundesland: input.bundesland ?? 'NW',
+      // Existing domain fixtures deliberately exercise German regional calendars.
+      // Production/new employee defaults are country-neutral.
+      holidayCalendar:
+        input.holidayCalendar ?? `DE-${input.bundesland ?? 'NW'}`,
+      holidayDates: input.holidayDates ?? [],
       allowDailyBlockBooking: input.allowDailyBlockBooking ?? false,
       isActive: true,
       managerId: input.managerId ?? null,

@@ -50,7 +50,7 @@ services:
     environment:
       NODE_ENV: development
       API_PORT: 3001
-      TZ: ${TZ:-Europe/Berlin}
+      TZ: ${TZ:-UTC}
       DATABASE_URL: postgresql://${POSTGRES_USER:-openclockwork}:${POSTGRES_PASSWORD:-openclockwork}@db:5432/${POSTGRES_DB:-openclockwork}?schema=public
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
       TERMINAL_QR_SECRET: ${TERMINAL_QR_SECRET:-dev-terminal-qr-secret-change-me}

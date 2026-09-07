@@ -79,6 +79,8 @@ export const BUNDESLAND_LABEL: Record<Bundesland, string> = {
   TH: 'Thüringen',
 };
 
+export type HolidayCalendar = 'NONE' | `DE-${Bundesland}`;
+
 export interface EmployeeDto {
   id: string;
   personalNo: string;
@@ -91,7 +93,9 @@ export interface EmployeeDto {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes: number;
-  bundesland: Bundesland;
+  holidayCalendar: HolidayCalendar;
+  holidayDates: string[];
+  bundesland?: Bundesland | null;
   allowDailyBlockBooking: boolean;
   managerId: string | null;
   workScheduleId: string | null;
@@ -111,6 +115,8 @@ export interface CreateEmployeePayload {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes?: number;
+  holidayCalendar?: HolidayCalendar;
+  holidayDates?: string[];
   bundesland?: Bundesland;
   allowDailyBlockBooking?: boolean;
   managerId: string | null;
@@ -128,6 +134,8 @@ export interface UpdateEmployeePayload {
   annualLeaveDays?: number;
   startDate?: string;
   overtimeOpeningBalanceMinutes?: number;
+  holidayCalendar?: HolidayCalendar;
+  holidayDates?: string[];
   bundesland?: Bundesland;
   allowDailyBlockBooking?: boolean;
   managerId?: string | null;
@@ -479,6 +487,11 @@ export interface CoreTimeWindowDto {
   weekdays: number;
 }
 
+export interface BreakRuleDto {
+  afterMinutes: number;
+  breakMinutes: number;
+}
+
 export interface WorkScheduleDto {
   id: string;
   name: string;
@@ -487,6 +500,7 @@ export interface WorkScheduleDto {
   frameEnd: string;
   isDefault: boolean;
   workingDays: number;
+  breakRules: BreakRuleDto[];
   coreTimes: CoreTimeWindowDto[];
   employeeCount: number;
   updatedAt: string;
@@ -499,6 +513,7 @@ export interface UpsertWorkSchedulePayload {
   frameEnd: string;
   isDefault: boolean;
   workingDays: number;
+  breakRules: BreakRuleDto[];
   coreTimes: Array<{
     label: string | null;
     start: string;

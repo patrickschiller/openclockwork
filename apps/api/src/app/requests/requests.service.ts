@@ -656,12 +656,16 @@ export class RequestsService {
     tx: Prisma.TransactionClient,
     request: Request,
   ): Promise<void> {
+    const schedule = await this.schedules.resolveForEmployee(
+      request.employeeId,
+    );
     await tx.timeEntry.create({
       data: {
         employeeId: request.employeeId,
         clockIn: request.from,
         clockOut: request.to,
         source: 'Manual',
+        breakRules: schedule.breakRules,
         status: 'Approved',
         requiresApproval: false,
       },

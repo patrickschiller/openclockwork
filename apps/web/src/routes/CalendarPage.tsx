@@ -66,7 +66,7 @@ function absencesOnDay(
 
 export function CalendarPage() {
   const user = useCurrentUser();
-  const { t, enumLabel, locale } = useI18n();
+  const { t, enumLabel, languageTag } = useI18n();
   const [year, setYear] = useState(new Date().getUTCFullYear());
 
   const requestsQuery = useQuery({
@@ -149,7 +149,7 @@ export function CalendarPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 12 }, (_, monthIdx0) =>
-          new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-US', {
+          new Intl.DateTimeFormat(languageTag, {
             month: 'long',
             timeZone: 'UTC',
           }).format(new Date(Date.UTC(year, monthIdx0, 1))),
@@ -181,7 +181,13 @@ interface MonthProps {
 }
 
 function Month({ year, monthIdx0, requests, absences }: MonthProps) {
-  const { t, enumLabel } = useI18n();
+  const { t, enumLabel, languageTag } = useI18n();
+  const weekdays = Array.from({ length: 7 }, (_, index) =>
+    new Intl.DateTimeFormat(languageTag, {
+      weekday: 'narrow',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(2024, 0, 1 + index))),
+  );
   const total = daysInMonth(year, monthIdx0);
   const startOffset = startWeekdayMon0(year, monthIdx0);
 
@@ -190,7 +196,7 @@ function Month({ year, monthIdx0, requests, absences }: MonthProps) {
 
   return (
     <div className="grid grid-cols-7 gap-1 text-xs">
-      {['M', 'D', 'M', 'D', 'F', 'S', 'S'].map((d, i) => (
+      {weekdays.map((d, i) => (
         <span key={i} className="text-center text-muted-foreground">
           {d}
         </span>

@@ -52,12 +52,12 @@ RUN mkdir -p /app/data/attachments && chown -R app:app /app/data
 USER app
 EXPOSE 3000
 
-# Default timezone — German Zeiterfassung. Overridable per deployment
+# Neutral default timezone. Configure the organisation's working timezone
 # (docker-compose / Container App env). Drives core-time-window and
 # 07:00/23:00 off-hours reasoning, which is all wall-clock.
 ENV NODE_ENV=production \
     API_PORT=3000 \
-    TZ=Europe/Berlin
+    TZ=UTC
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1

@@ -65,6 +65,10 @@ describe('Project-independent working-time reports', () => {
           projectId: project.id,
           clockIn: new Date('2026-08-10T07:00:00.000Z'),
           clockOut: new Date('2026-08-10T15:00:00.000Z'),
+          breakRules: [
+            { afterMinutes: 360, breakMinutes: 30 },
+            { afterMinutes: 540, breakMinutes: 45 },
+          ],
           status: 'Approved',
           terminalLocationLabel: 'Büro Würzburg',
           latitude: 49.791304,

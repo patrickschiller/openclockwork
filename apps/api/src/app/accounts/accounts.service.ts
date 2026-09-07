@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   calculateNetMinutes,
+  parseBreakRules,
   calculateOvertimeMinutes,
   calculateVacationDays,
   calculateWorkingDays,
@@ -30,27 +31,39 @@ export class AccountsService {
 
     // Sum net minutes from completed time entries YTD.
     const entries = await this.prisma.timeEntry.findMany({
-      where: { employeeId, clockIn: { gte: yearStart }, clockOut: { not: null } },
-      select: { clockIn: true, clockOut: true },
+      where: {
+        employeeId,
+        clockIn: { gte: yearStart },
+        clockOut: { not: null },
+      },
+      select: { clockIn: true, clockOut: true, breakRules: true },
     });
     let netMinutesYtd = 0;
     for (const e of entries) {
       if (!e.clockOut) continue;
-      const gross = Math.floor((e.clockOut.getTime() - e.clockIn.getTime()) / 60_000);
-      netMinutesYtd += calculateNetMinutes(gross);
+      const gross = Math.floor(
+        (e.clockOut.getTime() - e.clockIn.getTime()) / 60_000,
+      );
+      netMinutesYtd += calculateNetMinutes(
+        gross,
+        parseBreakRules(e.breakRules),
+      );
     }
 
     // Soll-Befreiung: Vacation (approved) + Sickness + Training count as
     // excused working days — their absence on a workday is not a deficit.
     // Flextime/Gleittage are intentionally NOT excused: that's what makes
     // them drain the overtime account.
-    const sollFrom = employee.startDate.getTime() > yearStart.getTime()
-      ? new Date(Date.UTC(
-          employee.startDate.getUTCFullYear(),
-          employee.startDate.getUTCMonth(),
-          employee.startDate.getUTCDate(),
-        ))
-      : yearStart;
+    const sollFrom =
+      employee.startDate.getTime() > yearStart.getTime()
+        ? new Date(
+            Date.UTC(
+              employee.startDate.getUTCFullYear(),
+              employee.startDate.getUTCMonth(),
+              employee.startDate.getUTCDate(),
+            ),
+          )
+        : yearStart;
     const excusedDays = await this.excusedWorkingDays(
       employeeId,
       sollFrom,
@@ -60,7 +73,7 @@ export class AccountsService {
     );
 
     // Soll counts from the employee's startDate using their working-day mask
-    // and Bundesland-specific holiday calendar.
+    // and configured holiday calendar.
     const overtime = calculateOvertimeMinutes({
       startDate: employee.startDate,
       year,
@@ -123,15 +136,20 @@ export class AccountsService {
     for (const a of absences) {
       const start = a.from.getTime() < from.getTime() ? from : a.from;
       const end = a.to.getTime() > to.getTime() ? to : a.to;
-      total += calculateWorkingDays(start, end, { holidayProvider, workingDays });
+      total += calculateWorkingDays(start, end, {
+        holidayProvider,
+        workingDays,
+      });
     }
     for (const v of vacationRequests) {
       // Only credit half a day when the half-day boundary falls inside our
       // window — if we clipped that end off, it would otherwise be lost.
       const clippedStart = v.from.getTime() < from.getTime() ? from : v.from;
       const clippedEnd = v.to.getTime() > to.getTime() ? to : v.to;
-      const halfDayStart = v.halfDayStart && clippedStart.getTime() === v.from.getTime();
-      const halfDayEnd = v.halfDayEnd && clippedEnd.getTime() === v.to.getTime();
+      const halfDayStart =
+        v.halfDayStart && clippedStart.getTime() === v.from.getTime();
+      const halfDayEnd =
+        v.halfDayEnd && clippedEnd.getTime() === v.to.getTime();
       total += calculateVacationDays(clippedStart, clippedEnd, {
         holidayProvider,
         workingDays,

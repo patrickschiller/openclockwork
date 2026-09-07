@@ -5,7 +5,7 @@ import {
   createInitialAdmin,
   generateInitialPassword,
   InitialAdminAlreadyExistsError,
-  INITIAL_ADMIN_BUNDESLAENDER,
+  INITIAL_ADMIN_HOLIDAY_CALENDARS,
   INITIAL_ADMIN_TIME_MODELS,
   type InitialAdminInput,
 } from './create-admin-lib';
@@ -74,13 +74,13 @@ async function promptForInitialAdminInput(): Promise<InitialAdminInput> {
         'Vollzeit',
       ),
       weeklyHours: await askNonNegativeNumber(rl, 'Weekly hours', 40),
-      annualLeaveDays: await askNonNegativeNumber(rl, 'Annual leave days', 30),
+      annualLeaveDays: await askNonNegativeNumber(rl, 'Annual leave days', 0),
       startDate: await askDate(rl, 'Start date', today),
-      bundesland: await askChoice(
+      holidayCalendar: await askChoice(
         rl,
-        'Bundesland',
-        INITIAL_ADMIN_BUNDESLAENDER,
-        'NW',
+        'Holiday calendar',
+        INITIAL_ADMIN_HOLIDAY_CALENDARS,
+        'NONE',
       ),
     };
   } finally {
@@ -100,6 +100,7 @@ function parseArguments(args: string[]): InitialAdminInput {
     '--annual-leave-days',
     '--start-date',
     '--bundesland',
+    '--holiday-calendar',
   ]);
 
   for (let index = 0; index < args.length; index += 2) {
@@ -126,10 +127,12 @@ function parseArguments(args: string[]): InitialAdminInput {
     timeModel: (values.get('--time-model') ??
       'Vollzeit') as InitialAdminInput['timeModel'],
     weeklyHours: parseNumericArgument(values, '--weekly-hours', 40),
-    annualLeaveDays: parseNumericArgument(values, '--annual-leave-days', 30),
+    annualLeaveDays: parseNumericArgument(values, '--annual-leave-days', 0),
     startDate: values.get('--start-date') ?? today,
-    bundesland: (values.get('--bundesland') ??
-      'NW') as InitialAdminInput['bundesland'],
+    bundesland: values.get('--bundesland') as InitialAdminInput['bundesland'],
+    holidayCalendar: values.get(
+      '--holiday-calendar',
+    ) as InitialAdminInput['holidayCalendar'],
   };
 }
 
@@ -163,9 +166,10 @@ For unattended validation, provide the non-secret employee fields as options:
   --email VALUE             Required
   --time-model VALUE        Default: Vollzeit
   --weekly-hours VALUE      Default: 40
-  --annual-leave-days VALUE Default: 30
+  --annual-leave-days VALUE Default: 0 (set contractual entitlement)
   --start-date YYYY-MM-DD   Default: today
-  --bundesland CODE         Default: NW
+  --holiday-calendar CODE   Default: NONE; optional DE-XX regional preset
+  --bundesland CODE         Deprecated German state alias (for existing scripts)
 
 The command always generates the initial password itself. It never accepts a
 password option, so a password cannot accidentally be stored in shell history.

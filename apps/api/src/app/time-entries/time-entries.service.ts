@@ -12,6 +12,7 @@ import {
   calculateDailyTargetMinutes,
   calculateGrossMinutesForNet,
   countWorkingDays,
+  parseBreakRules,
   requiresSpecialApproval,
 } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -146,12 +147,15 @@ export class TimeEntriesService {
       Number(employee.weeklyHours),
       schedule.workingDays,
     );
-    const grossMinutes = calculateGrossMinutesForNet(dailyNetMinutes);
+    const grossMinutes = calculateGrossMinutesForNet(
+      dailyNetMinutes,
+      schedule.breakRules,
+    );
     return {
       enabled: employee.allowDailyBlockBooking,
       dailyNetMinutes,
       grossMinutes,
-      breakMinutes: calculateBreakMinutes(grossMinutes),
+      breakMinutes: calculateBreakMinutes(grossMinutes, schedule.breakRules),
       workdayCount,
     };
   }
@@ -223,7 +227,10 @@ export class TimeEntriesService {
       );
     }
 
-    const grossMinutes = calculateGrossMinutesForNet(dailyNetMinutes);
+    const grossMinutes = calculateGrossMinutesForNet(
+      dailyNetMinutes,
+      schedule.breakRules,
+    );
     const clockOut = new Date(parsed.clockIn.getTime() + grossMinutes * 60_000);
     if (requiresSpecialApproval(parsed.clockIn, clockOut, schedule.frame)) {
       throw new BadRequestException(
@@ -354,6 +361,7 @@ export class TimeEntriesService {
               clockOut,
               bookingDate: parsed.bookingDate,
               source: 'DailyBlock',
+              breakRules: schedule.breakRules,
               status: 'Approved',
               requiresApproval: false,
               ...target,
@@ -436,6 +444,7 @@ export class TimeEntriesService {
               employeeId,
               clockIn: bookingNow,
               source: 'Pwa',
+              breakRules: schedule.breakRules,
               status: 'Open',
               requiresApproval: requiresSpecialApproval(
                 bookingNow,
@@ -684,6 +693,7 @@ export class TimeEntriesService {
             clockIn: at,
             clockOut: entry.clockOut,
             source: entry.source,
+            breakRules: parseBreakRules(entry.breakRules),
             status: statusFor(secondRequires),
             requiresApproval: secondRequires,
             clockOutLatitude: entry.clockOutLatitude,
@@ -834,6 +844,7 @@ export class TimeEntriesService {
               clockIn: from,
               clockOut: e,
               source: entry.source,
+              breakRules: parseBreakRules(entry.breakRules),
               requiresApproval: requiresFor(from, e),
               status: statusFor(requiresFor(from, e)),
               ...this.clockOutAudit(entry),
@@ -873,6 +884,7 @@ export class TimeEntriesService {
               clockIn: to,
               clockOut: e,
               source: entry.source,
+              breakRules: parseBreakRules(entry.breakRules),
               requiresApproval: requiresFor(to, e),
               status: statusFor(requiresFor(to, e)),
               ...this.clockOutAudit(entry),
@@ -909,6 +921,7 @@ export class TimeEntriesService {
               clockIn: from,
               clockOut: to,
               source: entry.source,
+              breakRules: parseBreakRules(entry.breakRules),
               requiresApproval: requiresFor(from, to),
               status: statusFor(requiresFor(from, to)),
               ...newFields,
@@ -925,6 +938,7 @@ export class TimeEntriesService {
               clockIn: to,
               clockOut: e,
               source: entry.source,
+              breakRules: parseBreakRules(entry.breakRules),
               requiresApproval: requiresFor(to, e),
               status: statusFor(requiresFor(to, e)),
               ...this.clockOutAudit(entry),

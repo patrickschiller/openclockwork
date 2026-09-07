@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { summarize } from 'shared';
+import { summarize, parseBreakRules } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   type WorkingTimeReportEmployeeDto,
@@ -101,7 +101,11 @@ export class ReportsService {
     });
 
     const rows = entries.map((entry) => {
-      const summary = summarize(entry.clockIn, entry.clockOut as Date);
+      const summary = summarize(
+        entry.clockIn,
+        entry.clockOut as Date,
+        parseBreakRules(entry.breakRules),
+      );
       return {
         id: entry.id,
         employeeId: entry.employeeId,

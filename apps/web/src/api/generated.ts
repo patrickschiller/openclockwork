@@ -1136,7 +1136,7 @@ export interface components {
       status: string;
       /** @example openclockwork-api */
       service: string;
-      /** @example 1.3.0 */
+      /** @example 1.4.0 */
       version: string;
       /** Format: date-time */
       utcTimestamp: string;
@@ -1171,7 +1171,7 @@ export interface components {
       /** @example 30 */
       annualLeaveDays: number;
       /**
-       * @description ISO date when the employee starts; Soll-Stunden are counted from here.
+       * @description ISO date when the employee starts; target working hours are counted from here.
        * @example 2026-04-01
        */
       startDate: string;
@@ -1181,11 +1181,11 @@ export interface components {
        */
       overtimeOpeningBalanceMinutes?: number;
       /**
-       * @description ISO-3166-2 code of the German state — drives the holiday calendar.
-       * @default NW
+       * @deprecated
+       * @description Legacy alias for a DE-XX holidayCalendar; use holidayCalendar for new clients.
        * @enum {string}
        */
-      bundesland:
+      bundesland?:
         | 'BW'
         | 'BY'
         | 'BE'
@@ -1202,6 +1202,36 @@ export interface components {
         | 'ST'
         | 'SH'
         | 'TH';
+      /**
+       * @description Optional holiday preset. NONE makes no public-holiday assumptions; explicit holidayDates work in every country.
+       * @default NONE
+       * @enum {string}
+       */
+      holidayCalendar:
+        | 'NONE'
+        | 'DE-BW'
+        | 'DE-BY'
+        | 'DE-BE'
+        | 'DE-BB'
+        | 'DE-HB'
+        | 'DE-HH'
+        | 'DE-HE'
+        | 'DE-MV'
+        | 'DE-NI'
+        | 'DE-NW'
+        | 'DE-RP'
+        | 'DE-SL'
+        | 'DE-SN'
+        | 'DE-ST'
+        | 'DE-SH'
+        | 'DE-TH';
+      /**
+       * @description Explicit non-working dates in YYYY-MM-DD format; supplement the selected preset.
+       * @example [
+       *       "2026-07-01"
+       *     ]
+       */
+      holidayDates?: string[];
       /**
        * @description Allow one self-approved fixed-duration block on a configured working day.
        * @default false
@@ -1230,7 +1260,10 @@ export interface components {
       /** @example 2026-04-01 */
       startDate?: string;
       overtimeOpeningBalanceMinutes?: number;
-      /** @enum {string} */
+      /**
+       * @deprecated
+       * @enum {string}
+       */
       bundesland?:
         | 'BW'
         | 'BY'
@@ -1248,6 +1281,36 @@ export interface components {
         | 'ST'
         | 'SH'
         | 'TH';
+      /**
+       * @description Optional holiday preset. NONE makes no public-holiday assumptions; explicit holidayDates work in every country.
+       * @default NONE
+       * @enum {string}
+       */
+      holidayCalendar:
+        | 'NONE'
+        | 'DE-BW'
+        | 'DE-BY'
+        | 'DE-BE'
+        | 'DE-BB'
+        | 'DE-HB'
+        | 'DE-HH'
+        | 'DE-HE'
+        | 'DE-MV'
+        | 'DE-NI'
+        | 'DE-NW'
+        | 'DE-RP'
+        | 'DE-SL'
+        | 'DE-SN'
+        | 'DE-ST'
+        | 'DE-SH'
+        | 'DE-TH';
+      /**
+       * @description Explicit non-working dates in YYYY-MM-DD format; supplement the selected preset.
+       * @example [
+       *       "2026-07-01"
+       *     ]
+       */
+      holidayDates?: string[];
       /** @description Allow one self-approved fixed-duration block on a configured working day. */
       allowDailyBlockBooking?: boolean;
       /** Format: uuid */
@@ -1258,6 +1321,12 @@ export interface components {
     };
     SetPasswordDto: {
       password: string;
+    };
+    BreakRuleDto: {
+      /** @description Inclusive attendance threshold in minutes. */
+      afterMinutes: number;
+      /** @description Total deduction in minutes; must not exceed afterMinutes. */
+      breakMinutes: number;
     };
     CoreTimeWindowDto: {
       /** @example Vormittag */
@@ -1283,6 +1352,11 @@ export interface components {
        * @default 31
        */
       workingDays: number;
+      /**
+       * @description Automatic break deductions. Empty means none. The largest matching total applies; not a legal compliance guarantee. Omission on update preserves the policy.
+       * @default []
+       */
+      breakRules: components['schemas']['BreakRuleDto'][];
       coreTimes: components['schemas']['CoreTimeWindowDto'][];
     };
     AssignToEmployeeDto: {
@@ -1396,7 +1470,7 @@ export interface components {
       enabled: boolean;
       /** @description Contractual net working minutes for one configured workday. */
       dailyNetMinutes: number;
-      /** @description Attendance minutes including the automatic statutory break. */
+      /** @description Attendance minutes including the configured automatic break deduction. */
       grossMinutes: number;
       breakMinutes: number;
       workdayCount: number;
@@ -1621,7 +1695,7 @@ export interface components {
       radiusMeters: number | null;
       /** @default 100 */
       maxAccuracyMeters: number | null;
-      /** @default Europe/Berlin */
+      /** @default UTC */
       timeZone: string;
       /** @default false */
       isActive: boolean;
@@ -1654,7 +1728,7 @@ export interface components {
       radiusMeters: number | null;
       /** @default 100 */
       maxAccuracyMeters: number | null;
-      /** @default Europe/Berlin */
+      /** @default UTC */
       timeZone: string;
       /** @default false */
       isActive: boolean;

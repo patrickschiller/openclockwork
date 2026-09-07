@@ -12,34 +12,28 @@ export function formatNetMinutes(minutes: number): string {
   return `${h}h ${m.toString().padStart(2, '0')}m`;
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string, languageTag?: string): string {
   const d = new Date(iso);
-  return d.toLocaleString('de-DE', {
+  return d.toLocaleString(languageTag, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 }
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', {
+export function formatDate(iso: string, languageTag?: string): string {
+  return new Date(iso).toLocaleDateString(languageTag, {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
+    year: 'numeric',
   });
 }
 
-export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('de-DE', {
+export function formatTime(iso: string, languageTag?: string): string {
+  return new Date(iso).toLocaleTimeString(languageTag, {
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
-}
-
-export function isOutsideRegularHours(iso: string): boolean {
-  const d = new Date(iso);
-  const minutes = d.getHours() * 60 + d.getMinutes();
-  return minutes < 7 * 60 || minutes >= 23 * 60;
 }

@@ -114,7 +114,7 @@ export class CreateTerminalDto {
   @Max(500)
   maxAccuracyMeters?: number | null;
 
-  @ApiPropertyOptional({ default: 'Europe/Berlin' })
+  @ApiPropertyOptional({ default: 'UTC' })
   @IsOptional()
   @IsString()
   @MinLength(1)

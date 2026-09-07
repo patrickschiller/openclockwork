@@ -1,10 +1,10 @@
 import type { HolidayProvider } from './holidays.js';
-import { NrwHolidayProvider } from './holidays.js';
+import { NoHolidayProvider } from './holidays.js';
 import { WEEKDAYS_MON_TO_FRI } from '../work-time/core-time.js';
 
 export interface WorkingDaysOptions {
   /**
-   * Holiday calendar to consult. Defaults to NRW (federal + NW-specific).
+   * Holiday calendar to consult. Defaults to no public holidays.
    */
   holidayProvider?: HolidayProvider;
   /**
@@ -27,7 +27,9 @@ function weekdayBit(date: Date): number {
 }
 
 function utcMidnight(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
 }
 
 /**
@@ -40,13 +42,16 @@ export function calculateWorkingDays(
   options: WorkingDaysOptions = {},
 ): number {
   if (to.getTime() < from.getTime()) return 0;
-  const holidayProvider = options.holidayProvider ?? NrwHolidayProvider;
+  const holidayProvider = options.holidayProvider ?? NoHolidayProvider;
   const workingDays = options.workingDays ?? WEEKDAYS_MON_TO_FRI;
   let count = 0;
   const cursor = utcMidnight(from);
   const end = utcMidnight(to);
   while (cursor.getTime() <= end.getTime()) {
-    if ((weekdayBit(cursor) & workingDays) !== 0 && !holidayProvider.isHoliday(cursor)) {
+    if (
+      (weekdayBit(cursor) & workingDays) !== 0 &&
+      !holidayProvider.isHoliday(cursor)
+    ) {
       count += 1;
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -70,10 +75,14 @@ export interface HalfDayOptions extends WorkingDaysOptions {
  * a half-day on a holiday or weekend has no effect because that day did
  * not count to begin with.
  */
-export function calculateVacationDays(from: Date, to: Date, options: HalfDayOptions = {}): number {
+export function calculateVacationDays(
+  from: Date,
+  to: Date,
+  options: HalfDayOptions = {},
+): number {
   const baseline = calculateWorkingDays(from, to, options);
   if (baseline === 0) return 0;
-  const holidayProvider = options.holidayProvider ?? NrwHolidayProvider;
+  const holidayProvider = options.holidayProvider ?? NoHolidayProvider;
   const workingDays = options.workingDays ?? WEEKDAYS_MON_TO_FRI;
   const start = utcMidnight(from);
   const end = utcMidnight(to);

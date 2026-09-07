@@ -20,6 +20,10 @@ import AxeBuilder from '@axe-core/playwright';
 const EMAIL = process.env.SMOKE_EMAIL ?? 'hannah.roth@openclockwork.test';
 const PASSWORD = process.env.SMOKE_PASSWORD ?? 'openclockwork';
 
+// These fixture assertions exercise the German translation explicitly.
+// Language detection must no longer depend on an implicit German default.
+test.use({ locale: 'de-DE' });
+
 test('login flow lands on the dashboard with account details in the header menu', async ({
   page,
 }) => {
