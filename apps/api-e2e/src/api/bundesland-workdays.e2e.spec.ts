@@ -43,7 +43,7 @@ describe('Bundesland + workingDays — affect Soll calculation', () => {
     });
     await ctx.prisma.employee.update({
       where: { id: by.id },
-      data: { bundesland: 'BY' },
+      data: { bundesland: 'BY', holidayCalendar: 'DE-BY' },
     });
     await seedLeaveAllowance(ctx.prisma, nw.id, YEAR, 30);
     await seedLeaveAllowance(ctx.prisma, by.id, YEAR, 30);

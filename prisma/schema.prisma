@@ -114,8 +114,12 @@ model Employee {
   annualLeaveDays               Decimal                       @db.Decimal(5, 2)
   startDate                     DateTime                      @db.Date
   overtimeOpeningBalanceMinutes Int                           @default(0)
-  /// ISO-3166-2 code of the German state ("NW", "BY", …). Drives the holiday calendar.
-  bundesland                    String                        @default("NW") @db.VarChar(2)
+  /// Legacy German state alias, retained for API compatibility.
+  bundesland                    String?                       @db.VarChar(2)
+  /// Explicit optional holiday preset; NONE assumes no public holidays.
+  holidayCalendar               String                        @default("NONE") @db.VarChar(20)
+  /// Explicit non-working dates (YYYY-MM-DD), supplementing the selected preset.
+  holidayDates                  String[]                      @default([])
   /// User-facing dark/light mode preference. "System" follows the OS setting.
   themePreference               ThemePreference               @default(System)
   /// Allows an employee to create one self-approved fixed-duration block per working day.
@@ -159,6 +163,8 @@ model WorkSchedule {
   /// Working-days bitmask (Mon=1, Tue=2, ..., Sun=64). Default 31 = Mo–Fr.
   /// Days outside the mask are non-working for Soll/Vacation accounting.
   workingDays Int                    @default(31)
+  /// Configurable total automatic deductions at inclusive attendance thresholds.
+  breakRules  Json                   @default("[]")
   coreTimes   WorkScheduleCoreTime[]
   employees   Employee[]
   createdAt   DateTime               @default(now())
@@ -186,6 +192,8 @@ model TimeEntry {
   source                            EntrySource                   @default(Manual)
   status                            EntryStatus                   @default(Open)
   requiresApproval                  Boolean                       @default(false)
+  /// Policy snapshot captured at booking; later schedule changes do not rewrite history.
+  breakRules                        Json                          @default("[]")
   latitude                          Decimal?                      @db.Decimal(9, 6)
   longitude                         Decimal?                      @db.Decimal(9, 6)
   accuracyMeters                    Decimal?                      @db.Decimal(7, 2)
@@ -251,7 +259,7 @@ model Terminal {
   longitude         Decimal?            @db.Decimal(9, 6)
   radiusMeters      Int?
   maxAccuracyMeters Int?
-  timeZone          String              @default("Europe/Berlin") @db.VarChar(100)
+  timeZone          String              @default("UTC") @db.VarChar(100)
   isActive          Boolean             @default(false)
   activatedAt       DateTime?
   pairingCodeHash   String?             @unique @db.Char(64)

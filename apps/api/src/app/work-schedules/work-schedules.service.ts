@@ -10,11 +10,11 @@ import type {
   WorkScheduleCoreTime,
 } from '@prisma/client';
 import {
-  BUNDESLAENDER,
   DEFAULT_FRAME,
   WEEKDAYS_MON_TO_FRI,
-  holidayProviderFor,
-  type Bundesland,
+  holidayProviderForCalendar,
+  parseBreakRules,
+  type BreakRule,
   type CoreTimeWindow,
   type FrameTimeRule,
   type HolidayProvider,
@@ -34,10 +34,10 @@ export interface ResolvedSchedule {
   coreWindows: CoreTimeWindow[];
   /** Working-day weekday bitmask resolved from the schedule (default Mo–Fr). */
   workingDays: number;
-  /** Holiday provider for the employee's Bundesland. */
+  /** Employee's explicit holiday calendar and custom dates. */
   holidayProvider: HolidayProvider;
-  /** Resolved Bundesland code. */
-  bundesland: Bundesland;
+  holidayCalendar: string;
+  breakRules: BreakRule[];
 }
 
 function parseHm(value: string): { hour: number; minute: number } {
@@ -110,6 +110,10 @@ export class WorkSchedulesService {
             frameEnd: dto.frameEnd,
             isDefault: !!dto.isDefault,
             workingDays: dto.workingDays ?? 31,
+            breakRules:
+              dto.breakRules === undefined
+                ? undefined
+                : parseBreakRules(dto.breakRules),
             coreTimes: {
               create: dto.coreTimes.map((c) => ({
                 label: c.label ?? null,
@@ -157,6 +161,10 @@ export class WorkSchedulesService {
             frameEnd: dto.frameEnd,
             isDefault: !!dto.isDefault,
             workingDays: dto.workingDays ?? 31,
+            breakRules:
+              dto.breakRules === undefined
+                ? undefined
+                : parseBreakRules(dto.breakRules),
             coreTimes: {
               create: dto.coreTimes.map((c) => ({
                 label: c.label ?? null,
@@ -254,12 +262,11 @@ export class WorkSchedulesService {
     });
     if (!employee)
       throw new NotFoundException(`Employee ${employeeId} not found`);
-    const bundesland: Bundesland = (
-      BUNDESLAENDER as readonly string[]
-    ).includes(employee.bundesland)
-      ? (employee.bundesland as Bundesland)
-      : 'NW';
-    const holidayProvider = holidayProviderFor(bundesland);
+    const holidayCalendar = employee.holidayCalendar;
+    const holidayProvider = holidayProviderForCalendar(
+      holidayCalendar,
+      employee.holidayDates,
+    );
 
     const schedule = employee.workSchedule
       ? employee.workSchedule
@@ -275,7 +282,8 @@ export class WorkSchedulesService {
         coreWindows: [],
         workingDays: WEEKDAYS_MON_TO_FRI,
         holidayProvider,
-        bundesland,
+        holidayCalendar,
+        breakRules: [],
       };
     }
     return {
@@ -285,7 +293,8 @@ export class WorkSchedulesService {
       coreWindows: schedule.coreTimes.map(toCoreWindow),
       workingDays: schedule.workingDays,
       holidayProvider,
-      bundesland,
+      holidayCalendar,
+      breakRules: parseBreakRules(schedule.breakRules),
     };
   }
 
@@ -313,6 +322,15 @@ function minutes(value: string): number {
 }
 
 function assertValidScheduleTimes(dto: UpsertWorkScheduleDto): void {
+  if (dto.breakRules !== undefined) {
+    try {
+      parseBreakRules(dto.breakRules);
+    } catch {
+      throw new BadRequestException(
+        'Break rules require integer thresholds from 0 to 1440 and deductions no greater than their threshold',
+      );
+    }
+  }
   if (minutes(dto.frameStart) >= minutes(dto.frameEnd)) {
     throw new BadRequestException('frameStart must be before frameEnd');
   }

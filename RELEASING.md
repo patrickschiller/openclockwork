@@ -30,8 +30,8 @@ annotated tag on the exact merge commit and push it:
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v1.3.0 -m "OpenClockwork v1.3.0"
-git push origin v1.3.0
+git tag -a v1.4.0 -m "OpenClockwork v1.4.0"
+git push origin v1.4.0
 ```
 
 The release workflow verifies the tag and notes, runs Nx and API end-to-end
@@ -46,8 +46,8 @@ pulled anonymously by self-hosted installations.
 ## Verify the published release
 
 ```bash
-docker pull ghcr.io/patrickschiller/openclockwork-api:1.3.0
-docker pull ghcr.io/patrickschiller/openclockwork-web:1.3.0
+docker pull ghcr.io/patrickschiller/openclockwork-api:1.4.0
+docker pull ghcr.io/patrickschiller/openclockwork-web:1.4.0
 ```
 
 Confirm that the GitHub Release is marked latest, contains the curated upgrade

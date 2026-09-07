@@ -29,7 +29,7 @@ interface IstRow {
   minutes: number;
 }
 
-/** Booking day in server-local time (Europe/Berlin per deployment). */
+/** Booking day in the deployment’s configured local timezone. */
 function localDate(d: Date): string {
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -62,7 +62,11 @@ export class ProjectsService {
   async getById(id: string): Promise<ProjectDto> {
     const row = await this.findOrThrow(id);
     const stats = await this.loadIstStats(id);
-    return toProjectDto(row, row._count.assignments, stats.get(id) ?? EMPTY_IST_STATS);
+    return toProjectDto(
+      row,
+      row._count.assignments,
+      stats.get(id) ?? EMPTY_IST_STATS,
+    );
   }
 
   async create(dto: UpsertProjectDto): Promise<ProjectDto> {
@@ -81,7 +85,9 @@ export class ProjectsService {
       return toProjectDto(created, 0);
     } catch (err) {
       if (isUniqueViolation(err)) {
-        throw new ConflictException(`A project with code "${dto.code}" already exists`);
+        throw new ConflictException(
+          `A project with code "${dto.code}" already exists`,
+        );
       }
       throw err;
     }
@@ -116,10 +122,16 @@ export class ProjectsService {
       });
       this.broadcast(id);
       const stats = await this.loadIstStats(id);
-      return toProjectDto(updated, updated._count.assignments, stats.get(id) ?? EMPTY_IST_STATS);
+      return toProjectDto(
+        updated,
+        updated._count.assignments,
+        stats.get(id) ?? EMPTY_IST_STATS,
+      );
     } catch (err) {
       if (isUniqueViolation(err)) {
-        throw new ConflictException(`A project with code "${dto.code}" already exists`);
+        throw new ConflictException(
+          `A project with code "${dto.code}" already exists`,
+        );
       }
       throw err;
     }
@@ -127,7 +139,9 @@ export class ProjectsService {
 
   async remove(id: string): Promise<void> {
     await this.findOrThrow(id);
-    const bookedEntries = await this.prisma.timeEntry.count({ where: { projectId: id } });
+    const bookedEntries = await this.prisma.timeEntry.count({
+      where: { projectId: id },
+    });
     if (bookedEntries > 0) {
       throw new ConflictException(
         'Project has booked time entries and cannot be deleted — deactivate it instead',
@@ -142,7 +156,11 @@ export class ProjectsService {
     dto: UpsertServiceOrderDto,
   ): Promise<ServiceOrderDto> {
     const project = await this.findOrThrow(projectId);
-    this.assertOrderPlanFits(project, project.serviceOrders, dto.planHours ?? null);
+    this.assertOrderPlanFits(
+      project,
+      project.serviceOrders,
+      dto.planHours ?? null,
+    );
     try {
       const created = await this.prisma.serviceOrder.create({
         data: {
@@ -218,8 +236,11 @@ export class ProjectsService {
   /** Idempotent: assigning an already-assigned employee is a no-op success. */
   async assign(projectId: string, employeeId: string): Promise<void> {
     await this.findOrThrow(projectId);
-    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
-    if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+    if (!employee)
+      throw new NotFoundException(`Employee ${employeeId} not found`);
     await this.prisma.projectAssignment.upsert({
       where: { employeeId_projectId: { employeeId, projectId } },
       create: { employeeId, projectId },
@@ -231,7 +252,9 @@ export class ProjectsService {
   /** Idempotent: removing a non-existent assignment is a no-op success. */
   async unassign(projectId: string, employeeId: string): Promise<void> {
     await this.findOrThrow(projectId);
-    await this.prisma.projectAssignment.deleteMany({ where: { employeeId, projectId } });
+    await this.prisma.projectAssignment.deleteMany({
+      where: { employeeId, projectId },
+    });
     this.broadcast(projectId);
   }
 
@@ -268,7 +291,9 @@ export class ProjectsService {
    * assigned via the admin matrix (403).
    */
   async assertBookable(employeeId: string, projectId: string): Promise<void> {
-    const project = await this.prisma.project.findUnique({ where: { id: projectId } });
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
     if (!project) throw new NotFoundException(`Project ${projectId} not found`);
     if (!project.isActive) {
       throw new BadRequestException(`Project "${project.code}" is inactive`);
@@ -277,7 +302,9 @@ export class ProjectsService {
       where: { employeeId_projectId: { employeeId, projectId } },
     });
     if (!assignment) {
-      throw new ForbiddenException(`Employee is not assigned to project "${project.code}"`);
+      throw new ForbiddenException(
+        `Employee is not assigned to project "${project.code}"`,
+      );
     }
   }
 
@@ -301,7 +328,9 @@ export class ProjectsService {
         );
       }
       if (!order.isActive) {
-        throw new BadRequestException(`Service order "${order.orderNo}" is inactive`);
+        throw new BadRequestException(
+          `Service order "${order.orderNo}" is inactive`,
+        );
       }
       return order;
     }
@@ -363,7 +392,9 @@ export class ProjectsService {
    * Gross booked minutes per project and service order (closed, non-rejected
    * entries). FLOOR-per-entry rounding matches summarize() in libs/shared.
    */
-  private async loadIstStats(projectId?: string): Promise<Map<string, ProjectIstStats>> {
+  private async loadIstStats(
+    projectId?: string,
+  ): Promise<Map<string, ProjectIstStats>> {
     const rows = projectId
       ? await this.prisma.$queryRaw<IstRow[]>`
           SELECT "projectId", "serviceOrderId",
@@ -383,7 +414,10 @@ export class ProjectsService {
             AND "status" <> 'Rejected'::"EntryStatus"
           GROUP BY "projectId", "serviceOrderId"
         `;
-    const map = new Map<string, { totalMinutes: number; byOrder: Map<string, number> }>();
+    const map = new Map<
+      string,
+      { totalMinutes: number; byOrder: Map<string, number> }
+    >();
     for (const row of rows) {
       let stats = map.get(row.projectId);
       if (!stats) {
@@ -391,7 +425,8 @@ export class ProjectsService {
         map.set(row.projectId, stats);
       }
       stats.totalMinutes += row.minutes;
-      if (row.serviceOrderId) stats.byOrder.set(row.serviceOrderId, row.minutes);
+      if (row.serviceOrderId)
+        stats.byOrder.set(row.serviceOrderId, row.minutes);
     }
     return map;
   }
@@ -433,18 +468,25 @@ export class ProjectsService {
       where: { id: orderId, projectId },
     });
     if (!row) {
-      throw new NotFoundException(`Service order ${orderId} not found in project ${projectId}`);
+      throw new NotFoundException(
+        `Service order ${orderId} not found in project ${projectId}`,
+      );
     }
     return row;
   }
 }
 
 function sumPlanHours(orders: ServiceOrder[]): number {
-  return orders.reduce((acc, o) => acc + (o.planHours !== null ? Number(o.planHours) : 0), 0);
+  return orders.reduce(
+    (acc, o) => acc + (o.planHours !== null ? Number(o.planHours) : 0),
+    0,
+  );
 }
 
 function isUniqueViolation(err: unknown): boolean {
   return (
-    typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002'
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { code?: string }).code === 'P2002'
   );
 }

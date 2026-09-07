@@ -321,7 +321,7 @@ describe('BookingPage', () => {
       await screen.findByText(/Kernzeitverstöße im laufenden Jahr \(1\)/i),
     ).toBeDefined();
     expect(
-      screen.getByText(/12\.06\.2026 · Vormittag 10:00–11:00/i),
+      screen.getByText(/12\.6\.2026 · Vormittag 10:00–11:00/i),
     ).toBeDefined();
     expect(
       screen.getByText(/Kernzeit zu spät begonnen · 60 Minuten/i),

@@ -47,11 +47,13 @@ describe('Initial administrator command', () => {
       lastName: 'Lovelace',
       role: 'HRAdmin',
       timeModel: 'Vollzeit',
-      bundesland: 'NW',
+      bundesland: null,
+      holidayCalendar: 'NONE',
+      holidayDates: [],
       isActive: true,
     });
     expect(Number(created.weeklyHours)).toBe(40);
-    expect(Number(created.annualLeaveDays)).toBe(30);
+    expect(Number(created.annualLeaveDays)).toBe(0);
     expect(await bcrypt.compare(initialPassword, created.passwordHash)).toBe(
       true,
     );

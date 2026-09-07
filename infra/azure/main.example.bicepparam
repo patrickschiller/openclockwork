@@ -9,6 +9,9 @@
 using './main.bicep'
 
 param location = 'westeurope'
+
+// IANA timezone for business-day calculations; retain the existing timezone on upgrades.
+param timeZone = 'UTC'
 param namePrefix = 'oclock'
 param environment = 'dev'
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getBrowserTimeZone, getTimeZoneOptions } from './time-zones';
 
 describe('time zones', () => {
@@ -9,6 +9,19 @@ describe('time zones', () => {
     expect(options).toContain('Europe/Berlin');
     expect(options).toContain('America/New_York');
     expect(options).toContain(getBrowserTimeZone());
+  });
+
+  it('falls back to UTC when no browser time zone is available', () => {
+    const spy = vi
+      .spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions')
+      .mockImplementation(() => {
+        throw new Error('Unavailable');
+      });
+    try {
+      expect(getBrowserTimeZone()).toBe('UTC');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('retains valid legacy aliases but rejects invalid preferred values', () => {

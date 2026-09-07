@@ -64,7 +64,8 @@ export class EmployeesService {
           annualLeaveDays: dto.annualLeaveDays,
           startDate: new Date(dto.startDate),
           overtimeOpeningBalanceMinutes: dto.overtimeOpeningBalanceMinutes ?? 0,
-          bundesland: dto.bundesland ?? 'NW',
+          ...holidaySettings(dto),
+          holidayDates: dto.holidayDates ?? [],
           allowDailyBlockBooking: dto.allowDailyBlockBooking ?? false,
           isActive: true,
           managerId: dto.managerId ?? null,
@@ -111,7 +112,10 @@ export class EmployeesService {
     if (dto.overtimeOpeningBalanceMinutes !== undefined) {
       data.overtimeOpeningBalanceMinutes = dto.overtimeOpeningBalanceMinutes;
     }
-    if (dto.bundesland !== undefined) data.bundesland = dto.bundesland;
+    if (dto.bundesland !== undefined || dto.holidayCalendar !== undefined) {
+      Object.assign(data, holidaySettings(dto));
+    }
+    if (dto.holidayDates !== undefined) data.holidayDates = dto.holidayDates;
     if (dto.allowDailyBlockBooking !== undefined) {
       data.allowDailyBlockBooking = dto.allowDailyBlockBooking;
     }
@@ -185,4 +189,25 @@ function mapPrismaConflict(err: unknown): Error {
     return new NotFoundException('Referenced record not found');
   }
   return err as Error;
+}
+
+/** Canonical calendars take precedence; reject contradictory old/new fields. */
+function holidaySettings(dto: CreateEmployeeDto | UpdateEmployeeDto) {
+  if (
+    dto.bundesland &&
+    dto.holidayCalendar &&
+    dto.holidayCalendar !== `DE-${dto.bundesland}`
+  ) {
+    throw new BadRequestException(
+      'bundesland and holidayCalendar must identify the same calendar',
+    );
+  }
+  const holidayCalendar =
+    dto.holidayCalendar ?? (dto.bundesland ? `DE-${dto.bundesland}` : 'NONE');
+  return {
+    holidayCalendar,
+    bundesland: holidayCalendar.startsWith('DE-')
+      ? holidayCalendar.slice(3)
+      : null,
+  };
 }

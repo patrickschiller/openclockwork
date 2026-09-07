@@ -2,13 +2,16 @@
 
 OpenClockwork is a responsive, self-hostable time-and-attendance system for
 employees, managers, HR administrators, and paired tablet terminals. Its domain
-model focuses on real German working-time workflows while keeping deployment,
+model supports configurable working-time workflows across countries while keeping deployment,
 data, and integrations under the operator's control.
 
 > **Project status:** Stable. Published versions follow semantic versioning and
 > include release notes, forward-only database migrations, and documented
 > upgrade steps. The capabilities below are implemented and covered by
 > automated tests.
+
+For planned Solo mode, invoice creation, and CAUR-based agent billing, see the
+[project roadmap](ROADMAP.md).
 
 <p align="center">
   <img src="assets/screenshots/tablet/kiosk.png" alt="Paired OpenClockwork tablet kiosk with a rotating QR code" width="100%">
@@ -71,7 +74,7 @@ device never acts as an employee and cannot call normal HR or time-entry APIs.
 | Kiosk PWA              | Dedicated manifest and full-screen view with time, date, location, custom branding, connection state, and automatic challenge refresh |
 | Employee scanner       | Explicit clock-in or clock-out choice, camera preview, local QR decoding, and GPS only when the terminal requires it                  |
 | Device operations      | Last-seen monitoring, re-pairing, immediate device revocation, terminal deactivation, and permanent deletion                          |
-| Time-zone handling     | IANA drop-down with `Europe/Berlin` as the default and server-side validation                                                         |
+| Time-zone handling     | IANA selection with the browser timezone suggested, UTC fallback, and server-side validation                                          |
 | Durable audit trail    | Historical bookings retain terminal/GPS evidence snapshots even when kiosk-only records are removed                                   |
 
 The local iPad pilot includes a trusted-HTTPS Compose overlay, generated test
@@ -93,7 +96,7 @@ See [the German iPad setup guide](docs/IPAD_TERMINAL_SETUP.de.md).
 | Retroactive booking changes       | Change project/service-order/activity on completed and approved entries                                         |
 | Entry splitting                   | Split a closed entry at a chosen time when work changes between projects                                        |
 | Retroactive range booking         | Assign a past interval to a project; coverage is validated and existing entries are split as required           |
-| Automatic break accounting        | Statutory deduction after six and nine hours                                                                    |
+| Automatic break accounting        | Configurable schedule thresholds and deductions; no automatic deduction for new schedules by default            |
 | Time accounts                     | Calculated target hours, actual hours, overtime, and opening balances                                           |
 | Annual calendar                   | Year view for vacation, home office, special leave, sickness, training, and flextime                            |
 | Requests                          | Vacation, home-office, special-leave, and time-adjustment workflows                                             |
@@ -138,7 +141,7 @@ Employee submits
 | Work schedules          | Working-day masks, permitted frames, and multiple named core-time windows                              |
 | Schedule assignment     | Assign individual schedules or bulk-assign by time model                                               |
 | Leave allowances        | Base leave, carry-over, adjustments, expiry dates, and adjustment reasons                              |
-| German public holidays  | State-specific holiday calendars used in target hours and vacation calculations                        |
+| Holiday calendars       | Optional regional presets and custom dates used in target hours and vacation calculations              |
 | Absence administration  | Record and review sickness, training, and flextime entries                                             |
 | Approval operations     | Manager/HR inboxes, bulk actions, correction loops, and workflow history                               |
 | Terminal administration | Configure, activate, pair, monitor, revoke, re-pair, deactivate, or permanently delete tablet kiosks   |
@@ -175,12 +178,12 @@ clocking locations are excluded by default and require an explicit HR action;
 operators must document a lawful purpose and suitable retention period before
 using them.
 
-## Compliance-oriented domain logic
+## Configurable working-time rules
 
 Working-time rules are visible in code and covered by focused tests. Operators
 remain responsible for validating their organisation's exact policies.
 
-- Statutory break calculation
+- Configurable break calculation with explicit thresholds and deduction minutes
 - Target/actual accounting derived from weekly hours and working-day masks
 - Opening overtime balances and employee start dates
 - Configurable working frames and multiple core-time windows
@@ -188,15 +191,26 @@ remain responsible for validating their organisation's exact policies.
   entries, permitted frames, and automatic breaks
 - Detailed core-time violation detection
 - Special approval handling for out-of-frame entries
-- Working-day and German state-holiday aware vacation calculation
+- Working-day and selected-holiday aware vacation calculation
 - Half-day leave and carry-over expiry processing
 - Multi-stage request workflows and workflow events
+
+New employees start with no regional holiday preset and no assumed annual leave
+entitlement. German state calendars remain optional presets; custom dates
+support other national, regional, or company calendars. New schedules start
+without automatic break deduction. Upgrade migrations preserve existing
+employee calendars and break policies.
+
+Working-day and schedule calculations use the deployment's configured `TZ`
+(UTC by default). Per-employee working timezones and more built-in regional
+calendars are planned; see [ROADMAP.md](ROADMAP.md). Operators must validate
+local rules and calendar coverage for each period in use.
 
 ## Languages, accessibility, and responsive design
 
 - German and English UI across login, employee, manager, HR, and kiosk routes
 - Central translation catalogue for labels, validation, states, and empty views
-- Locale-aware dates and timestamps
+- Browser-language detection with English fallback and regional date formatting
 - Persistent language and theme preferences
 - Keyboard-operable account and mobile overflow menus
 - Semantic labels for navigation, forms, buttons, progress indicators, and QR
@@ -266,6 +280,7 @@ installation identity is sent back to OpenClockwork.
 ## Explore the project
 
 - [Main README and installation guide](README.md)
+- [Roadmap: Solo mode, invoices, and CAUR-based agent billing](ROADMAP.md)
 - [Set up and test an iPad terminal](docs/IPAD_TERMINAL_SETUP.de.md)
 - [Upgrade an existing installation](UPGRADING.md)
 - [Review published releases](https://github.com/patrickschiller/openclockwork/releases)

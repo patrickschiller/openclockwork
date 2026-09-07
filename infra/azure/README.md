@@ -127,6 +127,14 @@ file to hide it. It is never an entitlement or a prerequisite for the terminal.
 The required `terminalQrSecret` is stored separately in Key Vault and must not
 reuse `jwtSecret`; the example parameter file generates both independently.
 
+Set `timeZone` to the IANA timezone used for business-day calculations and
+background jobs. New installations default to `UTC`. When upgrading an existing
+installation, explicitly retain its previous timezone (for example,
+`Europe/Berlin`) to keep existing booking-day boundaries. Terminal timezones
+are configured separately per terminal; stored terminal settings are preserved.
+Holiday calendars and automatic break deductions are explicit employee and
+work-schedule settings, independent of the deployment timezone.
+
 The web image verifies `/api/health` before nginx starts and only accepts an API
 that reports the same OpenClockwork version. Update the API revision (and run
 the migration job) before updating the web revision. This prevents a partial

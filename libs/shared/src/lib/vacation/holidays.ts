@@ -84,20 +84,56 @@ interface HolidaySpec {
 
 const SPECS: HolidaySpec[] = [
   { name: 'Neujahr', federal: true, date: (y) => new Date(Date.UTC(y, 0, 1)) },
-  { name: 'Heilige Drei Könige', states: ['BW', 'BY', 'ST'], date: (y) => new Date(Date.UTC(y, 0, 6)) },
-  { name: 'Internationaler Frauentag', states: ['BE', 'MV'], date: (y) => new Date(Date.UTC(y, 2, 8)) },
-  { name: 'Karfreitag', federal: true, date: (y) => addDays(gregorianEaster(y), -2) },
-  { name: 'Ostermontag', federal: true, date: (y) => addDays(gregorianEaster(y), 1) },
-  { name: 'Tag der Arbeit', federal: true, date: (y) => new Date(Date.UTC(y, 4, 1)) },
-  { name: 'Christi Himmelfahrt', federal: true, date: (y) => addDays(gregorianEaster(y), 39) },
-  { name: 'Pfingstmontag', federal: true, date: (y) => addDays(gregorianEaster(y), 50) },
+  {
+    name: 'Heilige Drei Könige',
+    states: ['BW', 'BY', 'ST'],
+    date: (y) => new Date(Date.UTC(y, 0, 6)),
+  },
+  {
+    name: 'Internationaler Frauentag',
+    states: ['BE', 'MV'],
+    date: (y) => new Date(Date.UTC(y, 2, 8)),
+  },
+  {
+    name: 'Karfreitag',
+    federal: true,
+    date: (y) => addDays(gregorianEaster(y), -2),
+  },
+  {
+    name: 'Ostermontag',
+    federal: true,
+    date: (y) => addDays(gregorianEaster(y), 1),
+  },
+  {
+    name: 'Tag der Arbeit',
+    federal: true,
+    date: (y) => new Date(Date.UTC(y, 4, 1)),
+  },
+  {
+    name: 'Christi Himmelfahrt',
+    federal: true,
+    date: (y) => addDays(gregorianEaster(y), 39),
+  },
+  {
+    name: 'Pfingstmontag',
+    federal: true,
+    date: (y) => addDays(gregorianEaster(y), 50),
+  },
   {
     name: 'Fronleichnam',
     states: ['BW', 'BY', 'HE', 'NW', 'RP', 'SL'],
     date: (y) => addDays(gregorianEaster(y), 60),
   },
-  { name: 'Mariä Himmelfahrt', states: ['BY', 'SL'], date: (y) => new Date(Date.UTC(y, 7, 15)) },
-  { name: 'Weltkindertag', states: ['TH'], date: (y) => new Date(Date.UTC(y, 8, 20)) },
+  {
+    name: 'Mariä Himmelfahrt',
+    states: ['BY', 'SL'],
+    date: (y) => new Date(Date.UTC(y, 7, 15)),
+  },
+  {
+    name: 'Weltkindertag',
+    states: ['TH'],
+    date: (y) => new Date(Date.UTC(y, 8, 20)),
+  },
   {
     name: 'Tag der Deutschen Einheit',
     federal: true,
@@ -125,8 +161,16 @@ const SPECS: HolidaySpec[] = [
       return addDays(ref, -offset);
     },
   },
-  { name: '1. Weihnachtstag', federal: true, date: (y) => new Date(Date.UTC(y, 11, 25)) },
-  { name: '2. Weihnachtstag', federal: true, date: (y) => new Date(Date.UTC(y, 11, 26)) },
+  {
+    name: '1. Weihnachtstag',
+    federal: true,
+    date: (y) => new Date(Date.UTC(y, 11, 25)),
+  },
+  {
+    name: '2. Weihnachtstag',
+    federal: true,
+    date: (y) => new Date(Date.UTC(y, 11, 26)),
+  },
 ];
 
 /** Public holidays in the given Bundesland for the given year. */
@@ -164,7 +208,9 @@ function sameUtcDay(a: Date, b: Date): boolean {
 export function holidayProviderFor(state: Bundesland): HolidayProvider {
   return {
     isHoliday(date: Date): boolean {
-      return holidaysFor(state, date.getUTCFullYear()).some((h) => sameUtcDay(h.date, date));
+      return holidaysFor(state, date.getUTCFullYear()).some((h) =>
+        sameUtcDay(h.date, date),
+      );
     },
     list(year: number): Holiday[] {
       return holidaysFor(state, year);
@@ -172,5 +218,51 @@ export function holidayProviderFor(state: Bundesland): HolidayProvider {
   };
 }
 
-/** Default provider — NRW. */
+/** Optional German regional preset, retained for compatibility. */
 export const NrwHolidayProvider: HolidayProvider = holidayProviderFor('NW');
+
+/** Calendars are explicit; new employees have no assumed public holidays. */
+export const HOLIDAY_CALENDARS = [
+  'NONE',
+  ...BUNDESLAENDER.map((state) => `DE-${state}` as const),
+] as const;
+export type HolidayCalendar = (typeof HOLIDAY_CALENDARS)[number];
+
+export const NoHolidayProvider: HolidayProvider = {
+  isHoliday: () => false,
+  list: () => [],
+};
+
+/** Explicit dates supplement the selected preset, for any country or employer. */
+export function holidayProviderForCalendar(
+  calendar = 'NONE',
+  dates: readonly string[] = [],
+): HolidayProvider {
+  const state = calendar.startsWith('DE-') ? calendar.slice(3) : '';
+  const preset = (BUNDESLAENDER as readonly string[]).includes(state)
+    ? holidayProviderFor(state as Bundesland)
+    : NoHolidayProvider;
+  const custom = new Set(dates);
+  return {
+    isHoliday: (date) =>
+      custom.has(date.toISOString().slice(0, 10)) || preset.isHoliday(date),
+    list(year) {
+      const entries = new Map(
+        preset
+          .list(year)
+          .map((holiday) => [holiday.date.toISOString().slice(0, 10), holiday]),
+      );
+      for (const date of custom) {
+        if (date.startsWith(`${year}-`) && !entries.has(date)) {
+          entries.set(date, {
+            date: new Date(`${date}T00:00:00.000Z`),
+            name: 'Custom non-working day',
+          });
+        }
+      }
+      return [...entries.values()].sort(
+        (a, b) => a.date.getTime() - b.date.getTime(),
+      );
+    },
+  };
+}

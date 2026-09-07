@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import type { Project, ServiceOrder } from '@prisma/client';
 
 export class UpsertProjectDto {
@@ -102,7 +109,7 @@ export interface BookableProjectDto {
 }
 
 export interface ProjectReportRow {
-  /** Booking day, YYYY-MM-DD in server-local time (Europe/Berlin). */
+  /** Booking day, YYYY-MM-DD in the deployment’s configured local timezone. */
   date: string;
   employeeName: string;
   orderNo: string | null;
@@ -126,13 +133,19 @@ export interface ProjectIstStats {
   byOrder: ReadonlyMap<string, number>;
 }
 
-export const EMPTY_IST_STATS: ProjectIstStats = { totalMinutes: 0, byOrder: new Map() };
+export const EMPTY_IST_STATS: ProjectIstStats = {
+  totalMinutes: 0,
+  byOrder: new Map(),
+};
 
 function decimalToNumber(value: unknown): number | null {
   return value === null || value === undefined ? null : Number(value);
 }
 
-export function toServiceOrderDto(o: ServiceOrder, bookedMinutes: number): ServiceOrderDto {
+export function toServiceOrderDto(
+  o: ServiceOrder,
+  bookedMinutes: number,
+): ServiceOrderDto {
   return {
     id: o.id,
     projectId: o.projectId,

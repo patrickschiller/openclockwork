@@ -135,7 +135,7 @@ function defaultRange(): { from: string; to: string } {
 
 export function AdminWorkingTimesPage() {
   const user = useCurrentUser();
-  const { t, enumLabel, locale } = useI18n();
+  const { t, enumLabel, languageTag } = useI18n();
   const initialRange = useMemo(defaultRange, []);
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
@@ -190,7 +190,7 @@ export function AdminWorkingTimesPage() {
         status: t('common.status'),
         total: t('reports.total'),
       },
-      locale === 'de' ? 'de-DE' : 'en-US',
+      languageTag,
       enumLabel,
       includeLocations,
     );
@@ -202,8 +202,6 @@ export function AdminWorkingTimesPage() {
     link.click();
     URL.revokeObjectURL(url);
   };
-
-  const languageTag = locale === 'de' ? 'de-DE' : 'en-US';
 
   return (
     <div className="space-y-6">

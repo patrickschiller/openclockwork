@@ -36,7 +36,7 @@ services:
       NODE_ENV: production
       API_PORT: 3000
       # Wall-clock timezone for core-time + off-hours reasoning.
-      TZ: ${TZ:-Europe/Berlin}
+      TZ: ${TZ:-UTC}
       DATABASE_URL: ${DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET}
       # Keep QR signing cryptographically separate from interactive JWTs.

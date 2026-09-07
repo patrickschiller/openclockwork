@@ -11,7 +11,7 @@ import {
   Min,
 } from 'class-validator';
 import type { TimeEntry } from '@prisma/client';
-import { summarize, type TimeSummary } from 'shared';
+import { summarize, parseBreakRules, type TimeSummary } from 'shared';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -26,7 +26,8 @@ export class DailyBlockOptionDto {
   dailyNetMinutes!: number;
 
   @ApiProperty({
-    description: 'Attendance minutes including the automatic statutory break.',
+    description:
+      'Attendance minutes including the configured automatic break deduction.',
   })
   grossMinutes!: number;
 
@@ -455,6 +456,8 @@ export function toTimeEntryDto(e: TimeEntryWithRelations): TimeEntryDto {
     serviceOrderNo: e.serviceOrder?.orderNo ?? null,
     serviceOrderTitle: e.serviceOrder?.title ?? null,
     activity: e.activity ?? null,
-    summary: e.clockOut ? summarize(e.clockIn, e.clockOut) : null,
+    summary: e.clockOut
+      ? summarize(e.clockIn, e.clockOut, parseBreakRules(e.breakRules))
+      : null,
   };
 }

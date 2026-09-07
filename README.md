@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Open-source time and attendance for teams that want trustworthy rules, modern self-hosting, and no proprietary punch-clock hardware.</strong>
+  <strong>Open-source time and attendance with configurable work rules, modern self-hosting, and no proprietary punch-clock hardware.</strong>
 </p>
 
 <p align="center">
@@ -15,15 +15,20 @@
 </p>
 
 OpenClockwork is a mobile-first, self-hostable working-time system for small and
-mid-sized organisations. Employees can clock in and out, scan a rotating QR
-code from a wall-mounted tablet, or—when HR explicitly enables it—book their
-contractual daily target as one completed block.
+mid-sized organisations in any country. Employees can clock in and out, scan a
+rotating QR code from a wall-mounted tablet, or—when HR explicitly enables
+it—book their contractual daily target as one completed block.
 
-The domain model covers real working-time behaviour: statutory break deduction,
-target/actual accounts, configurable schedules and core hours, German public
-holidays, leave balances, multi-stage approvals, projects, service orders, and
-auditable reporting. The UI ships in German and English and works as an
-installable PWA on phones, tablets, and desktops.
+The domain model covers real working-time behaviour: configurable break deduction,
+target/actual accounts, schedules and core hours, selectable holiday calendars
+and custom holiday dates, leave balances, multi-stage approvals, projects,
+service orders, and auditable reporting. The UI ships in German and English and
+works as an installable PWA on phones, tablets, and desktops.
+
+> **Where OpenClockwork is heading:** Read the [project roadmap](ROADMAP.md) for
+> the complete **Solo mode**, **invoice creation**, and **CAUR-based agent usage
+> accounting and billing** plans. These are planned capabilities; the current
+> application provides team time tracking and attendance.
 
 <p align="center">
   <img src="assets/screenshots/tablet/kiosk.png" alt="OpenClockwork tablet terminal with a rotating QR code" width="100%">
@@ -50,7 +55,7 @@ installable PWA on phones, tablets, and desktops.
 - **Optional geofencing.** A terminal can work entirely without GPS or require a
   fresh employee position inside a server-validated radius with a configured
   accuracy limit.
-- **Compliance-oriented domain logic.** Break deduction, working frames, core
+- **Configurable working-time rules.** Break deduction, working frames, core
   hours, target/actual balances, public holidays, and leave calculations live in
   tested backend/shared-domain code.
 - **Real approval workflows.** Vacation, home office, special leave, time
@@ -61,9 +66,25 @@ installable PWA on phones, tablets, and desktops.
   export customer or working-time reports with optional clock-in/out locations.
 - **Self-hosted and API-first.** PostgreSQL, NestJS, React, OpenAPI, Socket.IO,
   Docker, and an Azure reference deployment—without SaaS lock-in.
-- **German and English.** Centralised translations, locale-aware dates, and a
-  persistent language switcher across the login, employee, manager, HR, and
+- **Localised interface.** German and English translations, browser-aware dates,
+  and a persistent language switcher across the login, employee, manager, HR, and
   kiosk experiences.
+
+## Use in any country
+
+Language does not select a country's work rules. Configure the installation's
+IANA working timezone, employee holiday calendars, leave allowances, working
+days, and schedule break rules for your organisation. New employee records
+start without a regional holiday preset or assumed annual leave entitlement;
+new schedules start without automatic break deduction. Existing German state
+calendars remain available as optional presets, and custom holiday dates can
+represent other countries, regions, and company closures.
+
+The API currently evaluates working days and schedule boundaries in one
+deployment timezone (`TZ`, default `UTC`). Set this explicitly before recording
+real data. A kiosk's display timezone does not change payroll or working-day
+boundaries. Multiple simultaneous employee working timezones and additional
+maintained regional calendars are covered in the [roadmap](ROADMAP.md).
 
 ## Tablet terminal
 
@@ -162,8 +183,9 @@ pnpm nx run-many -t serve -p api,web
 ```
 
 Open `http://localhost:4200`. Vite proxies API calls to
-`http://localhost:3000`. The interface starts in German; use the language menu
-on the login screen or in the application header to switch to English.
+`http://localhost:3000`. The interface uses a supported browser language, falling
+back to English. Use the language menu on the login screen or in the application
+header to choose English or German; your choice is saved.
 
 ### Full local Docker stack
 
@@ -344,7 +366,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod \
 ```
 
 Enter the administrator's personnel number, name, email address, time model,
-weekly hours, annual leave, start date, and German state. Defaults are shown in
+weekly hours, annual leave, start date, and optional holiday calendar. Defaults are shown in
 square brackets and can be accepted with Enter.
 
 The command creates exactly one active `HRAdmin` and prints a random initial
@@ -417,6 +439,7 @@ You can also support the project through
 ## Documentation
 
 - [Complete feature overview](FEATURES.md)
+- [Roadmap: Solo mode, invoices, and CAUR-based agent billing](ROADMAP.md)
 - [iPad terminal setup and operations (German)](docs/IPAD_TERMINAL_SETUP.de.md)
 - [Upgrade procedure](UPGRADING.md)
 - [Release process](RELEASING.md)

@@ -5,7 +5,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
 import type { VacationBalanceDto } from './accounts.dto';
 
-const PENDING_STATES = ['Submitted', 'PendingSubstitute', 'PendingManager', 'PendingHr'] as const;
+const PENDING_STATES = [
+  'Submitted',
+  'PendingSubstitute',
+  'PendingManager',
+  'PendingHr',
+] as const;
 
 @Injectable()
 export class VacationBalanceService {
@@ -28,32 +33,41 @@ export class VacationBalanceService {
         from: { lte: yearEnd },
         to: { gte: yearStart },
       },
-      select: { workflowState: true, from: true, to: true, calculatedDays: true },
+      select: {
+        workflowState: true,
+        from: true,
+        to: true,
+        calculatedDays: true,
+      },
     });
 
     let approvedDays = 0;
     let pendingDays = 0;
     for (const r of requests) {
-      const days = Number(r.calculatedDays) > 0
-        ? Number(r.calculatedDays)
-        : calculateWorkingDays(r.from, r.to, {
-            workingDays: schedule.workingDays,
-            holidayProvider: schedule.holidayProvider,
-          });
+      const days =
+        Number(r.calculatedDays) > 0
+          ? Number(r.calculatedDays)
+          : calculateWorkingDays(r.from, r.to, {
+              workingDays: schedule.workingDays,
+              holidayProvider: schedule.holidayProvider,
+            });
       if (r.workflowState === 'Approved') approvedDays += days;
-      else if ((PENDING_STATES as readonly string[]).includes(r.workflowState)) pendingDays += days;
+      else if ((PENDING_STATES as readonly string[]).includes(r.workflowState))
+        pendingDays += days;
     }
 
     const baseDays = Number(allowance.baseDays);
     // Carry-over from the prior year forfeits once `carryOverExpiresOn`
-    // passes (German default = 31.03. of the following year). We surface
+    // passes (when configured by the employer). We surface
     // the forfeiture immediately, even if the nightly cleanup job has not
     // yet written zero back to the row — the displayed balance stays
-    // legally correct.
+    // consistent with the configured entitlement.
     const today = new Date();
     const carryOverExpired =
       !!allowance.carryOverExpiresOn && allowance.carryOverExpiresOn < today;
-    const carryOverDays = carryOverExpired ? 0 : Number(allowance.carryOverDays);
+    const carryOverDays = carryOverExpired
+      ? 0
+      : Number(allowance.carryOverDays);
     const adjustmentDays = Number(allowance.adjustmentDays);
     const totalEntitlement = baseDays + carryOverDays + adjustmentDays;
 
