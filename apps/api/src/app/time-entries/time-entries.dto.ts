@@ -1,6 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsDateString,
+  IsBoolean,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -9,7 +14,9 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import type { TimeEntry } from '@prisma/client';
 import { summarize, parseBreakRules, type TimeSummary } from 'shared';
 
@@ -39,6 +46,17 @@ export class DailyBlockOptionDto {
 }
 
 export class CreateDailyBlockDto {
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 2000 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  billable?: boolean;
+
   @ApiProperty({ example: '2026-08-13', pattern: '^\\d{4}-\\d{2}-\\d{2}$' })
   @Matches(DATE_ONLY, { message: 'date must be YYYY-MM-DD' })
   date!: string;
@@ -65,6 +83,17 @@ export class CreateDailyBlockDto {
 }
 
 export class ClockInDto {
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 2000 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  billable?: boolean;
+
   @ApiPropertyOptional({
     format: 'uuid',
     deprecated: true,
@@ -130,6 +159,20 @@ export class ClockInDto {
 export class ClockOutDto {
   @ApiPropertyOptional({
     format: 'uuid',
+    description: 'Required in Solo mode to identify the timer being stopped.',
+  })
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @ApiPropertyOptional({ minimum: 0, description: 'Required in Solo mode.' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  revision?: number;
+
+  @ApiPropertyOptional({
+    format: 'uuid',
     deprecated: true,
     description: 'Ignored. The employee identity is always taken from the JWT.',
   })
@@ -174,6 +217,26 @@ export class ClockOutDto {
  * mandatory service-order rule applies); activity is editable on its own.
  */
 export class UpdateTimeEntryDto {
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 2000 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  note?: string | null;
+
+  @ApiPropertyOptional({
+    minimum: 0,
+    description: 'Required for Solo entries; prevents lost updates.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  revision?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  billable?: boolean;
+
   @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true })
   @IsOptional()
   @IsUUID()
@@ -192,6 +255,20 @@ export class UpdateTimeEntryDto {
 }
 
 export class SplitTimeEntryDto {
+  @ApiPropertyOptional({
+    minimum: 0,
+    description: 'Required for Solo entries.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  revision?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  billable?: boolean;
+
   /** Split point, strictly between clockIn and clockOut. */
   @ApiProperty({ format: 'date-time' })
   @IsDateString()
@@ -225,7 +302,37 @@ export class SplitTimeEntryDto {
  * Retroactive project booking onto an already-clocked time range. The range
  * must be fully covered by the employee's closed, non-rejected entries.
  */
+export class EntryRevisionDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  id!: string;
+
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  revision!: number;
+}
+
 export class BookProjectRangeDto {
+  @ApiPropertyOptional({
+    type: EntryRevisionDto,
+    isArray: true,
+    description:
+      'Required for Solo. Exact IDs/revisions of all entries intersecting the range.',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(1000)
+  @ArrayUnique((entry: EntryRevisionDto) => entry.id)
+  @ValidateNested({ each: true })
+  @Type(() => EntryRevisionDto)
+  revisions?: EntryRevisionDto[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  billable?: boolean;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
@@ -266,6 +373,24 @@ export class TimeSummaryDto implements TimeSummary {
 }
 
 export class TimeEntryDto {
+  @ApiProperty({ type: String, nullable: true })
+  note!: string | null;
+
+  @ApiProperty({ minimum: 0 })
+  revision!: number;
+
+  @ApiProperty()
+  billable!: boolean;
+
+  @ApiProperty({ type: String, format: 'date-time', nullable: true })
+  voidedAt!: string | null;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  captureGroupId!: string | null;
+
+  @ApiProperty({ type: String, enum: ['Solo', 'Team'], nullable: true })
+  approvalMode!: string | null;
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
@@ -394,14 +519,17 @@ export class TimeEntryDto {
   summary!: TimeSummary | null;
 }
 
-export interface SplitTimeEntryResult {
-  first: TimeEntryDto;
-  second: TimeEntryDto;
+export class SplitTimeEntryResult {
+  @ApiProperty({ type: TimeEntryDto })
+  first!: TimeEntryDto;
+  @ApiProperty({ type: TimeEntryDto })
+  second!: TimeEntryDto;
 }
 
-export interface BookProjectRangeResult {
+export class BookProjectRangeResult {
   /** All touched and created segments, ordered by clockIn. */
-  entries: TimeEntryDto[];
+  @ApiProperty({ type: TimeEntryDto, isArray: true })
+  entries!: TimeEntryDto[];
 }
 
 type TimeEntryWithRelations = TimeEntry & {
@@ -411,6 +539,12 @@ type TimeEntryWithRelations = TimeEntry & {
 
 export function toTimeEntryDto(e: TimeEntryWithRelations): TimeEntryDto {
   return {
+    note: e.note ?? null,
+    revision: e.revision ?? 0,
+    billable: e.billable ?? false,
+    voidedAt: e.voidedAt?.toISOString() ?? null,
+    captureGroupId: e.captureGroupId ?? null,
+    approvalMode: e.approvalMode ?? null,
     id: e.id,
     employeeId: e.employeeId,
     clockIn: e.clockIn.toISOString(),
@@ -456,8 +590,86 @@ export function toTimeEntryDto(e: TimeEntryWithRelations): TimeEntryDto {
     serviceOrderNo: e.serviceOrder?.orderNo ?? null,
     serviceOrderTitle: e.serviceOrder?.title ?? null,
     activity: e.activity ?? null,
-    summary: e.clockOut
-      ? summarize(e.clockIn, e.clockOut, parseBreakRules(e.breakRules))
-      : null,
+    summary:
+      e.clockOut && !e.voidedAt && e.status !== 'Rejected'
+        ? summarize(e.clockIn, e.clockOut, parseBreakRules(e.breakRules))
+        : null,
   };
+}
+
+export class ManualTimeEntryDto extends ClockInDto {
+  @ApiProperty({
+    format: 'date-time',
+    description: 'Absolute instant with UTC Z or explicit offset.',
+  })
+  @IsDateString({ strict: true })
+  @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)
+  clockIn!: string;
+
+  @ApiProperty({
+    format: 'date-time',
+    description: 'Absolute instant with UTC Z or explicit offset.',
+  })
+  @IsDateString({ strict: true })
+  @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)
+  clockOut!: string;
+}
+
+export class CorrectTimeEntryDto extends ManualTimeEntryDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  revision!: number;
+
+  @ApiProperty({ maxLength: 500 })
+  @IsString()
+  @Matches(/\S/)
+  @MaxLength(500)
+  reason!: string;
+}
+
+export class VoidTimeEntryDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  revision!: number;
+
+  @ApiProperty({ maxLength: 500 })
+  @IsString()
+  @Matches(/\S/)
+  @MaxLength(500)
+  reason!: string;
+}
+
+export class SwitchProjectDto extends ClockInDto {
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  revision!: number;
+}
+
+export class TimeEntryAuditDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  timeEntryId!: string;
+
+  @ApiProperty({ type: String, format: 'uuid', nullable: true })
+  actorId!: string | null;
+
+  @ApiProperty()
+  action!: string;
+
+  @ApiProperty({ type: Object, nullable: true })
+  before!: unknown;
+
+  @ApiProperty({ type: Object, nullable: true })
+  after!: unknown;
+
+  @ApiProperty({ type: String, nullable: true })
+  reason!: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  occurredAt!: string;
 }

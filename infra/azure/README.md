@@ -147,9 +147,20 @@ For the public demo, set these values in the local, gitignored
 
 ```bicep
 param environment = 'demo'
+param postgresDatabaseName = 'openclockwork_demo'
 param enableDemoReset = true
 param demoResetCronExpression = '0 3 * * *'
 ```
+
+These settings are for a **new, disposable demo installation only**. Version
+2.0.0 rejects seed/reset against the default `openclockwork` database and rejects
+these commands under `NODE_ENV=production`. The template keeps the API in
+production mode but runs only the explicitly enabled demo maintenance job in
+development mode with an exact database-name confirmation. Existing demo jobs
+must be reviewed before upgrading. Do not change a populated installation's
+database name to bypass the guard: keep its data and provision a separate demo,
+or leave the destructive job disabled. Production bootstrapping and ordinary
+migrations do not require seed/reset or a non-production runtime.
 
 Each reset restores the synthetic employees, projects, bookings, and one active
 `Demo-Empfang` terminal. The terminal deliberately has geofencing disabled and

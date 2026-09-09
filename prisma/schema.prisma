@@ -23,6 +23,11 @@ enum Role {
   HRAdmin
 }
 
+enum OperatingMode {
+  Team
+  Solo
+}
+
 enum TimeModel {
   Teilzeit
   Vollzeit
@@ -108,6 +113,7 @@ model Employee {
   lastName                      String
   email                         String                        @unique
   passwordHash                  String
+  authVersion                   Int                           @default(0)
   role                          Role                          @default(Employee)
   timeModel                     TimeModel
   weeklyHours                   Decimal                       @db.Decimal(5, 2)
@@ -141,6 +147,11 @@ model Employee {
   absences                      Absence[]
   projectAssignments            ProjectAssignment[]
   terminalChallengeRedemptions  TerminalChallengeRedemption[]
+  ownedInstallation             InstallationSettings?
+  soloPolicies                  SoloPolicy[]
+  personalDays                  PersonalDay[]
+  timeEntryAudits                TimeEntryAudit[]
+  installationEvents            InstallationEvent[]
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt
 
@@ -192,6 +203,14 @@ model TimeEntry {
   source                            EntrySource                   @default(Manual)
   status                            EntryStatus                   @default(Open)
   requiresApproval                  Boolean                       @default(false)
+  billable                          Boolean                       @default(false)
+  revision                          Int                           @default(0)
+  voidedAt                          DateTime?
+  /// Project switches/splits retain one capture group and its break policy.
+  captureGroupId                    String?                       @db.Uuid
+  /// Historical null values retain Team approval semantics.
+  approvalMode                      String?
+  auditEvents                       TimeEntryAudit[]
   /// Policy snapshot captured at booking; later schedule changes do not rewrite history.
   breakRules                        Json                          @default("[]")
   latitude                          Decimal?                      @db.Decimal(9, 6)
@@ -237,6 +256,7 @@ model TimeEntry {
 
   @@unique([employeeId, bookingDate])
   @@index([employeeId, clockIn])
+  @@index([captureGroupId])
   @@index([status])
   @@index([projectId])
   @@index([serviceOrderId])
@@ -435,6 +455,9 @@ model Project {
   code          String              @unique
   name          String
   description   String?
+  customerId    String?             @db.Uuid
+  customer      Customer?           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  defaultBillable Boolean           @default(false)
   isActive      Boolean             @default(true)
   /// Planned effort in hours; null = no plan defined. The sum of the
   /// service-order planHours must not exceed this (service-enforced).
@@ -446,6 +469,7 @@ model Project {
   updatedAt     DateTime            @updatedAt
 
   @@index([isActive])
+  @@index([customerId])
 }
 
 model ServiceOrder {
@@ -454,6 +478,7 @@ model ServiceOrder {
   project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   orderNo     String
   title       String
+  defaultBillable Boolean?
   isActive    Boolean     @default(true)
   /// Planned effort in hours; null = no plan defined.
   planHours   Decimal?    @db.Decimal(8, 2)
@@ -495,4 +520,102 @@ model EmployeeLeaveAllowance {
   updatedAt          DateTime  @updatedAt
 
   @@unique([employeeId, year])
+}
+
+/// One operating mode per installation; upgrades explicitly retain Team mode.
+model InstallationSettings {
+  id              Int           @id @default(1)
+  mode            OperatingMode @default(Team)
+  ownerEmployeeId String?       @unique @db.Uuid
+  owner           Employee?     @relation(fields: [ownerEmployeeId], references: [id], onDelete: Restrict)
+  setupCompleted  Boolean       @default(false)
+  revision        Int           @default(0)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+/// Effective-date versions preserve past personal targets and calendar rules.
+model SoloPolicy {
+  id                    String   @id @default(uuid()) @db.Uuid
+  employeeId            String   @db.Uuid
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  effectiveFrom         DateTime @db.Date
+  targetEnabled         Boolean  @default(false)
+  weeklyTargetMinutes   Int?
+  workingDays           Int      @default(31)
+  leaveEnabled          Boolean  @default(false)
+  annualLeaveDays       Decimal  @default(0) @db.Decimal(5, 2)
+  carryOverDays         Decimal  @default(0) @db.Decimal(5, 2)
+  carryOverExpiresOn    DateTime? @db.Date
+  leaveAdjustmentDays  Decimal  @default(0) @db.Decimal(5, 2)
+  leaveAdjustmentReason String?
+  leaveAllowanceYear    Int?
+  holidayCalendar       String   @default("NONE")
+  holidayDates          String[] @default([])
+  breakRules            Json     @default("[]")
+  coreTimeHintsEnabled  Boolean  @default(false)
+  frameStart            String   @default("00:00") @db.VarChar(5)
+  frameEnd              String   @default("23:59") @db.VarChar(5)
+  coreTimes             Json     @default("[]")
+  dailyBlockEnabled     Boolean  @default(false)
+  gpsEnabled            Boolean  @default(false)
+  createdAt             DateTime @default(now())
+
+  @@index([employeeId, effectiveFrom, createdAt])
+}
+
+model Customer {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  code      String?   @unique
+  note      String?
+  isActive  Boolean   @default(true)
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model TimeEntryAudit {
+  id          String    @id @default(uuid()) @db.Uuid
+  timeEntryId String    @db.Uuid
+  timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Restrict)
+  actorId     String?   @db.Uuid
+  actor       Employee? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action      String
+  before      Json?
+  after       Json?
+  reason      String?
+  occurredAt  DateTime  @default(now())
+
+  @@index([timeEntryId, occurredAt])
+}
+
+model PersonalDay {
+  id           String    @id @default(uuid()) @db.Uuid
+  employeeId   String    @db.Uuid
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  kind         String
+  from         DateTime  @db.Date
+  to           DateTime  @db.Date
+  note         String?
+  halfDayStart Boolean   @default(false)
+  halfDayEnd   Boolean   @default(false)
+  revision     Int       @default(0)
+  cancelledAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([employeeId, from])
+}
+
+model InstallationEvent {
+  id         String    @id @default(uuid()) @db.Uuid
+  actorId    String?   @db.Uuid
+  actor      Employee? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  before     Json?
+  after      Json?
+  occurredAt DateTime  @default(now())
+
+  @@index([occurredAt])
 }

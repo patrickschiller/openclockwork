@@ -22,7 +22,7 @@ async function main(): Promise<void> {
   output.write(
     [
       '',
-      'Create the first OpenClockwork HR administrator',
+      'Create the first OpenClockwork owner or team administrator',
       '------------------------------------------------',
       'This command works only while the employee table is empty.',
       '',
@@ -41,12 +41,16 @@ async function main(): Promise<void> {
   output.write(
     [
       '',
-      'HR administrator created successfully.',
+      adminInput.mode === 'Solo'
+        ? 'Solo owner created successfully.'
+        : 'HR administrator created successfully.',
       `Email: ${employee.email}`,
       `Initial password: ${initialPassword}`,
       '',
       'Store the password securely, sign in, and replace it immediately in',
-      'Administration > Employees. It will not be shown again.',
+      adminInput.mode === 'Solo'
+        ? 'Settings > Password. It will not be shown again.'
+        : 'Administration > Employees. It will not be shown again.',
       '',
     ].join('\n'),
   );
@@ -62,7 +66,27 @@ async function promptForInitialAdminInput(): Promise<InitialAdminInput> {
   const rl = createInterface({ input, output });
   try {
     const today = new Date().toISOString().slice(0, 10);
+    const mode = await askChoice(
+      rl,
+      'Mode (Solo / Team)',
+      ['Solo', 'Team'] as const,
+      'Solo',
+    );
+    if (mode === 'Solo')
+      return {
+        mode,
+        personalNo: 'OWNER',
+        firstName: await askRequired(rl, 'First name'),
+        lastName: await askRequired(rl, 'Last name'),
+        email: await askRequired(rl, 'Email'),
+        timeModel: 'Vertrauensarbeitszeit',
+        weeklyHours: 0,
+        annualLeaveDays: 0,
+        startDate: today,
+        holidayCalendar: 'NONE',
+      };
     return {
+      mode,
       personalNo: await askRequired(rl, 'Personal number'),
       firstName: await askRequired(rl, 'First name'),
       lastName: await askRequired(rl, 'Last name'),
@@ -91,6 +115,7 @@ async function promptForInitialAdminInput(): Promise<InitialAdminInput> {
 function parseArguments(args: string[]): InitialAdminInput {
   const values = new Map<string, string>();
   const allowed = new Set([
+    '--mode',
     '--personal-no',
     '--first-name',
     '--last-name',
@@ -119,14 +144,27 @@ function parseArguments(args: string[]): InitialAdminInput {
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  const mode = (values.get('--mode') ?? 'Team') as 'Solo' | 'Team';
+  if (!['Solo', 'Team'].includes(mode))
+    throw new Error('--mode must be Solo or Team');
   return {
-    personalNo: requiredArgument(values, '--personal-no'),
+    mode,
+    personalNo:
+      mode === 'Solo'
+        ? (values.get('--personal-no') ?? 'OWNER')
+        : requiredArgument(values, '--personal-no'),
     firstName: requiredArgument(values, '--first-name'),
     lastName: requiredArgument(values, '--last-name'),
     email: requiredArgument(values, '--email'),
     timeModel: (values.get('--time-model') ??
-      'Vollzeit') as InitialAdminInput['timeModel'],
-    weeklyHours: parseNumericArgument(values, '--weekly-hours', 40),
+      (mode === 'Solo'
+        ? 'Vertrauensarbeitszeit'
+        : 'Vollzeit')) as InitialAdminInput['timeModel'],
+    weeklyHours: parseNumericArgument(
+      values,
+      '--weekly-hours',
+      mode === 'Solo' ? 0 : 40,
+    ),
     annualLeaveDays: parseNumericArgument(values, '--annual-leave-days', 0),
     startDate: values.get('--start-date') ?? today,
     bundesland: values.get('--bundesland') as InitialAdminInput['bundesland'],
@@ -160,7 +198,8 @@ Interactive mode prompts for all employee data and is recommended for a
 manual production installation.
 
 For unattended validation, provide the non-secret employee fields as options:
-  --personal-no VALUE       Required
+  --mode Solo|Team          Explicit mode (CLI default: Team for compatibility)
+  --personal-no VALUE       Required for Team; automatic OWNER for Solo
   --first-name VALUE        Required
   --last-name VALUE         Required
   --email VALUE             Required

@@ -37,6 +37,7 @@ export const INITIAL_ADMIN_HOLIDAY_CALENDARS = [
 ] as const;
 
 export interface InitialAdminInput {
+  mode?: 'Solo' | 'Team';
   personalNo: string;
   firstName: string;
   lastName: string;
@@ -87,12 +88,13 @@ export async function createInitialAdmin(
     try {
       return await prisma.$transaction(
         async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(7261500)`;
           const existingEmployee = await tx.employee.findFirst({
             select: { id: true },
           });
           if (existingEmployee) throw new InitialAdminAlreadyExistsError();
 
-          return tx.employee.create({
+          const employee = await tx.employee.create({
             data: {
               personalNo: normalized.personalNo,
               firstName: normalized.firstName,
@@ -111,6 +113,39 @@ export async function createInitialAdmin(
               isActive: true,
             },
           });
+          const mode = input.mode ?? 'Team';
+          await tx.installationSettings.upsert({
+            where: { id: 1 },
+            create: {
+              id: 1,
+              mode,
+              ownerEmployeeId: mode === 'Solo' ? employee.id : null,
+              setupCompleted: mode === 'Team',
+            },
+            update: {
+              mode,
+              ownerEmployeeId: mode === 'Solo' ? employee.id : null,
+              setupCompleted: mode === 'Team',
+              revision: { increment: 1 },
+            },
+          });
+          if (mode === 'Solo') {
+            const now = new Date();
+            const date = new Date(
+              Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+            );
+            await tx.soloPolicy.create({
+              data: { employeeId: employee.id, effectiveFrom: date },
+            });
+            await tx.installationEvent.create({
+              data: {
+                actorId: employee.id,
+                action: 'SoloCreated',
+                after: { mode, ownerEmployeeId: employee.id },
+              },
+            });
+          }
+          return employee;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
@@ -129,6 +164,8 @@ export async function createInitialAdmin(
 function validateInitialAdminInput(
   input: InitialAdminInput,
 ): InitialAdminInput {
+  if (input.mode && !['Solo', 'Team'].includes(input.mode))
+    throw new Error('Mode must be Solo or Team');
   const personalNo = requiredText(input.personalNo, 'Personal number', 40);
   const firstName = requiredText(input.firstName, 'First name', 120);
   const lastName = requiredText(input.lastName, 'Last name', 120);

@@ -1,7 +1,9 @@
+import 'dotenv/config';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import safety from '../ops/db-target-safety.cjs';
 
-const prisma = new PrismaClient();
+let prisma: PrismaClient;
 
 const DEFAULT_PASSWORD = 'openclockwork';
 // Optional sample policy, intentionally not a statement of local legal requirements.
@@ -308,6 +310,14 @@ async function ensureDemoTerminal() {
 }
 
 async function main() {
+  const target = safety.assertSeedTarget();
+  prisma = new PrismaClient({ datasourceUrl: target.databaseUrl });
+  const [connected] = await prisma.$queryRaw<
+    Array<{ database: string; schema: string }>
+  >`
+    SELECT current_database() AS database, current_schema() AS schema
+  `;
+  safety.assertConnectedDatabase(target, connected.database, connected.schema);
   // Default startDates so seed employees have a sensible bookkeeping anchor.
   // The HR/managers were "always there"; some employees joined recently, one
   // is migrated from a legacy system and arrives with an overtime credit.
@@ -615,9 +625,13 @@ async function main() {
 main()
   .catch((err) => {
     // eslint-disable-next-line no-console
-    console.error(err);
+    console.error(
+      err instanceof safety.DatabaseTargetRefusedError
+        ? err.message
+        : 'Seed failed; no connection details are printed.',
+    );
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   });

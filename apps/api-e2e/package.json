@@ -7,6 +7,13 @@
       "api"
     ],
     "targets": {
+      "test-ops": {
+        "executor": "nx:run-commands",
+        "options": {
+          "command": "node --test ops/*.test.mjs",
+          "cwd": "."
+        }
+      },
       "e2e": {
         "executor": "@nx/jest:jest",
         "outputs": [

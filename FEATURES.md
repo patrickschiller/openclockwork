@@ -1,17 +1,20 @@
 # OpenClockwork Features
 
-OpenClockwork is a responsive, self-hostable time-and-attendance system for
-employees, managers, HR administrators, and paired tablet terminals. Its domain
-model supports configurable working-time workflows across countries while keeping deployment,
-data, and integrations under the operator's control.
+OpenClockwork 2.0.0 provides **Solo** personal work tracking and **Team** time and
+attendance in one responsive, self-hosted application. Both keep deployment,
+data, and configuration under the operator's control, with German and English UI.
 
-> **Project status:** Stable. Published versions follow semantic versioning and
-> include release notes, forward-only database migrations, and documented
-> upgrade steps. The capabilities below are implemented and covered by
-> automated tests.
+This page describes implemented capabilities, not a guarantee that every rule,
+device, or external browser handoff has been certified. See
+[release notes](RELEASE_NOTES.md) for release-specific validation and
+[UPGRADING.md](UPGRADING.md) for operational checks. Version 2.0 marks the
+deliberate two-mode product generation; it does not imply that existing Team
+installations need a reset or an automatic conversion.
 
-For planned Solo mode, invoice creation, and CAUR-based agent billing, see the
-[project roadmap](ROADMAP.md).
+Start with [Operating modes](docs/OPERATING_MODES.md), the
+[Solo guide](docs/SOLO_MODE.md), or the [Team guide](docs/TEAM_MODE.md).
+Invoices, rates, payments, and CAUR coding-agent usage import/accounting are
+**not included**; they remain on the [roadmap](ROADMAP.md).
 
 <p align="center">
   <img src="assets/screenshots/tablet/kiosk.png" alt="Paired OpenClockwork tablet kiosk with a rotating QR code" width="100%">
@@ -27,20 +30,72 @@ For planned Solo mode, invoice creation, and CAUR-based agent billing, see the
 
 | Audience          | Main capabilities                                                                                                                   |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Solo owner        | Personal timer, direct corrections, calendar, customers, billable projects/orders, timesheets, optional effective-dated accounts    |
 | Employees         | Clock in/out, scan tablet QR codes, book daily targets, manage requests and absences, view calendars and time accounts              |
 | Managers          | Review team requests, handle substitute workflows, approve or return corrections, use bulk actions, inspect project data            |
 | HR administrators | Manage employees, schedules, leave, projects, reports, terminal kiosks, geofences, devices, and production bootstrap                |
 | Kiosk devices     | Pair once, display a branded rotating challenge, refresh automatically, report health, and operate with least-privilege credentials |
 | Integrations      | Consume documented REST endpoints, generated types, realtime events, ERP exports, and health checks                                 |
 
+Employee, manager, HR, kiosk, and ERP capabilities in the table refer to Team.
+Solo exposes only the owner's authorised personal endpoints; old Team routes
+are blocked by the server, not just removed from the menu.
+
+## Solo owner workflow
+
+| Capability                | What it provides                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Owner bootstrap and setup | One explicit owner, generated initial password, working-timezone confirmation, no mandatory HR policy                          |
+| Personal navigation       | Overview, Times, Calendar, Customers, Projects, Reports, and Settings                                                          |
+| Time capture              | One running timer, manual completed intervals, atomic running-project switch, optional activity and separate private notes     |
+| Corrections and splits    | Direct owner edits, reasoned correction/cancellation, capture-group break preservation, revision conflicts, and audit history  |
+| Calendar                  | Completed net time plus free days, vacation, sickness, and training; first/last half-day flags and cancellation history        |
+| Customers                 | Name, optional code/internal note, archive/reactivation, and deletion protection for referenced records                        |
+| Projects and orders       | Customer or internal projects, automatic owner assignment, service orders, planned-hour budgets, and net actual totals         |
+| Billability               | Project default, inheritable order override, and per-booking billable/non-billable value; no monetary calculation              |
+| Reports                   | Date/customer/project/order/billable/unassigned filters; gross, break, net, and billable-net totals; CSV and browser print/PDF |
+| Optional policies         | Weekly target, leave account, holiday dates, break rules, personal frame/core hints, daily target blocks, and GPS              |
+| Policy history            | Effective dates, scheduled versions, annual leave carry-over/expiry/adjustments, and recorded mode-accounting boundaries       |
+| Identity and recovery     | Self-service profile/password changes and a local operator CLI limited to the existing active Solo owner                       |
+
+Fresh Solo installations begin without target or leave accounts, automatic
+breaks, regional holiday presets, time-window hints, daily blocks, or GPS.
+Personal hints do not become Team approval obligations. Closed intervals cannot
+overlap or end in the future; ambiguous manual/correction times require an
+explicit offset during daylight-saving changes.
+
+Reports exclude open timers and cancelled work from final totals and never
+include private notes. Archive operations cannot strand a running timer on an
+unbookable customer/project/order. A booked project cannot be reassigned to a
+different customer; create a new project instead.
+
+## Safe operating-mode changes
+
+An upgrade retains Team mode. A subsequent mode preview checks blockers without
+changing configuration; confirmation repeats the checks transactionally.
+Entering Solo requires one remaining active administrator, no running timers,
+no unresolved requests/time approvals, and no active terminals. Entering Team
+requires completed timers before adding further people.
+
+Identities, customers, projects, bookings, and history are retained. Solo work
+keeps its original approval mode. Access changes immediately; when today already
+contains effective work or time off, the accounting mode starts on the next
+working-timezone calendar date. See [the mode guide](docs/OPERATING_MODES.md).
+
+Solo customer management and personal billable reports are not Team screens in
+2.0. Preserving records across a switch does not make every mode-specific
+workflow available in both modes.
+
 ## Mobile PWA
 
-The React application is installable as a Progressive Web App and adapts down
-to narrow phone screens without horizontal scrolling. The compact profile icon
+The React application is installable as a Progressive Web App with layouts for
+desktop, tablet, and narrow phone screens. The compact profile icon
 opens an identity menu with name, email, role, and logout. German and English
 can be switched from the login, employee shell, and kiosk.
 
-The primary phone navigation is intentionally task-focused:
+The primary phone navigation is intentionally task-focused. Solo uses
+**Overview, Times, Calendar, Reports, More**; customers, projects, and settings
+remain available from More. Team uses:
 
 1. Dashboard
 2. Booking
@@ -56,7 +111,15 @@ administration remain reachable through the role-aware **More** menu.
   <img src="assets/screenshots/mobile/vacation-request.png" alt="Mobile vacation request with live leave balance" width="45%">
 </p>
 
-## QR tablet terminals
+The PWA is online-first: mutations require server confirmation and are not
+queued as offline bookings. A running server timer survives a disconnected
+client. Downloads and print/PDF depend on the browser/OS handoff: verify the
+actual saved file or print result in your deployment's browser, especially when
+using an embedded browser surface.
+
+The screenshots on this page show the Team and kiosk workflows.
+
+## QR tablet terminals (Team)
 
 OpenClockwork turns a standard tablet into a shared, branded time-clock display
 without requiring RFID badges, proprietary readers, or biometrics. The mounted
@@ -82,7 +145,7 @@ CA/server certificates, loopback-only raw service ports, an Nginx TLS gateway,
 Guided Access guidance, a site acceptance checklist, and MDM recommendations.
 See [the German iPad setup guide](docs/IPAD_TERMINAL_SETUP.de.md).
 
-## Employee experience
+## Employee experience (Team)
 
 | Capability                        | What it provides                                                                                                |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -106,7 +169,7 @@ See [the German iPad setup guide](docs/IPAD_TERMINAL_SETUP.de.md).
 | Absence records                   | Record sickness, training, and flextime days without mobile layout overflow                                     |
 | Theme preference                  | Light, dark, or operating-system theme                                                                          |
 
-## Approval workflows
+## Approval workflows (Team)
 
 OpenClockwork models approvals as explicit state transitions instead of one
 approved/rejected flag.
@@ -131,7 +194,7 @@ Employee submits
 - Daily-target blocks bypass the workflow only when HR enables the employee and
   all schedule, holiday, absence, conflict, frame, and break checks pass
 
-## HR and administration
+## HR and administration (Team)
 
 | Capability              | What it provides                                                                                       |
 | ----------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -148,11 +211,12 @@ Employee submits
 | Working-time reports    | HR-only start, end, break, gross, net, approval, and CSV reporting, with optional clocking locations   |
 
 Production starts with an empty database. The interactive
-`prisma/create-admin.ts` bootstrap creates exactly one first HR administrator,
+`prisma/create-admin.ts` bootstrap offers Solo or Team and creates exactly one
+first owner/HR administrator,
 prints a random initial password once, and refuses to run after any employee has
 been created.
 
-## Project management and reporting
+## Project management and reporting (Team)
 
 Projects combine employee assignments, service orders, planned hours, actual
 bookings, and customer-facing activity reports in one administrative workflow.
@@ -178,7 +242,7 @@ clocking locations are excluded by default and require an explicit HR action;
 operators must document a lawful purpose and suitable retention period before
 using them.
 
-## Configurable working-time rules
+## Configurable working-time rules (Team)
 
 Working-time rules are visible in code and covered by focused tests. Operators
 remain responsible for validating their organisation's exact policies.
@@ -208,14 +272,17 @@ local rules and calendar coverage for each period in use.
 
 ## Languages, accessibility, and responsive design
 
-- German and English UI across login, employee, manager, HR, and kiosk routes
+- German and English UI across login, Solo, employee, manager, HR, and kiosk routes
 - Central translation catalogue for labels, validation, states, and empty views
 - Browser-language detection with English fallback and regional date formatting
 - Persistent language and theme preferences
 - Keyboard-operable account and mobile overflow menus
 - Semantic labels for navigation, forms, buttons, progress indicators, and QR
   images
-- Tested mobile breakpoints at 320 px and 375 px without horizontal overflow
+- Narrow-screen layouts, including compact Solo navigation below 360 px, with
+  regression coverage for 320/375 px layout constraints
+- Accessible in-app confirmations for Solo calendar cancellation and unused
+  record deletion, with Cancel initially focused and pending actions disabled
 
 ## Security and data handling
 
@@ -225,6 +292,8 @@ local rules and calendar coverage for each period in use.
 - Dedicated API-key protection for machine-to-machine ERP exports
 - Authenticated Socket.IO connections
 - Password hashing and refresh-token rotation
+- Session-version invalidation after password changes or owner recovery
+- Owner-only Solo access and stale-revision checks on personal mutations
 - Separate `TERMINAL_QR_SECRET` for kiosk pairing and QR signing material
 - Hash-only device credential storage and immediate revocation
 - Short-lived challenges, daily key rotation, rate limiting, expiry, and
@@ -253,6 +322,12 @@ The generated and committed OpenAPI specification lives at
 - Health endpoint for deployment checks
 - Generated TypeScript client types for the web application
 - Language-neutral API values translated by the web catalogue
+- Solo installation/settings, personal days/history, owner time mutations,
+  customers, and personal reports, protected by the active mode and owner identity
+
+Machine-to-machine Team exports and terminal capabilities are not enabled by a
+Solo API token. CAUR ingestion is not a hidden or experimental public endpoint
+in this release.
 
 ## Self-hosting and operations
 
@@ -260,8 +335,9 @@ The generated and committed OpenAPI specification lives at
 - Development and production Docker Compose configurations
 - Trusted-HTTPS iPad overlay with runtime-configuration validation
 - PostgreSQL with versioned Prisma migrations
-- Synthetic seed data for local evaluation only
-- Empty production bootstrap with a one-time HR admin command
+- Explicitly guarded synthetic seed data for disposable local evaluation only;
+  normal development startup does not seed automatically
+- Empty production bootstrap with a one-time Solo owner/Team administrator command
 - Azure Container Apps, ACR, PostgreSQL Flexible Server, Key Vault, Blob
   Storage, and Log Analytics reference infrastructure
 - Dedicated terminal QR secret in Compose and Azure Key Vault
@@ -280,7 +356,10 @@ installation identity is sent back to OpenClockwork.
 ## Explore the project
 
 - [Main README and installation guide](README.md)
-- [Roadmap: Solo mode, invoices, and CAUR-based agent billing](ROADMAP.md)
+- [Choose an operating mode](docs/OPERATING_MODES.md)
+- [Use Solo mode](docs/SOLO_MODE.md)
+- [Use Team mode](docs/TEAM_MODE.md)
+- [Roadmap: billing, agent usage, and internationalisation](ROADMAP.md)
 - [Set up and test an iPad terminal](docs/IPAD_TERMINAL_SETUP.de.md)
 - [Upgrade an existing installation](UPGRADING.md)
 - [Review published releases](https://github.com/patrickschiller/openclockwork/releases)

@@ -1,8 +1,46 @@
 import { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import { LoginPage } from '../routes/LoginPage';
 import { useI18n } from './i18n';
+import { useInstallation } from './installation';
+import { Button } from '@/components/ui/button';
+
+const SoloDashboardPage = lazy(() =>
+  import('../routes/solo/SoloDashboardPage').then((m) => ({
+    default: m.SoloDashboardPage,
+  })),
+);
+const SoloTimesPage = lazy(() =>
+  import('../routes/solo/SoloTimesPage').then((m) => ({
+    default: m.SoloTimesPage,
+  })),
+);
+const SoloCalendarPage = lazy(() =>
+  import('../routes/solo/SoloCalendarPage').then((m) => ({
+    default: m.SoloCalendarPage,
+  })),
+);
+const SoloCustomersPage = lazy(() =>
+  import('../routes/solo/SoloCustomersPage').then((m) => ({
+    default: m.SoloCustomersPage,
+  })),
+);
+const SoloProjectsPage = lazy(() =>
+  import('../routes/solo/SoloProjectsPage').then((m) => ({
+    default: m.SoloProjectsPage,
+  })),
+);
+const SoloReportsPage = lazy(() =>
+  import('../routes/solo/SoloReportsPage').then((m) => ({
+    default: m.SoloReportsPage,
+  })),
+);
+const SoloSettingsPage = lazy(() =>
+  import('../routes/solo/SoloSettingsPage').then((m) => ({
+    default: m.SoloSettingsPage,
+  })),
+);
 
 // AppShell + the realtime hook + lucide icons are deferred until the
 // user is authenticated. An unauthenticated visit to / only loads
@@ -92,8 +130,26 @@ function RouteFallback() {
 }
 
 export function App() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { t } = useI18n();
+  const installation = useInstallation();
+  const location = useLocation();
+  const solo = installation.data?.mode === 'Solo';
+
+  if (user && location.pathname !== '/kiosk' && !installation.data) {
+    if (installation.isLoading) return <RouteFallback />;
+    return (
+      <div className="mx-auto max-w-lg space-y-4 p-6" role="alert">
+        <p>{t('solo.loadFailed')}</p>
+        <Button onClick={() => void installation.refetch()}>
+          {t('solo.retry')}
+        </Button>
+        <Button variant="outline" onClick={logout}>
+          {t('shell.signOut')}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Suspense fallback={<RouteFallback />}>
@@ -103,6 +159,23 @@ export function App() {
         <Route path="kiosk" element={<KioskPage />} />
         {!user ? (
           <Route path="*" element={<LoginPage />} />
+        ) : solo ? (
+          <Route element={<AppShell solo />}>
+            <Route path="settings" element={<SoloSettingsPage />} />
+            {!installation.data?.setupCompleted ? (
+              <Route path="*" element={<Navigate to="/settings" replace />} />
+            ) : (
+              <>
+                <Route index element={<SoloDashboardPage />} />
+                <Route path="booking" element={<SoloTimesPage />} />
+                <Route path="calendar" element={<SoloCalendarPage />} />
+                <Route path="customers" element={<SoloCustomersPage />} />
+                <Route path="projects" element={<SoloProjectsPage />} />
+                <Route path="reports" element={<SoloReportsPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </>
+            )}
+          </Route>
         ) : (
           <Route element={<AppShell />}>
             <Route index element={<DashboardPage />} />
@@ -118,6 +191,9 @@ export function App() {
               element={<Navigate to="/absences" replace />}
             />
             <Route path="admin/requests" element={<AdminRequestsPage />} />
+            {user.role === 'HRAdmin' && (
+              <Route path="settings" element={<SoloSettingsPage />} />
+            )}
             <Route path="admin/projects" element={<AdminProjectsPage />} />
             <Route
               path="admin/working-times"

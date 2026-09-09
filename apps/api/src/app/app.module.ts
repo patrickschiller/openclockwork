@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { InstallationModule } from './installation/installation.module';
+import { CustomersModule } from './customers/customers.module';
 import { AbsencesModule } from './absences/absences.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { AttachmentsModule } from './attachments/attachments.module';
@@ -23,6 +25,8 @@ import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
+    InstallationModule,
+    CustomersModule,
     EventsModule,
     NotificationsModule,
     AuthModule,

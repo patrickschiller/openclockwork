@@ -29,6 +29,9 @@ param demoResetCronExpression string = '0 3 * * *'
 @description('Postgres admin login. Cannot be "azure_superuser", "admin", or other reserved names.')
 param postgresAdminLogin string = 'ocadmin'
 
+@description('Database name. Keep the existing value on upgrade. A NEW disposable reset-enabled demo must explicitly use openclockwork_demo (optionally with underscore-separated alphanumeric suffixes).')
+param postgresDatabaseName string = 'openclockwork'
+
 @secure()
 @description('Postgres admin password. Generate with: openssl rand -base64 32.')
 param postgresAdminPassword string
@@ -109,6 +112,7 @@ module pg 'modules/postgres.bicep' = {
     location: location
     administratorLogin: postgresAdminLogin
     administratorPassword: postgresAdminPassword
+    databaseName: postgresDatabaseName
   }
 }
 
@@ -303,8 +307,7 @@ module cronJob 'modules/container-app-job.bicep' = {
 
 // Destructive nightly reset for a public demo. It removes all application
 // rows and uploaded attachments, then recreates the documented seed data.
-// The job contains two explicit guards so an accidental deployment cannot
-// reset a non-demo environment.
+// Independent namespace and confirmation guards reject non-demo targets.
 var demoResetJobName = '${namePrefix}-${environment}-demo-reset'
 
 module demoResetJob 'modules/container-app-job.bicep' = if (enableDemoReset && environment == 'demo') {
@@ -326,8 +329,11 @@ module demoResetJob 'modules/container-app-job.bicep' = if (enableDemoReset && e
     acrLoginServer: acr.outputs.loginServer
     userAssignedIdentityId: uami.outputs.id
     envVars: [
-      { name: 'NODE_ENV', value: 'production' }
+      // Only this explicitly disposable maintenance job is non-production;
+      // the public API remains NODE_ENV=production.
+      { name: 'NODE_ENV', value: 'development' }
       { name: 'TZ', value: timeZone }
+      { name: 'OPENCLOCKWORK_RESET_CONFIRM_DATABASE', value: postgresDatabaseName }
       { name: 'DEMO_RESET_ENABLED', value: 'true' }
       { name: 'DEMO_RESET_CONFIRMATION', value: 'DELETE-AND-RESEED-OPENClockwork-DEMO' }
       { name: 'STORAGE_BACKEND', value: 'azure-blob' }

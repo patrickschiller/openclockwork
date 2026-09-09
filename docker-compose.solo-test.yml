@@ -1,0 +1,66 @@
+# Isolated local acceptance environment. All credentials here are synthetic.
+# docker compose -p openclockwork-solo-test -f docker-compose.solo-test.yml up -d --build
+# No demo seed runs: bootstrap an owner with the documented create-admin CLI.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: openclockwork
+      POSTGRES_PASSWORD: solo-local-test-only
+      POSTGRES_DB: openclockwork_solo
+    ports:
+      - '127.0.0.1:5434:5432'
+    volumes:
+      - solo-database:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U openclockwork -d openclockwork_solo']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  api:
+    image: openclockwork-api:2.0.0-local
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      TZ: Europe/Berlin
+      DATABASE_URL: postgresql://openclockwork:solo-local-test-only@db:5432/openclockwork_solo?schema=public
+      JWT_SECRET: solo-acceptance-jwt-local-test-only-150
+      TERMINAL_QR_SECRET: solo-acceptance-terminal-local-test-only-150
+      ERP_API_KEY: solo-acceptance-erp-local-test-only
+      CRON_API_KEY: solo-acceptance-cron-local-test-only
+      API_CORS_ORIGINS: http://localhost:18080,http://127.0.0.1:18080
+      STORAGE_BACKEND: local
+      ATTACHMENTS_DIR: /app/data/attachments
+    ports:
+      - '127.0.0.1:13000:3000'
+    volumes:
+      - solo-attachments:/app/data/attachments
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && exec node dist/main.js',
+      ]
+  web:
+    image: openclockwork-web:2.0.0-local
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: http://api:3000
+      DEMO_MODE: 'false'
+      SUPPORT_URL: ''
+    ports:
+      - '127.0.0.1:18080:8080'
+volumes:
+  solo-database:
+  solo-attachments:

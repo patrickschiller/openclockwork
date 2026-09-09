@@ -2,20 +2,9 @@ import { DefaultAzureCredential } from '@azure/identity';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { PrismaClient } from '@prisma/client';
 import { spawnSync } from 'child_process';
+import safety from '../ops/db-target-safety.cjs';
 
-const prisma = new PrismaClient();
-const REQUIRED_CONFIRMATION = 'DELETE-AND-RESEED-OPENClockwork-DEMO';
-
-function assertDemoResetEnabled(): void {
-  if (process.env.DEMO_RESET_ENABLED !== 'true') {
-    throw new Error('Refusing demo reset: DEMO_RESET_ENABLED must be "true".');
-  }
-  if (process.env.DEMO_RESET_CONFIRMATION !== REQUIRED_CONFIRMATION) {
-    throw new Error(
-      `Refusing demo reset: DEMO_RESET_CONFIRMATION must equal "${REQUIRED_CONFIRMATION}".`,
-    );
-  }
-}
+let prisma: PrismaClient;
 
 function quoteIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
@@ -31,15 +20,22 @@ async function truncateApplicationTables(): Promise<void> {
   `;
 
   if (tables.length === 0) {
-    throw new Error('Refusing demo reset: no application tables found in the public schema.');
+    throw new Error(
+      'Refusing demo reset: no application tables found in the public schema.',
+    );
   }
 
-  const tableList = tables.map(({ tablename }) => quoteIdentifier(tablename)).join(', ');
-  await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`);
+  const tableList = tables
+    .map(({ tablename }) => quoteIdentifier(tablename))
+    .join(', ');
+  await prisma.$executeRawUnsafe(
+    `TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`,
+  );
 }
 
 async function clearAzureAttachments(): Promise<void> {
-  if ((process.env.STORAGE_BACKEND ?? 'local').toLowerCase() !== 'azure-blob') return;
+  if ((process.env.STORAGE_BACKEND ?? 'local').toLowerCase() !== 'azure-blob')
+    return;
 
   const account = process.env.AZURE_BLOB_ACCOUNT;
   const container = process.env.AZURE_BLOB_CONTAINER;
@@ -64,36 +60,61 @@ async function clearAzureAttachments(): Promise<void> {
   console.log(`Deleted ${deleted} attachment blob(s).`);
 }
 
-function seedDatabase(): void {
-  const result = spawnSync('node', ['--import', 'tsx', 'prisma/seed.ts'], {
-    cwd: process.cwd(),
-    env: process.env,
-    stdio: 'inherit',
-  });
+function seedDatabase(target: {
+  databaseUrl: string;
+  databaseName: string;
+}): void {
+  const result = spawnSync(
+    process.execPath,
+    ['--import', 'tsx', 'prisma/seed.ts'],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        DATABASE_URL: target.databaseUrl,
+        OPENCLOCKWORK_SEED_CONFIRM_DATABASE: target.databaseName,
+      },
+      stdio: 'inherit',
+    },
+  );
   if (result.error) throw result.error;
   if (result.status !== 0) {
-    throw new Error(`Demo seed failed with exit code ${result.status ?? 'unknown'}.`);
+    throw new Error(
+      `Demo seed failed with exit code ${result.status ?? 'unknown'}.`,
+    );
   }
 }
 
 async function main(): Promise<void> {
-  assertDemoResetEnabled();
+  const target = safety.assertDemoResetTarget();
+  prisma = new PrismaClient({ datasourceUrl: target.databaseUrl });
+  const [connected] = await prisma.$queryRaw<
+    Array<{ database: string; schema: string }>
+  >`
+    SELECT current_database() AS database, current_schema() AS schema
+  `;
+  safety.assertConnectedDatabase(target, connected.database, connected.schema);
 
   // Delete attachments first. If Blob access fails, the database remains
   // untouched and the job can be retried without producing orphaned blobs.
   await clearAzureAttachments();
   await truncateApplicationTables();
   await prisma.$disconnect();
-  seedDatabase();
+  seedDatabase(target);
 
   console.log('Demo reset complete.');
 }
 
 main()
   .catch((err) => {
-    console.error('Demo reset failed', err);
+    console.error(
+      err instanceof safety.DatabaseTargetRefusedError
+        ? err.message
+        : 'Demo reset failed; no connection details are printed.',
+    );
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   });
+import 'dotenv/config';

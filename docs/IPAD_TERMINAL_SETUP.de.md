@@ -1,7 +1,8 @@
 # iPad-Terminal einrichten und lokal testen
 
-Diese Anleitung beschreibt die Einrichtung eines OpenClockwork-Terminals mit
-einem fest montierten iPad. Das iPad zeigt ausschließlich den rotierenden
+Diese Anleitung beschreibt die Einrichtung eines OpenClockwork-Terminals im
+**Team-Modus** mit einem fest montierten iPad. Im Solo-Modus sind Terminals
+deaktiviert. Das iPad zeigt ausschließlich den rotierenden
 QR-Code. Mitarbeitende scannen ihn mit der angemeldeten OpenClockwork-PWA auf
 ihrem eigenen Smartphone. Die Kamera wird dort immer benötigt; ein aktueller
 GPS-Standort wird nur bei aktivierter Standortprüfung angefordert.
@@ -183,8 +184,9 @@ docker compose \
   up -d --build
 ```
 
-Der API-Container führt Migrationen und den synthetischen Development-Seed
-automatisch aus. Prüfen Sie anschließend:
+Der API-Container führt beim Start ausschließlich Migrationen aus, **keinen
+automatischen Seed oder Reset**. Vorhandene Daten bleiben erhalten; eine neue
+Datenbank enthält noch keine Benutzer oder Terminals. Prüfen Sie anschließend:
 
 ```bash
 docker compose \
@@ -201,51 +203,84 @@ Alle vier Dienste (`db`, `api`, `web`, `ipad-gateway`) müssen laufen; der
 Health-Endpunkt muss HTTP 200 liefern. Öffnen Sie danach auf beiden Testgeräten
 `https://192.168.178.42:8443`. Safari darf keine Zertifikatswarnung anzeigen.
 
-Der Seed-Zugang für HR lautet:
+Bei einer **leeren Benutzertabelle** erstellen Sie den ersten Administrator
+interaktiv im laufenden Container:
 
-- Benutzer: `hannah.roth@openclockwork.test`
-- Passwort: `openclockwork`
+```bash
+docker compose \
+  -f docker-compose.dev.yml \
+  -f docker-compose.ipad.yml \
+  --env-file .env.ipad \
+  exec api node --import tsx prisma/create-admin.ts
+```
 
-Mit `DEMO_MODE=true` ist dieser synthetische Zugang auf der Login-Seite bereits
-vorausgefüllt. Der iPad-Test-Overlay setzt diese Option standardmäßig; in
-Produktions-Deployments bleibt sie deaktiviert.
+Wählen Sie bei der Modusfrage ausdrücklich **Team** (die interaktive Vorgabe
+ist Solo) und geben Sie Ihre gewählten Testdaten ein. Verwenden Sie nicht
+`exec -T`, da der Dialog ein Terminal benötigt. Das starke Anfangspasswort
+wird einmal ausgegeben: sicher aufbewahren, damit anmelden und unter
+**Administration → Mitarbeitende** ändern. Bei einem bestehenden Benutzerbestand
+verwenden Sie Ihren vorhandenen HRAdmin-Zugang; führen Sie keinen Reset aus.
 
-Verwenden Sie einen anderen Seed-Benutzer für den eigentlichen Scan. Testen Sie
-den Kiosk und die Mitarbeiterbuchung nicht mit derselben Browser-Sitzung.
+Legen Sie anschließend in der Mitarbeiterverwaltung einen separaten
+synthetischen Mitarbeiter mit eigenem Zugang an. Verwenden Sie diesen für den
+Scan auf dem Smartphone. Kiosk und Mitarbeiterbuchung dürfen nicht dieselbe
+Browser-Sitzung verwenden. `DEMO_MODE=false` ist die Vorgabe; es gibt keine
+automatisch angelegten oder vorausgefüllten Demo-Zugänge.
 
-## 6. Seed-Terminal koppeln oder eigenes Terminal anlegen
+### Optional: bewusst vorbereitete Demo-Daten
+
+Nur wenn Sie bereits eine **separate, wegwerfbare Demo-Datenbank** ausdrücklich
+mit synthetischen Daten befüllt haben, können Sie deren Demo-Konten und das
+Seed-Terminal **Demo-Empfang** nutzen. `DEMO_MODE=true` füllt lediglich den
+Demo-Login vor; es legt weder Benutzer noch Daten an.
+
+Der geschützte Seed verlangt `NODE_ENV` ungleich `production`, eine
+`DATABASE_URL` mit dem Namen `openclockwork_dev`, `openclockwork_demo` oder
+`openclockwork_test` (optional mit alphanumerischen, durch Unterstriche
+getrennten Suffixen) und `OPENCLOCKWORK_SEED_CONFIRM_DATABASE` mit exakt diesem
+Datenbanknamen. `pnpm db:reset` verlangt stattdessen
+`OPENCLOCKWORK_RESET_CONFIRM_DATABASE` und führt keinen anschließenden Seed aus.
+Der Demo-Reset benötigt zusätzlich `DEMO_RESET_ENABLED=true` und
+`DEMO_RESET_CONFIRMATION=DELETE-AND-RESEED-OPENClockwork-DEMO`.
+
+Der bestehende Standardname `openclockwork` ist für Seed/Reset bewusst gesperrt.
+Ändern Sie nicht den Datenbanknamen oder ein bestehendes Volume, um den Schutz
+zu umgehen. Für diesen iPad-Pilot genügt der Team-Bootstrap oben; weitere
+Hinweise stehen in [UPGRADING.md](../UPGRADING.md).
+
+## 6. Eigenes Terminal anlegen und koppeln
 
 1. Melden Sie sich auf einem normalen Admin-Gerät als `HRAdmin` an.
 2. Öffnen Sie **Administration → Einstellungen → Terminals** bzw.
    `/admin/settings/terminals`.
-3. Für den schnellen Test enthält der Development- und Demo-Seed bereits das
-   aktive Terminal **Demo-Empfang**. Es ist noch nicht mit einem Gerät gekoppelt
-   und verlangt keine GPS-Freigabe. Fahren Sie für dieses Terminal direkt mit
-   Schritt 10 fort.
-4. Für ein eigenes Terminal wählen Sie **Terminal einrichten** und vergeben
+3. Wählen Sie **Terminal einrichten** und vergeben
    einen eindeutigen Namen, ein optionales Logo, einen frei konfigurierbaren
    Text und eine sichtbare Ortsbezeichnung.
-5. Entscheiden Sie unter **Standortprüfung**, ob beim Scan ein GPS-Standort
+4. Entscheiden Sie unter **Standortprüfung**, ob beim Scan ein GPS-Standort
    verlangt werden soll. Deaktivieren Sie die Option, wenn das Terminal ohne
    Standortfreigabe funktionieren soll; Koordinaten und GPS-Grenzwerte sind dann
    nicht erforderlich.
-6. Bei aktivierter Standortprüfung tragen Sie Breiten- und Längengrad des
+5. Bei aktivierter Standortprüfung tragen Sie Breiten- und Längengrad des
    Montageorts ein oder verwenden am Montagepunkt über die HTTPS-Origin
    **Aktuellen Standort verwenden**. Koordinaten werden als Dezimalgrad
    gespeichert, beispielsweise `49.7913`, `9.9534`.
-7. Legen Sie dann den zulässigen Radius und die maximal akzeptierte
+6. Legen Sie dann den zulässigen Radius und die maximal akzeptierte
    GPS-Ungenauigkeit fest. Für den Pilot ist ein Radius von 50–100 Metern
    praktikabel; für den späteren Betrieb muss der Wert am realen Montageort
    vermessen werden.
-8. Wählen Sie die IANA-Zeitzone des Montageorts aus der Dropdown-Liste. Sie
+7. Wählen Sie die IANA-Zeitzone des Montageorts aus der Dropdown-Liste. Sie
    bestimmt den lokalen Tageswechsel für die täglich erneuerte QR-Signatur.
-9. Aktivieren Sie das neu angelegte Terminal. Die Funktion ist zu diesem
+8. Aktivieren Sie das neu angelegte Terminal. Die Funktion ist zu diesem
    Zeitpunkt bereits vollständig aktiv. Der anschließend einmalig angebotene
    Unterstützungslink ist freiwillig und darf geschlossen oder übersprungen
    werden.
-10. Wählen Sie **Gerät koppeln** und lassen Sie den einmaligen Pairing-Link bzw.
-    Code geöffnet, bis das iPad gekoppelt ist. Veröffentlichen Sie ihn nicht in
-    Tickets, Chats oder Screenshots.
+9. Wählen Sie **Gerät koppeln** und lassen Sie den einmaligen Pairing-Link bzw.
+   Code geöffnet, bis das iPad gekoppelt ist. Veröffentlichen Sie ihn nicht in
+   Tickets, Chats oder Screenshots.
+
+In einer bewusst gesäten Demo-Datenbank ist **Demo-Empfang** bereits aktiv,
+noch ungepaart und ohne GPS-Prüfung. Nur für dieses bestehende Demo-Terminal
+können Sie direkt mit Schritt 9 beginnen.
 
 Für einen schnellen Funktionstest liegt ein synthetisches PNG-Logo unter
 `docs/assets/fiktives-terminal-logo.png`. Beim Hochladen wird das Logo als

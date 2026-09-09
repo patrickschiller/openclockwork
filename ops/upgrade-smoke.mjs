@@ -223,6 +223,37 @@ try {
       'Legacy fallback policy must be retained without becoming a default for new employees.',
     );
 
+    const soloSchema = await client.query(
+      `SELECT to_regclass('"InstallationSettings"') AS table_name`,
+    );
+    if (soloSchema.rows[0].table_name) {
+      const installation = await client.query(
+        `SELECT "mode", "ownerEmployeeId", "setupCompleted" FROM "InstallationSettings" WHERE "id" = 1`,
+      );
+      assert.deepEqual(
+        installation.rows,
+        [{ mode: 'Team', ownerEmployeeId: null, setupCompleted: true }],
+        'An upgraded installation must stay Team without inventing an owner.',
+      );
+      const historical = await client.query(
+        `SELECT "billable", "revision", "voidedAt", "captureGroupId", "approvalMode" FROM "TimeEntry" WHERE "id" = $1`,
+        [timeEntryId],
+      );
+      assert.deepEqual(
+        historical.rows,
+        [
+          {
+            billable: false,
+            revision: 0,
+            voidedAt: null,
+            captureGroupId: null,
+            approvalMode: null,
+          },
+        ],
+        'Solo migration must not reclassify historical work.',
+      );
+    }
+
     const failedMigrations = await client.query(
       `SELECT COUNT(*)::int AS "count"
        FROM "_prisma_migrations"
