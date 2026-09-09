@@ -4,6 +4,246 @@
  */
 
 export interface paths {
+  '/api/installation/hints': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['InstallationController_hints'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['InstallationController_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation/settings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['InstallationController_settings'];
+    trace?: never;
+  };
+  '/api/installation/complete-setup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['InstallationController_complete'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation/mode-preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['InstallationController_preview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation/mode': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['InstallationController_mode'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation/days': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['InstallationController_days'];
+    put?: never;
+    post: operations['InstallationController_createDay'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation/days/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['InstallationController_cancelDay'];
+    options?: never;
+    head?: never;
+    patch: operations['InstallationController_updateDay'];
+    trace?: never;
+  };
+  '/api/installation/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['InstallationController_events'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation/days/{id}/audit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['InstallationController_dayAudit'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/installation/summary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['InstallationController_totals'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/customers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['CustomersController_list'];
+    put?: never;
+    post: operations['CustomersController_create'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/customers/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['CustomersController_get'];
+    put: operations['CustomersController_update'];
+    post?: never;
+    delete: operations['CustomersController_remove'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/auth/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['AuthController_me'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['AuthController_profile'];
+    trace?: never;
+  };
+  '/api/auth/password': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['AuthController_password'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/auth/login': {
     parameters: {
       query?: never;
@@ -30,22 +270,6 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['AuthController_refresh'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/auth/me': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get: operations['AuthController_me'];
-    put?: never;
-    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -340,6 +564,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/reports/solo': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ReportsController_solo'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/reports/solo.csv': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ReportsController_soloCsv'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/reports/working-times/employees': {
     parameters: {
       query?: never;
@@ -462,6 +718,86 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['TimeEntriesController_bookProject'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/manual': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TimeEntriesController_manual'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/{id}/correct': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations['TimeEntriesController_correct'];
+    trace?: never;
+  };
+  '/api/timeentries/{id}/void': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TimeEntriesController_voidEntry'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/{id}/switch-project': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TimeEntriesController_switchProject'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/{id}/audit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TimeEntriesController_audit'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1112,6 +1448,228 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    PersonalHintDto: {
+      date: string;
+      /** @enum {string} */
+      kind:
+        | 'BeforeFrame'
+        | 'AfterFrame'
+        | 'LateArrival'
+        | 'EarlyDeparture'
+        | 'MidDayGap';
+      boundary: string;
+      deltaMinutes: number;
+      windowLabel?: string;
+    };
+    PersonalHintsDto: {
+      enabled: boolean;
+      hints: components['schemas']['PersonalHintDto'][];
+    };
+    SoloCapabilitiesResponse: {
+      isOwner: boolean;
+      solo: boolean;
+      targets: boolean;
+      leave: boolean;
+      coreTimeHints: boolean;
+      dailyBlock: boolean;
+      gps: boolean;
+    };
+    SoloBreakRuleResponse: {
+      afterMinutes: number;
+      breakMinutes: number;
+    };
+    SoloCoreWindowResponse: {
+      start: string;
+      end: string;
+      weekdays: number;
+      label?: Record<string, never> | null;
+    };
+    SoloPolicyResponse: {
+      id: string | null;
+      /** Format: date */
+      effectiveFrom: string | null;
+      targetEnabled: boolean;
+      weeklyTargetMinutes: number | null;
+      workingDays: number;
+      leaveEnabled: boolean;
+      annualLeaveDays: number;
+      carryOverDays: number;
+      /** Format: date */
+      carryOverExpiresOn: string | null;
+      leaveAdjustmentDays: number;
+      leaveAdjustmentReason: string | null;
+      leaveAllowanceYear: number;
+      holidayCalendar: string;
+      holidayDates: string[];
+      breakRules: components['schemas']['SoloBreakRuleResponse'][];
+      coreTimeHintsEnabled: boolean;
+      dailyBlockEnabled: boolean;
+      gpsEnabled: boolean;
+      frameStart: string;
+      frameEnd: string;
+      coreTimes: components['schemas']['SoloCoreWindowResponse'][];
+    };
+    InstallationStateResponse: {
+      /** @enum {string} */
+      mode: 'Team' | 'Solo';
+      ownerEmployeeId: string | null;
+      setupCompleted: boolean;
+      revision: number;
+      timeZone: string;
+      capabilities: components['schemas']['SoloCapabilitiesResponse'];
+      policy: components['schemas']['SoloPolicyResponse'];
+      futurePolicies: components['schemas']['SoloPolicyResponse'][];
+    };
+    SoloBreakRuleDto: {
+      afterMinutes: number;
+      breakMinutes: number;
+    };
+    SoloCoreWindowDto: {
+      start: string;
+      end: string;
+      weekdays: number;
+      label?: string;
+    };
+    UpdateSoloSettingsDto: {
+      revision: number;
+      /** @example 2026-09-08 */
+      effectiveFrom: string;
+      targetEnabled: boolean;
+      weeklyTargetMinutes?: Record<string, never> | null;
+      workingDays: number;
+      leaveEnabled: boolean;
+      annualLeaveDays: number;
+      carryOverDays?: number;
+      carryOverExpiresOn?: Record<string, never> | null;
+      leaveAdjustmentDays?: number;
+      leaveAdjustmentReason?: Record<string, never> | null;
+      leaveAllowanceYear?: number;
+      holidayCalendar: string;
+      holidayDates: string[];
+      breakRules: components['schemas']['SoloBreakRuleDto'][];
+      coreTimeHintsEnabled: boolean;
+      frameStart?: string;
+      frameEnd?: string;
+      coreTimes?: components['schemas']['SoloCoreWindowDto'][];
+      dailyBlockEnabled: boolean;
+      gpsEnabled: boolean;
+    };
+    PreviewModeDto: {
+      /** @enum {string} */
+      mode: 'Team' | 'Solo';
+    };
+    ModePreviewResponse: {
+      allowed: boolean;
+      blockers: string[];
+    };
+    ChangeModeDto: {
+      /** @enum {string} */
+      mode: 'Team' | 'Solo';
+      revision: number;
+    };
+    PersonalDayResponse: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      kind: 'Free' | 'Vacation' | 'Sickness' | 'Training';
+      /** Format: date */
+      from: string;
+      /** Format: date */
+      to: string;
+      note: string | null;
+      halfDayStart: boolean;
+      halfDayEnd: boolean;
+      revision: number;
+      /** Format: date-time */
+      cancelledAt: string | null;
+    };
+    PersonalDayDto: {
+      /** @enum {string} */
+      kind: 'Free' | 'Vacation' | 'Sickness' | 'Training';
+      from: string;
+      to: string;
+      note?: Record<string, never> | null;
+      halfDayStart?: boolean;
+      halfDayEnd?: boolean;
+    };
+    EditPersonalDayDto: {
+      /** @enum {string} */
+      kind: 'Free' | 'Vacation' | 'Sickness' | 'Training';
+      from: string;
+      to: string;
+      note?: Record<string, never> | null;
+      halfDayStart?: boolean;
+      halfDayEnd?: boolean;
+      revision: number;
+    };
+    RevisionDto: {
+      revision: number;
+    };
+    InstallationAuditResponse: {
+      /** Format: uuid */
+      id: string;
+      actorId: string | null;
+      action: string;
+      before: {
+        [key: string]: unknown;
+      } | null;
+      after: {
+        [key: string]: unknown;
+      } | null;
+      /** Format: date-time */
+      occurredAt: string;
+    };
+    PersonalSummaryResponse: {
+      /** Format: date */
+      from: string;
+      /** Format: date */
+      to: string;
+      timeZone: string;
+      targetEnabled: boolean;
+      leaveEnabled: boolean;
+      actualMinutes: number;
+      /** @description Actual net minutes on dates with an enabled Solo target. */
+      targetActualMinutes: number | null;
+      targetMinutes: number | null;
+      overtimeMinutes: number | null;
+      vacationDaysTotal: number | null;
+      vacationDaysUsed: number | null;
+      vacationDaysRemaining: number | null;
+      vacationAllowanceYear: number;
+      vacationDaysCarryOver: number | null;
+      vacationDaysCarryOverUsed: number | null;
+      vacationDaysCarryOverExpired: number | null;
+      vacationDaysAdjustment: number | null;
+    };
+    CustomerDto: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      code: string | null;
+      note: string | null;
+      isActive: boolean;
+      projectCount: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    UpsertCustomerDto: {
+      name: string;
+      code?: Record<string, never> | null;
+      note?: Record<string, never> | null;
+      /** @default true */
+      isActive: boolean;
+    };
+    UpdateOwnProfileDto: {
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+    ChangePasswordDto: {
+      currentPassword: string;
+      newPassword: string;
+    };
     LoginDto: {
       /** @example hannah.roth@openclockwork.test */
       email: string;
@@ -1136,7 +1694,7 @@ export interface components {
       status: string;
       /** @example openclockwork-api */
       service: string;
-      /** @example 1.4.0 */
+      /** @example 2.0.0 */
       version: string;
       /** Format: date-time */
       utcTimestamp: string;
@@ -1373,6 +1931,56 @@ export interface components {
       /** @default false */
       overrideExisting: boolean;
     };
+    ServiceOrderDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      projectId: string;
+      orderNo: string;
+      title: string;
+      isActive: boolean;
+      planHours: number | null;
+      bookedMinutes: number;
+      defaultBillable: boolean | null;
+      bookedNetMinutes?: number;
+    };
+    ProjectDto: {
+      /** Format: uuid */
+      id: string;
+      code: string;
+      name: string;
+      description: string | null;
+      isActive: boolean;
+      planHours: number | null;
+      /** Format: uuid */
+      customerId: string | null;
+      customerName: string | null;
+      defaultBillable: boolean;
+      bookedNetMinutes?: number;
+      bookedMinutes: number;
+      serviceOrders: components['schemas']['ServiceOrderDto'][];
+      assignedEmployeeCount: number;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    BookableServiceOrderDto: {
+      /** Format: uuid */
+      id: string;
+      orderNo: string;
+      title: string;
+      defaultBillable: boolean | null;
+    };
+    BookableProjectDto: {
+      /** Format: uuid */
+      id: string;
+      code: string;
+      name: string;
+      /** Format: uuid */
+      customerId: string | null;
+      customerName: string | null;
+      defaultBillable: boolean;
+      serviceOrders: components['schemas']['BookableServiceOrderDto'][];
+    };
     UpsertProjectDto: {
       /** @example PRJ-001 */
       code: string;
@@ -1381,6 +1989,10 @@ export interface components {
       /** @default true */
       isActive: boolean;
       planHours?: Record<string, never> | null;
+      /** Format: uuid */
+      customerId?: Record<string, never> | null;
+      /** @default false */
+      defaultBillable: boolean;
     };
     UpsertServiceOrderDto: {
       /** @example SA-2026-001 */
@@ -1389,6 +2001,54 @@ export interface components {
       /** @default true */
       isActive: boolean;
       planHours?: Record<string, never> | null;
+      /** @description Null inherits the project default. */
+      defaultBillable?: Record<string, never> | null;
+    };
+    SoloReportRowDto: {
+      grossMinutes: number;
+      breakMinutes: number;
+      netMinutes: number;
+      billableNetMinutes: number;
+      /** Format: uuid */
+      id: string;
+      /** Format: date */
+      date: string;
+      /** Format: date-time */
+      clockIn: string;
+      /** Format: date-time */
+      clockOut: string;
+      /** Format: uuid */
+      customerId: string | null;
+      customerName: string | null;
+      /** Format: uuid */
+      projectId: string | null;
+      projectCode: string | null;
+      projectName: string | null;
+      /** Format: uuid */
+      serviceOrderId: string | null;
+      orderNo: string | null;
+      orderTitle: string | null;
+      activity: string | null;
+      billable: boolean;
+    };
+    SoloReportTotalsDto: {
+      grossMinutes: number;
+      breakMinutes: number;
+      netMinutes: number;
+      billableNetMinutes: number;
+    };
+    SoloReportDto: {
+      /** Format: date */
+      from: string;
+      /** Format: date */
+      to: string;
+      timeZone: string;
+      /** @enum {string} */
+      timeDefinition: 'net_working_time';
+      rows: components['schemas']['SoloReportRowDto'][];
+      totals: components['schemas']['SoloReportTotalsDto'];
+      /** @description Matching open timers, excluded from totals and customer statements. */
+      openTimerCount: number;
     };
     WorkingTimeReportEmployeeDto: {
       /** Format: uuid */
@@ -1439,7 +2099,76 @@ export interface components {
       rows: components['schemas']['WorkingTimeReportRowDto'][];
       totals: components['schemas']['WorkingTimeReportTotalsDto'];
     };
+    TimeSummaryDto: {
+      grossMinutes: number;
+      breakMinutes: number;
+      netMinutes: number;
+    };
+    TimeEntryDto: {
+      note: string | null;
+      revision: number;
+      billable: boolean;
+      /** Format: date-time */
+      voidedAt: string | null;
+      /** Format: uuid */
+      captureGroupId: string | null;
+      /** @enum {string|null} */
+      approvalMode: 'Solo' | 'Team' | null;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      employeeId: string;
+      /** Format: date-time */
+      clockIn: string;
+      /** Format: date-time */
+      clockOut: string | null;
+      /** @enum {string} */
+      source: 'Manual' | 'Pwa' | 'Terminal' | 'Erp' | 'DailyBlock';
+      /** @enum {string} */
+      status: 'Open' | 'Pending' | 'Approved' | 'Rejected';
+      requiresApproval: boolean;
+      latitude: number | null;
+      longitude: number | null;
+      accuracyMeters: number | null;
+      terminalDistanceMeters: number | null;
+      /** @description Terminal geofence radius that was valid when clock-in was accepted. */
+      terminalRadiusMeters: number | null;
+      /** @description Terminal maximum GPS accuracy that was valid when clock-in was accepted. */
+      terminalMaxAccuracyMeters: number | null;
+      /** Format: date-time */
+      positionTimestamp: string | null;
+      clockOutLatitude: number | null;
+      clockOutLongitude: number | null;
+      clockOutAccuracyMeters: number | null;
+      clockOutTerminalDistanceMeters: number | null;
+      /** @description Terminal geofence radius that was valid when clock-out was accepted. */
+      clockOutTerminalRadiusMeters: number | null;
+      /** @description Terminal maximum GPS accuracy that was valid when clock-out was accepted. */
+      clockOutTerminalMaxAccuracyMeters: number | null;
+      /** Format: date-time */
+      clockOutPositionTimestamp: string | null;
+      /** Format: uuid */
+      terminalId: string | null;
+      /** Format: uuid */
+      clockOutTerminalId: string | null;
+      /** Format: uuid */
+      clockInChallengeId: string | null;
+      /** Format: uuid */
+      clockOutChallengeId: string | null;
+      /** Format: uuid */
+      projectId: string | null;
+      projectCode: string | null;
+      projectName: string | null;
+      /** Format: uuid */
+      serviceOrderId: string | null;
+      serviceOrderNo: string | null;
+      serviceOrderTitle: string | null;
+      activity: string | null;
+      summary: components['schemas']['TimeSummaryDto'] | null;
+    };
     ClockInDto: {
+      note?: string | null;
+      billable?: boolean;
       /**
        * Format: uuid
        * @deprecated
@@ -1456,6 +2185,13 @@ export interface components {
       activity?: string | null;
     };
     ClockOutDto: {
+      /**
+       * Format: uuid
+       * @description Required in Solo mode to identify the timer being stopped.
+       */
+      id?: string;
+      /** @description Required in Solo mode. */
+      revision?: number;
       /**
        * Format: uuid
        * @deprecated
@@ -1476,6 +2212,8 @@ export interface components {
       workdayCount: number;
     };
     CreateDailyBlockDto: {
+      note?: string | null;
+      billable?: boolean;
       /** @example 2026-08-13 */
       date: string;
       /** @example 08:00 */
@@ -1486,7 +2224,15 @@ export interface components {
       serviceOrderId?: string | null;
       activity?: string | null;
     };
+    EntryRevisionDto: {
+      /** Format: uuid */
+      id: string;
+      revision: number;
+    };
     BookProjectRangeDto: {
+      /** @description Required for Solo. Exact IDs/revisions of all entries intersecting the range. */
+      revisions?: components['schemas']['EntryRevisionDto'][];
+      billable?: boolean;
       /** Format: uuid */
       employeeId: string;
       /** Format: date-time */
@@ -1499,7 +2245,113 @@ export interface components {
       serviceOrderId?: string | null;
       activity?: string | null;
     };
+    BookProjectRangeResult: {
+      entries: components['schemas']['TimeEntryDto'][];
+    };
+    ManualTimeEntryDto: {
+      note?: string | null;
+      billable?: boolean;
+      /**
+       * Format: uuid
+       * @deprecated
+       * @description Ignored. The employee identity is always taken from the JWT.
+       */
+      employeeId?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      accuracyMeters?: number | null;
+      /** Format: uuid */
+      projectId?: string | null;
+      /** Format: uuid */
+      serviceOrderId?: string | null;
+      activity?: string | null;
+      /**
+       * Format: date-time
+       * @description Absolute instant with UTC Z or explicit offset.
+       */
+      clockIn: string;
+      /**
+       * Format: date-time
+       * @description Absolute instant with UTC Z or explicit offset.
+       */
+      clockOut: string;
+    };
+    CorrectTimeEntryDto: {
+      note?: string | null;
+      billable?: boolean;
+      /**
+       * Format: uuid
+       * @deprecated
+       * @description Ignored. The employee identity is always taken from the JWT.
+       */
+      employeeId?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      accuracyMeters?: number | null;
+      /** Format: uuid */
+      projectId?: string | null;
+      /** Format: uuid */
+      serviceOrderId?: string | null;
+      activity?: string | null;
+      /**
+       * Format: date-time
+       * @description Absolute instant with UTC Z or explicit offset.
+       */
+      clockIn: string;
+      /**
+       * Format: date-time
+       * @description Absolute instant with UTC Z or explicit offset.
+       */
+      clockOut: string;
+      revision: number;
+      reason: string;
+    };
+    VoidTimeEntryDto: {
+      revision: number;
+      reason: string;
+    };
+    SwitchProjectDto: {
+      note?: string | null;
+      billable?: boolean;
+      /**
+       * Format: uuid
+       * @deprecated
+       * @description Ignored. The employee identity is always taken from the JWT.
+       */
+      employeeId?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      accuracyMeters?: number | null;
+      /** Format: uuid */
+      projectId?: string | null;
+      /** Format: uuid */
+      serviceOrderId?: string | null;
+      activity?: string | null;
+      revision: number;
+    };
+    SplitTimeEntryResult: {
+      first: components['schemas']['TimeEntryDto'];
+      second: components['schemas']['TimeEntryDto'];
+    };
+    TimeEntryAuditDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      timeEntryId: string;
+      /** Format: uuid */
+      actorId: string | null;
+      action: string;
+      before: Record<string, never> | null;
+      after: Record<string, never> | null;
+      reason: string | null;
+      /** Format: date-time */
+      occurredAt: string;
+    };
     UpdateTimeEntryDto: {
+      note?: string | null;
+      /** @description Required for Solo entries; prevents lost updates. */
+      revision?: number;
+      billable?: boolean;
       /** Format: uuid */
       projectId?: string | null;
       /** Format: uuid */
@@ -1507,6 +2359,9 @@ export interface components {
       activity?: string | null;
     };
     SplitTimeEntryDto: {
+      /** @description Required for Solo entries. */
+      revision?: number;
+      billable?: boolean;
       /** Format: date-time */
       at: string;
       /** Format: uuid */
@@ -1565,64 +2420,6 @@ export interface components {
        * @description Timestamp reported by the fresh browser geolocation reading.
        */
       positionTimestamp?: string;
-    };
-    TimeSummaryDto: {
-      grossMinutes: number;
-      breakMinutes: number;
-      netMinutes: number;
-    };
-    TimeEntryDto: {
-      /** Format: uuid */
-      id: string;
-      /** Format: uuid */
-      employeeId: string;
-      /** Format: date-time */
-      clockIn: string;
-      /** Format: date-time */
-      clockOut: string | null;
-      /** @enum {string} */
-      source: 'Manual' | 'Pwa' | 'Terminal' | 'Erp' | 'DailyBlock';
-      /** @enum {string} */
-      status: 'Open' | 'Pending' | 'Approved' | 'Rejected';
-      requiresApproval: boolean;
-      latitude: number | null;
-      longitude: number | null;
-      accuracyMeters: number | null;
-      terminalDistanceMeters: number | null;
-      /** @description Terminal geofence radius that was valid when clock-in was accepted. */
-      terminalRadiusMeters: number | null;
-      /** @description Terminal maximum GPS accuracy that was valid when clock-in was accepted. */
-      terminalMaxAccuracyMeters: number | null;
-      /** Format: date-time */
-      positionTimestamp: string | null;
-      clockOutLatitude: number | null;
-      clockOutLongitude: number | null;
-      clockOutAccuracyMeters: number | null;
-      clockOutTerminalDistanceMeters: number | null;
-      /** @description Terminal geofence radius that was valid when clock-out was accepted. */
-      clockOutTerminalRadiusMeters: number | null;
-      /** @description Terminal maximum GPS accuracy that was valid when clock-out was accepted. */
-      clockOutTerminalMaxAccuracyMeters: number | null;
-      /** Format: date-time */
-      clockOutPositionTimestamp: string | null;
-      /** Format: uuid */
-      terminalId: string | null;
-      /** Format: uuid */
-      clockOutTerminalId: string | null;
-      /** Format: uuid */
-      clockInChallengeId: string | null;
-      /** Format: uuid */
-      clockOutChallengeId: string | null;
-      /** Format: uuid */
-      projectId: string | null;
-      projectCode: string | null;
-      projectName: string | null;
-      /** Format: uuid */
-      serviceOrderId: string | null;
-      serviceOrderNo: string | null;
-      serviceOrderTitle: string | null;
-      activity: string | null;
-      summary: components['schemas']['TimeSummaryDto'] | null;
     };
     ScanTerminalResultDto: {
       /** @enum {string} */
@@ -1860,6 +2657,457 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  InstallationController_hints: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PersonalHintsDto'];
+        };
+      };
+    };
+  };
+  InstallationController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InstallationStateResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_settings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateSoloSettingsDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InstallationStateResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_complete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InstallationStateResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PreviewModeDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ModePreviewResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_mode: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangeModeDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InstallationStateResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_days: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PersonalDayResponse'][];
+        };
+      };
+    };
+  };
+  InstallationController_createDay: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PersonalDayDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PersonalDayResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_cancelDay: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RevisionDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PersonalDayResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_updateDay: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EditPersonalDayDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PersonalDayResponse'];
+        };
+      };
+    };
+  };
+  InstallationController_events: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InstallationAuditResponse'][];
+        };
+      };
+    };
+  };
+  InstallationController_dayAudit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InstallationAuditResponse'][];
+        };
+      };
+    };
+  };
+  InstallationController_totals: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PersonalSummaryResponse'];
+        };
+      };
+    };
+  };
+  CustomersController_list: {
+    parameters: {
+      query: {
+        includeInactive: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CustomerDto'][];
+        };
+      };
+    };
+  };
+  CustomersController_create: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpsertCustomerDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CustomerDto'];
+        };
+      };
+    };
+  };
+  CustomersController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CustomerDto'];
+        };
+      };
+    };
+  };
+  CustomersController_update: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpsertCustomerDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CustomerDto'];
+        };
+      };
+    };
+  };
+  CustomersController_remove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AuthController_me: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AuthController_profile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateOwnProfileDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  AuthController_password: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ChangePasswordDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   AuthController_login: {
     parameters: {
       query?: never;
@@ -1893,23 +3141,6 @@ export interface operations {
         'application/json': components['schemas']['RefreshDto'];
       };
     };
-    responses: {
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  AuthController_me: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
     responses: {
       200: {
         headers: {
@@ -2262,7 +3493,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['ProjectDto'][];
+        };
       };
     };
   };
@@ -2283,7 +3516,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['ProjectDto'];
+        };
       };
     };
   };
@@ -2319,7 +3554,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['BookableProjectDto'][];
+        };
       };
     };
   };
@@ -2338,7 +3575,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['ProjectDto'];
+        };
       };
     };
   };
@@ -2361,7 +3600,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['ProjectDto'];
+        };
       };
     };
   };
@@ -2425,7 +3666,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['ServiceOrderDto'];
+        };
       };
     };
   };
@@ -2449,7 +3692,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['ServiceOrderDto'];
+        };
       };
     };
   };
@@ -2513,6 +3758,63 @@ export interface operations {
       };
     };
   };
+  ReportsController_solo: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+        customerId?: string;
+        projectId?: string;
+        serviceOrderId?: string;
+        billable?: 'true' | 'false';
+        /** @description True selects only time without a project. */
+        unassigned?: 'true' | 'false';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SoloReportDto'];
+        };
+      };
+    };
+  };
+  ReportsController_soloCsv: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+        customerId?: string;
+        projectId?: string;
+        serviceOrderId?: string;
+        billable?: 'true' | 'false';
+        /** @description True selects only time without a project. */
+        unassigned?: 'true' | 'false';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description UTF-8 BOM, semicolon-delimited CSV. Exact minutes; metadata rows state timezone and time definition. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/csv': string;
+        };
+      };
+    };
+  };
   ReportsController_workingTimeEmployees: {
     parameters: {
       query?: never;
@@ -2573,7 +3875,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'][];
+        };
       };
     };
   };
@@ -2594,7 +3898,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
       };
     };
   };
@@ -2615,13 +3921,17 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
       };
     };
   };
   TimeEntriesController_dailyBlockOption: {
     parameters: {
-      query?: never;
+      query: {
+        date: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -2655,7 +3965,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
       };
     };
   };
@@ -2676,7 +3988,128 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['BookProjectRangeResult'];
+        };
+      };
+    };
+  };
+  TimeEntriesController_manual: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ManualTimeEntryDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
+      };
+    };
+  };
+  TimeEntriesController_correct: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CorrectTimeEntryDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
+      };
+    };
+  };
+  TimeEntriesController_voidEntry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['VoidTimeEntryDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
+      };
+    };
+  };
+  TimeEntriesController_switchProject: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SwitchProjectDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SplitTimeEntryResult'];
+        };
+      };
+    };
+  };
+  TimeEntriesController_audit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryAuditDto'][];
+        };
       };
     };
   };
@@ -2699,7 +4132,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
       };
     };
   };
@@ -2722,7 +4157,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['SplitTimeEntryResult'];
+        };
       };
     };
   };

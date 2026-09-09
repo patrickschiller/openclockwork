@@ -118,8 +118,68 @@ export const navItems: NavItem[] = [
     roles: ['HRAdmin'],
     showInBottomNav: false,
   },
+  {
+    to: '/settings',
+    labelKey: 'solo.settings',
+    icon: Settings,
+    roles: ['HRAdmin'],
+    showInBottomNav: false,
+  },
 ];
 
-export function visibleNavItems(role: Role): NavItem[] {
+export const soloNavItems: NavItem[] = [
+  {
+    to: '/',
+    labelKey: 'solo.overview',
+    icon: LayoutDashboard,
+    roles: ['HRAdmin'],
+    showInBottomNav: true,
+  },
+  {
+    to: '/booking',
+    labelKey: 'solo.times',
+    icon: Clock,
+    roles: ['HRAdmin'],
+    showInBottomNav: true,
+  },
+  {
+    to: '/calendar',
+    labelKey: 'nav.calendar',
+    icon: CalendarDays,
+    roles: ['HRAdmin'],
+    showInBottomNav: true,
+  },
+  {
+    to: '/customers',
+    labelKey: 'solo.customers',
+    icon: Users,
+    roles: ['HRAdmin'],
+    showInBottomNav: false,
+  },
+  {
+    to: '/projects',
+    labelKey: 'nav.projects',
+    icon: FolderKanban,
+    roles: ['HRAdmin'],
+    showInBottomNav: false,
+  },
+  {
+    to: '/reports',
+    labelKey: 'solo.reports',
+    icon: FileBarChart,
+    roles: ['HRAdmin'],
+    showInBottomNav: true,
+  },
+  {
+    to: '/settings',
+    labelKey: 'solo.settings',
+    icon: Settings,
+    roles: ['HRAdmin'],
+    showInBottomNav: false,
+  },
+];
+
+export function visibleNavItems(role: Role, solo = false): NavItem[] {
+  if (solo) return soloNavItems;
   return navItems.filter((item) => item.roles.includes(role));
 }

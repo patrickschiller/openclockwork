@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -37,6 +38,16 @@ export class UpsertProjectDto {
   @IsNumber()
   @Min(0)
   planHours?: number | null;
+
+  @ApiPropertyOptional({ format: 'uuid', nullable: true })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string | null;
+
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  defaultBillable?: boolean;
 }
 
 export class UpsertServiceOrderDto {
@@ -61,31 +72,70 @@ export class UpsertServiceOrderDto {
   @IsNumber()
   @Min(0)
   planHours?: number | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Null inherits the project default.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  defaultBillable?: boolean | null;
 }
 
-export interface ServiceOrderDto {
-  id: string;
-  projectId: string;
-  orderNo: string;
-  title: string;
-  isActive: boolean;
-  planHours: number | null;
+export class ServiceOrderDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty({ format: 'uuid' })
+  projectId!: string;
+  @ApiProperty()
+  orderNo!: string;
+  @ApiProperty()
+  title!: string;
+  @ApiProperty()
+  isActive!: boolean;
+  @ApiProperty({ type: Number, nullable: true })
+  planHours!: number | null;
   /** Gross minutes booked onto this order (closed, non-rejected entries). */
-  bookedMinutes: number;
+  @ApiProperty()
+  bookedMinutes!: number;
+  @ApiProperty({ type: Boolean, nullable: true })
+  defaultBillable!: boolean | null;
+  /** Exact net minutes in the Solo owner's report; absent in Team mode. */
+  @ApiPropertyOptional()
+  bookedNetMinutes?: number;
 }
 
-export interface ProjectDto {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  isActive: boolean;
-  planHours: number | null;
+export class ProjectDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty()
+  code!: string;
+  @ApiProperty()
+  name!: string;
+  @ApiProperty({ type: String, nullable: true })
+  description!: string | null;
+  @ApiProperty()
+  isActive!: boolean;
+  @ApiProperty({ type: Number, nullable: true })
+  planHours!: number | null;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  customerId!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  customerName!: string | null;
+  @ApiProperty()
+  defaultBillable!: boolean;
+  /** Exact net minutes in the Solo owner's report; absent in Team mode. */
+  @ApiPropertyOptional()
+  bookedNetMinutes?: number;
   /** Gross minutes booked onto the project incl. order-less entries. */
-  bookedMinutes: number;
-  serviceOrders: ServiceOrderDto[];
-  assignedEmployeeCount: number;
-  updatedAt: string;
+  @ApiProperty()
+  bookedMinutes!: number;
+  @ApiProperty({ type: [ServiceOrderDto] })
+  serviceOrders!: ServiceOrderDto[];
+  @ApiProperty()
+  assignedEmployeeCount!: number;
+  @ApiProperty({ format: 'date-time' })
+  updatedAt!: string;
 }
 
 export interface ProjectAssignmentDto {
@@ -93,19 +143,34 @@ export interface ProjectAssignmentDto {
   projectId: string;
 }
 
-export interface BookableServiceOrderDto {
-  id: string;
-  orderNo: string;
-  title: string;
+export class BookableServiceOrderDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty()
+  orderNo!: string;
+  @ApiProperty()
+  title!: string;
+  @ApiProperty({ type: Boolean, nullable: true })
+  defaultBillable!: boolean | null;
 }
 
 /** Slim shape for the booking selector: active projects assigned to the employee. */
-export interface BookableProjectDto {
-  id: string;
-  code: string;
-  name: string;
+export class BookableProjectDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty()
+  code!: string;
+  @ApiProperty()
+  name!: string;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  customerId!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  customerName!: string | null;
+  @ApiProperty()
+  defaultBillable!: boolean;
   /** Active service orders — when non-empty, one MUST be chosen on booking. */
-  serviceOrders: BookableServiceOrderDto[];
+  @ApiProperty({ type: [BookableServiceOrderDto] })
+  serviceOrders!: BookableServiceOrderDto[];
 }
 
 export interface ProjectReportRow {
@@ -131,6 +196,8 @@ export interface ProjectReportDto {
 export interface ProjectIstStats {
   totalMinutes: number;
   byOrder: ReadonlyMap<string, number>;
+  netMinutes?: number;
+  netByOrder?: ReadonlyMap<string, number>;
 }
 
 export const EMPTY_IST_STATS: ProjectIstStats = {
@@ -145,6 +212,7 @@ function decimalToNumber(value: unknown): number | null {
 export function toServiceOrderDto(
   o: ServiceOrder,
   bookedMinutes: number,
+  bookedNetMinutes?: number,
 ): ServiceOrderDto {
   return {
     id: o.id,
@@ -154,11 +222,16 @@ export function toServiceOrderDto(
     isActive: o.isActive,
     planHours: decimalToNumber(o.planHours),
     bookedMinutes,
+    defaultBillable: o.defaultBillable,
+    ...(bookedNetMinutes === undefined ? {} : { bookedNetMinutes }),
   };
 }
 
 export function toProjectDto(
-  p: Project & { serviceOrders: ServiceOrder[] },
+  p: Project & {
+    serviceOrders: ServiceOrder[];
+    customer?: { name: string } | null;
+  },
   assignedEmployeeCount: number,
   stats: ProjectIstStats = EMPTY_IST_STATS,
 ): ProjectDto {
@@ -169,9 +242,20 @@ export function toProjectDto(
     description: p.description,
     isActive: p.isActive,
     planHours: decimalToNumber(p.planHours),
+    customerId: p.customerId,
+    customerName: p.customer?.name ?? null,
+    defaultBillable: p.defaultBillable,
     bookedMinutes: stats.totalMinutes,
+    ...(stats.netMinutes === undefined
+      ? {}
+      : { bookedNetMinutes: stats.netMinutes }),
     serviceOrders: p.serviceOrders.map((o) =>
-      toServiceOrderDto(o, stats.byOrder.get(o.id) ?? 0),
+      toServiceOrderDto(
+        o,
+        stats.byOrder.get(o.id) ?? 0,
+        stats.netByOrder?.get(o.id) ??
+          (stats.netMinutes === undefined ? undefined : 0),
+      ),
     ),
     assignedEmployeeCount,
     updatedAt: p.updatedAt.toISOString(),

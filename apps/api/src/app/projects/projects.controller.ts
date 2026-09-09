@@ -12,28 +12,40 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { ProjectsService } from './projects.service';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { JwtUser } from '../auth/jwt.strategy';
+import { SoloProjectAccessGuard } from './solo-project-access.guard';
 import {
   UpsertProjectDto,
   UpsertServiceOrderDto,
-  type BookableProjectDto,
+  BookableProjectDto,
   type ProjectAssignmentDto,
-  type ProjectDto,
+  ProjectDto,
   type ProjectReportDto,
-  type ServiceOrderDto,
+  ServiceOrderDto,
 } from './projects.dto';
 
 @ApiTags('projects')
 @Controller('projects')
+@UseGuards(SoloProjectAccessGuard)
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 
   @Get()
-  list(@Query('includeInactive') includeInactive?: string): Promise<ProjectDto[]> {
+  @ApiOkResponse({ type: [ProjectDto] })
+  list(
+    @Query('includeInactive') includeInactive?: string,
+  ): Promise<ProjectDto[]> {
     return this.projects.list(includeInactive === 'true');
   }
 
@@ -48,6 +60,7 @@ export class ProjectsController {
   }
 
   @Get('bookable')
+  @ApiOkResponse({ type: [BookableProjectDto] })
   listBookable(
     @Query('employeeId', new ParseUUIDPipe()) employeeId: string,
   ): Promise<BookableProjectDto[]> {
@@ -55,6 +68,7 @@ export class ProjectsController {
   }
 
   @Get(':id')
+  @ApiOkResponse({ type: ProjectDto })
   get(@Param('id', new ParseUUIDPipe()) id: string): Promise<ProjectDto> {
     return this.projects.getById(id);
   }
@@ -76,22 +90,28 @@ export class ProjectsController {
   }
 
   @Post()
+  @ApiCreatedResponse({ type: ProjectDto })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Manager', 'HRAdmin')
-  create(@Body() dto: UpsertProjectDto): Promise<ProjectDto> {
-    return this.projects.create(dto);
+  create(
+    @Body() dto: UpsertProjectDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<ProjectDto> {
+    return this.projects.create(dto, user);
   }
 
   @Put(':id')
+  @ApiOkResponse({ type: ProjectDto })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Manager', 'HRAdmin')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpsertProjectDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<ProjectDto> {
-    return this.projects.update(id, dto);
+    return this.projects.update(id, dto, user);
   }
 
   @Delete(':id')
@@ -99,22 +119,28 @@ export class ProjectsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Manager', 'HRAdmin')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', new ParseUUIDPipe()) id: string): Promise<void> {
-    return this.projects.remove(id);
+  remove(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<void> {
+    return this.projects.remove(id, user);
   }
 
   @Post(':id/service-orders')
+  @ApiCreatedResponse({ type: ServiceOrderDto })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Manager', 'HRAdmin')
   createServiceOrder(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpsertServiceOrderDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<ServiceOrderDto> {
-    return this.projects.createServiceOrder(id, dto);
+    return this.projects.createServiceOrder(id, dto, user);
   }
 
   @Put(':id/service-orders/:orderId')
+  @ApiOkResponse({ type: ServiceOrderDto })
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('Manager', 'HRAdmin')
@@ -122,8 +148,9 @@ export class ProjectsController {
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('orderId', new ParseUUIDPipe()) orderId: string,
     @Body() dto: UpsertServiceOrderDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<ServiceOrderDto> {
-    return this.projects.updateServiceOrder(id, orderId, dto);
+    return this.projects.updateServiceOrder(id, orderId, dto, user);
   }
 
   @Delete(':id/service-orders/:orderId')
@@ -134,8 +161,9 @@ export class ProjectsController {
   removeServiceOrder(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<void> {
-    return this.projects.removeServiceOrder(id, orderId);
+    return this.projects.removeServiceOrder(id, orderId, user);
   }
 
   @Put(':id/assignments/:employeeId')
@@ -146,8 +174,9 @@ export class ProjectsController {
   assign(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<void> {
-    return this.projects.assign(id, employeeId);
+    return this.projects.assign(id, employeeId, user);
   }
 
   @Delete(':id/assignments/:employeeId')
@@ -158,7 +187,8 @@ export class ProjectsController {
   unassign(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<void> {
-    return this.projects.unassign(id, employeeId);
+    return this.projects.unassign(id, employeeId, user);
   }
 }

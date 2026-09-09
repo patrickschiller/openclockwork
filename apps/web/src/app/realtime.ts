@@ -68,11 +68,18 @@ export function useRealtimeInvalidation() {
         qc.invalidateQueries({ queryKey: ['account'] });
       };
       const onTimeEntry = () => {
+        qc.invalidateQueries({ queryKey: ['solo-times'] });
+        qc.invalidateQueries({ queryKey: ['solo-report'] });
+        qc.invalidateQueries({ queryKey: ['solo-summary'] });
+        qc.invalidateQueries({ queryKey: ['solo-hints'] });
         qc.invalidateQueries({ queryKey: ['time-entries'] });
         qc.invalidateQueries({ queryKey: ['account'] });
         qc.invalidateQueries({ queryKey: ['violations'] });
       };
       const onProject = () => {
+        qc.invalidateQueries({ queryKey: ['solo-projects'] });
+        qc.invalidateQueries({ queryKey: ['solo-bookable'] });
+        qc.invalidateQueries({ queryKey: ['solo-customers'] });
         qc.invalidateQueries({ queryKey: ['projects'] });
         qc.invalidateQueries({ queryKey: ['project-assignments'] });
         qc.invalidateQueries({ queryKey: ['bookable-projects'] });

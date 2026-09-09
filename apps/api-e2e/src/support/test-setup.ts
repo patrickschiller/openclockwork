@@ -1,12 +1,11 @@
+import { assertE2eTarget } from './database-target';
+
 /* eslint-disable */
 // Per-spec setup runs in each test worker BEFORE the test file (and therefore
 // AppModule + ConfigModule) is loaded. Defaults set in globalSetup do not
-// propagate to workers, so we mirror them here. A real .env value already
-// in process.env wins (devs may override locally).
-process.env.DATABASE_URL =
-  process.env.DATABASE_URL ??
-  process.env.E2E_DATABASE_URL ??
-  'postgresql://openclockwork:openclockwork@localhost:5433/openclockwork_test?schema=public';
+// propagate to workers, so validate independently here. An unrelated inherited
+// DATABASE_URL must never win over the explicitly selected test database.
+process.env.DATABASE_URL = assertE2eTarget().databaseUrl;
 // Pin the fixture timezone independently of the deployment default.
 // Core-time and off-hours assertions use these explicit wall-clock times.
 process.env.TZ = 'Europe/Berlin';

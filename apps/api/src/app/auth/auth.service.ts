@@ -1,11 +1,22 @@
 import { randomUUID } from 'crypto';
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { ThemePreference } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { InstallationService } from '../installation/installation.service';
 import type { JwtPayload } from './jwt.strategy';
-import type { EmployeeProfile, LoginResponse, RefreshResponse } from './auth.dto';
+import type {
+  EmployeeProfile,
+  LoginResponse,
+  RefreshResponse,
+} from './auth.dto';
 
 const ACCESS_TTL = '15m';
 const ACCESS_TTL_SECONDS = 15 * 60;
@@ -16,20 +27,25 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly installation: InstallationService,
   ) {}
 
   async login(email: string, password: string): Promise<LoginResponse> {
-    const employee = await this.prisma.employee.findUnique({ where: { email } });
+    const employee = await this.prisma.employee.findUnique({
+      where: { email },
+    });
     if (!employee || !employee.isActive) {
       throw new UnauthorizedException('Invalid credentials');
     }
     const ok = await bcrypt.compare(password, employee.passwordHash);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
+    await this.installation.assertActorAccess(employee.id);
 
     const tokens = await this.issueTokenPair({
       sub: employee.id,
       email: employee.email,
       role: employee.role,
+      ver: employee.authVersion,
     });
     return {
       ...tokens,
@@ -38,23 +54,75 @@ export class AuthService {
   }
 
   async getProfile(employeeId: string): Promise<EmployeeProfile> {
-    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
     if (!employee || !employee.isActive) {
       throw new UnauthorizedException('Account is no longer active');
     }
     return this.toProfile(employee);
   }
 
+  async changePassword(
+    employeeId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+    if (
+      !employee?.isActive ||
+      !(await bcrypt.compare(currentPassword, employee.passwordHash))
+    )
+      throw new UnauthorizedException('Current password is incorrect');
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const changed = await this.prisma.employee.updateMany({
+      where: { id: employeeId, passwordHash: employee.passwordHash },
+      data: { passwordHash, authVersion: { increment: 1 } },
+    });
+    if (!changed.count)
+      throw new UnauthorizedException(
+        'Password already changed; sign in again',
+      );
+    return { changed: true };
+  }
+
+  async updateOwnProfile(
+    employeeId: string,
+    dto: { firstName: string; lastName: string; email: string },
+  ): Promise<EmployeeProfile> {
+    await this.installation.requireOwner(employeeId);
+    const firstName = dto.firstName.trim(),
+      lastName = dto.lastName.trim();
+    if (!firstName || !lastName)
+      throw new BadRequestException('A name is required');
+    try {
+      return this.toProfile(
+        await this.prisma.employee.update({
+          where: { id: employeeId },
+          data: { firstName, lastName, email: dto.email.trim().toLowerCase() },
+        }),
+      );
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002')
+        throw new ConflictException('Email is already in use');
+      throw error;
+    }
+  }
+
   async updatePreferences(
     employeeId: string,
     themePreference: ThemePreference,
   ): Promise<EmployeeProfile> {
-    const updated = await this.prisma.employee.update({
-      where: { id: employeeId },
-      data: { themePreference },
-    }).catch(() => {
-      throw new NotFoundException('Employee not found');
-    });
+    const updated = await this.prisma.employee
+      .update({
+        where: { id: employeeId },
+        data: { themePreference },
+      })
+      .catch(() => {
+        throw new NotFoundException('Employee not found');
+      });
     return this.toProfile(updated);
   }
 
@@ -88,14 +156,20 @@ export class AuthService {
     }
     // Re-check the employee exists and is still active — a deactivation
     // between login and refresh must invalidate the session.
-    const employee = await this.prisma.employee.findUnique({ where: { id: payload.sub } });
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: payload.sub },
+    });
     if (!employee || !employee.isActive) {
       throw new UnauthorizedException('Account is no longer active');
     }
+    if ((payload.ver ?? 0) !== employee.authVersion)
+      throw new UnauthorizedException('Session no longer valid');
+    await this.installation.assertActorAccess(employee.id);
     return this.issueTokenPair({
       sub: employee.id,
       email: employee.email,
       role: employee.role,
+      ver: employee.authVersion,
     });
   }
 
@@ -105,7 +179,9 @@ export class AuthService {
    * by their TTL. We rotate refresh tokens on every refresh so a leaked
    * pair has at most a 7-day window.
    */
-  private async issueTokenPair(base: Omit<JwtPayload, 'typ'>): Promise<RefreshResponse> {
+  private async issueTokenPair(
+    base: Omit<JwtPayload, 'typ'>,
+  ): Promise<RefreshResponse> {
     // `jwtid` ensures every token has a unique string even when signed at the
     // same second with the same payload (otherwise login + immediate refresh
     // would mint identical access tokens).

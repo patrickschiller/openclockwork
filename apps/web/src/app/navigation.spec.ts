@@ -1,6 +1,28 @@
 import { visibleNavItems } from './navigation';
 
 describe('role-aware navigation', () => {
+  it('exposes the complete personal workflow without Team administration in Solo', () => {
+    const items = visibleNavItems('HRAdmin', true);
+    expect(items.map((item) => item.to)).toEqual([
+      '/',
+      '/booking',
+      '/calendar',
+      '/customers',
+      '/projects',
+      '/reports',
+      '/settings',
+    ]);
+    expect(
+      items.filter((item) => item.showInBottomNav).map((item) => item.to),
+    ).toEqual(['/', '/booking', '/calendar', '/reports']);
+    expect(
+      items.some(
+        (item) =>
+          item.to.startsWith('/admin') ||
+          ['/requests', '/substitute', '/terminal'].includes(item.to),
+      ),
+    ).toBe(false);
+  });
   it('always exposes working-time reports to HR admins only', () => {
     expect(
       visibleNavItems('Manager').some(

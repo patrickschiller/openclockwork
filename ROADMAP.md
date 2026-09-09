@@ -1,95 +1,95 @@
 # OpenClockwork Roadmap
 
-OpenClockwork is evolving from team time and attendance into a self-hosted
-workspace for personal work, customer billing, and coding-agent usage accounting.
-The project remains public and Apache-2.0 licensed.
+OpenClockwork is a public, Apache-2.0 self-hosted application for personal work
+and Team time and attendance. Version **2.0.0** makes Solo and Team first-class
+operating modes. Customer invoicing and coding-agent usage accounting remain
+future work; a billable time flag does not mean those features already exist.
 
-This roadmap describes intended scope and delivery order, not a release-date
-commitment. **Solo mode, invoice creation, and CAUR integration are planned and
-are not implemented yet.** See [FEATURES.md](FEATURES.md) for the current
-application and [README.md](README.md) for installation.
+This roadmap expresses priorities and intended scope, not release dates or
+promises of regulatory compliance. See [FEATURES.md](FEATURES.md) for implemented
+capabilities, [the mode comparison](docs/OPERATING_MODES.md) for current
+boundaries, and [README.md](README.md) for release installation.
 
 ## Delivery order
 
-| Stage | Scope                                        | Status / dependency                            |
-| ----- | -------------------------------------------- | ---------------------------------------------- |
-| 1     | Country-neutral configuration and defaults   | Included in v1.4.0                             |
-| 2     | Complete Solo mode                           | Planned; builds on stage 1                     |
-| 3     | Customer billing and invoice creation        | Planned; available to Solo and team workspaces |
-| 4     | CAUR usage import, attribution, and review   | Planned; can progress alongside stage 3        |
-| 5     | Agent billing and combined customer invoices | Planned; requires stages 3 and 4               |
+| Stage | Scope                                          | Status / dependency                     |
+| ----- | ---------------------------------------------- | --------------------------------------- |
+| 1     | Country-neutral configuration and defaults     | Included in 1.4.0; retained in 2.0.0    |
+| 2     | Complete personal Solo workflow alongside Team | Included in 2.0.0                       |
+| 3     | Customer billing and invoice creation          | Planned; intended for Solo and Team     |
+| 4     | CAUR usage import, attribution, and review     | Planned; can progress alongside stage 3 |
+| 5     | Agent billing and combined customer invoices   | Planned; depends on stages 3 and 4      |
 
-## 1. Country-neutral foundation
+Version 2.0 deliberately marks a new product generation, not an invented
+breaking Team API or a required data reset. Existing installations migrate
+forward and remain Team. Future compatibility changes follow semantic
+versioning and are documented in release notes and upgrade instructions.
 
-The application must not infer a country's work rules from the user's language.
-The initial foundation includes:
+## 1. International foundation and remaining work
 
-- English and German UI, browser-language detection, English fallback, and
-  regional date formatting.
-- Explicit installation and terminal timezones, with UTC as the neutral
-  deployment fallback.
-- Optional holiday calendars and custom holiday dates for national, regional,
-  and company calendars. Existing German state calendars remain optional presets.
-- Configurable schedule break thresholds and deductions, without automatically
-  imposing the previous German policy on new schedules.
-- Explicit leave allowances and working-day masks. New employee forms and
-  bootstrap no longer assume a 30-day entitlement.
-- Forward migration of existing calendars and schedules, plus stored break
-  policy snapshots so later policy edits do not rewrite historical deductions.
+Implemented foundations include:
 
-Further internationalisation work remains planned:
+- [x] German and English UI, browser-language detection, English fallback, and
+      locale-aware display formatting.
+- [x] Explicit installation working timezone and independently configured kiosk
+      display timezone, with UTC as the neutral deployment default.
+- [x] Optional holiday calendars and custom dates; German regional calendars
+      remain presets rather than defaults selected by language.
+- [x] Configurable break thresholds and deductions, without imposing an
+      automatic break policy on newly created schedules.
+- [x] Explicit leave allowances and working-day masks, with no assumed annual
+      leave entitlement for new employee records.
+- [x] Preservation of existing calendars/schedules and stored break evidence.
+- [x] Effective-dated personal policies and yearly leave information for Solo,
+      including accounting boundaries during mode transitions.
 
-- [ ] Per-workspace and per-employee working timezones, including midnight,
-      daylight-saving changes, overnight shifts, and cross-zone reporting. The
-      current API uses one deployment timezone for day and schedule boundaries.
-- [ ] Reusable, maintained regional calendars with import/update workflows and
-      visible coverage years; custom date lists currently require each year's dates.
-- [ ] Additional UI translations, regional week-start and number preferences,
-      and an English equivalent of the German iPad operations guide.
-- [ ] Versioned schedule/leave policies where effective dates are needed for
-      historical target hours and leave calculations, beyond break snapshots.
-- [ ] Currency, address, tax, and invoice-format settings selected independently
-      from language as part of billing. No country-wide compliance claim is implied.
+Remaining internationalisation work:
 
-## 2. Complete Solo mode
+- [ ] Multiple simultaneous employee/workspace working timezones. The current
+      API uses one installation timezone for working-day and schedule boundaries.
+- [ ] Maintained regional calendar imports/updates with visible coverage years;
+      custom date lists require operators to maintain the periods in use.
+- [ ] Additional UI languages, configurable regional week-start preferences, and
+      an English equivalent of the German iPad operations guide.
+- [ ] Broader effective-dated Team schedule and leave-policy administration,
+      beyond existing break snapshots and the new Solo policy versions.
+- [ ] Currency, address, tax, and invoice-format settings independent of UI
+      language, as part of a future billing feature.
 
-Solo mode is a first-class workflow for freelancers, independent consultants,
-and people tracking their own work. It must work without creating a fictional
-manager, HR department, or employee approval chain.
+## 2. Solo and Team in 2.0.0
 
-- [ ] **Setup and identity:** choose Solo or Team during setup; create one owner
-      account and a personal workspace with timezone, language, working days, optional
-      weekly target, holidays, and optional leave tracking. Reuse secure login,
-      password management, backup, and self-hosting workflows.
-- [ ] **Focused navigation:** a personal dashboard, timer/bookings, calendar,
-      customers, projects, reports, and settings. Show billing and agent usage when
-      those capabilities become available. Team administration, substitutes, approval
-      inboxes, and kiosk setup should not be required in the Solo workflow.
-- [ ] **Time capture:** start/stop a timer, add and correct manual entries, split
-      work between projects, edit activity descriptions, and review daily/weekly
-      totals. Keep the mobile PWA experience. GPS and the existing daily-target block
-      remain optional and explicitly configured.
-- [ ] **Personal policies:** optional work targets, break deduction, time-off and
-      overtime tracking; support working without attendance obligations or a fixed
-      schedule. Use direct owner actions for personal bookings and corrections,
-      preserving an audit history without routing them through employee approvals.
-- [ ] **Customer and project work:** customer records, projects/service orders,
-      billable versus non-billable entries, estimates/budgets, and customer-facing
-      activity descriptions. Rates will feed the shared invoicing foundation.
-- [ ] **Reports and exports:** personal productivity and project totals, customer
-      timesheets, period filters, and exportable billing evidence. Distinguish raw
-      tracked time, deductible breaks, and billable time.
-- [ ] **Transition to a team:** invite additional people and enable Team mode
-      without losing customers, projects, bookings, settings, or invoice references.
-      Map the Solo owner to an explicit administrative role; define who can see and
-      approve existing records. Returning to Solo must require resolving active team
-      members and pending workflows first.
-- [ ] **Acceptance coverage:** complete setup → track work → assign to a customer
-      → review/export flow in both UI languages, optional-policy behaviour, owner
-      access boundaries, and migration of an existing one-person installation.
+[The Solo guide](docs/SOLO_MODE.md) documents the shipped personal workflow.
+[The Team guide](docs/TEAM_MODE.md) explains organisation setup and daily use.
 
-**Done when:** one person can operate the application end to end without an HR
-workflow, and can later enable team collaboration while preserving their data.
+- [x] Explicit first-owner bootstrap, authenticated setup, profile/password
+      management, and local recovery of an existing active Solo owner.
+- [x] Personal Overview, Times, Calendar, Customers, Projects, Reports, and
+      Settings navigation without Team approval or terminal screens.
+- [x] Live timer, manual intervals, direct reasoned corrections/cancellations,
+      splitting, running project changes, revisions, and audit history.
+- [x] Optional targets, leave accounting, holiday dates, break rules, personal
+      time-window hints, daily blocks, and GPS.
+- [x] Customer/internal projects, service orders, planned-hour budgets, billable
+      classification, private notes, and protected archive/delete operations.
+- [x] Owner reports with period/allocation filters, gross/break/net/billable-net
+      distinctions, CSV output, and browser print/PDF.
+- [x] Guarded mode previews and explicit transitions preserving history and
+      defining accounting-effective dates.
+- [x] Existing Team workflows retained, with existing installations remaining
+      Team after upgrade.
+- [x] Automated domain/API/UI regression coverage and local Docker acceptance
+      work. Browser file/print handoffs and operator-specific rules still require
+      validation in the actual deployment; see release notes for scope.
+
+Follow-up work, not part of this release:
+
+- [ ] Shared Team customer management and billable reporting beyond the current
+      Solo-only screens, with explicit billing permissions.
+- [ ] Invitations and guided onboarding of additional team members. Team
+      currently uses administrator-created employee accounts.
+- [ ] Rate management and invoice linking, delivered with the billing foundation.
+- [ ] Further device/PWA coverage and any additional export delivery formats.
+      Online-first operation is the current contract, not an offline write queue.
 
 ## 3. Customer billing and invoice creation
 
@@ -129,9 +129,10 @@ customer invoice from tracked work and follow it through payment or correction.
 
 [CAUR — Coding Agent Usage Record](https://github.com/patrickschiller/caur)
 defines a vendor-neutral usage record for a completed or interrupted coding-agent
-run. It is currently a **v0.1 draft**, not an invoice format or pricing catalogue.
-OpenClockwork will consume these records and provide attribution, review, and
-billing around them. The integration must follow the
+run. It is a separate specification project, not an invoice format or pricing
+catalogue, and is not imported by OpenClockwork 2.0.0. A future integration should
+consume explicitly supported schema versions and provide attribution, review,
+and billing around them. Its design should follow the
 [CAUR specification](https://github.com/patrickschiller/caur/blob/main/SPEC.md)
 and [JSON Schema](https://github.com/patrickschiller/caur/blob/main/schema/caur-v0.1.schema.json).
 

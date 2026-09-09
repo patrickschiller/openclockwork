@@ -2,6 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
+@media print {
+  body:has(.solo-print) {
+    background: white;
+    color: black;
+  }
+  body:has(.solo-print) aside,
+  body:has(.solo-print) header,
+  body:has(.solo-print) nav,
+  body:has(.solo-print) footer,
+  body:has(.solo-print) .solo-no-print {
+    display: none !important;
+  }
+  body:has(.solo-print) main {
+    padding: 0 !important;
+  }
+  .solo-print {
+    color: black;
+    background: white;
+  }
+  .solo-print * {
+    color: black !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+  .solo-print table {
+    min-width: 0;
+    font-size: 9px;
+  }
+  .solo-print th,
+  .solo-print td {
+    padding: 5px;
+  }
+  .solo-print tr {
+    break-inside: avoid;
+  }
+  .solo-print .overflow-x-auto {
+    overflow: visible;
+  }
+  .solo-print .text-muted-foreground {
+    color: #444;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -55,6 +98,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: 'rlig' 1, 'calt' 1;
+    font-feature-settings:
+      'rlig' 1,
+      'calt' 1;
   }
 }

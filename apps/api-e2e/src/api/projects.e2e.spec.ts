@@ -46,7 +46,10 @@ describe('Projects — CRUD, service orders, assignment matrix', () => {
     const { manager, worker } = await fixture();
 
     await ctx.http.get('/api/projects').expect(200);
-    await ctx.http.post('/api/projects').send({ code: 'P-1', name: 'One' }).expect(401);
+    await ctx.http
+      .post('/api/projects')
+      .send({ code: 'P-1', name: 'One' })
+      .expect(401);
 
     const workerToken = await login(ctx.http, worker.email);
     await ctx.http
@@ -95,7 +98,9 @@ describe('Projects — CRUD, service orders, assignment matrix', () => {
 
     const activeOnly = await ctx.http.get('/api/projects').expect(200);
     expect(activeOnly.body.length).toBe(0);
-    const all = await ctx.http.get('/api/projects?includeInactive=true').expect(200);
+    const all = await ctx.http
+      .get('/api/projects?includeInactive=true')
+      .expect(200);
     expect(all.body.length).toBe(1);
   });
 
@@ -184,7 +189,9 @@ describe('Projects — CRUD, service orders, assignment matrix', () => {
       .get('/api/projects/assignments')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
-    expect(matrix.body).toEqual([{ employeeId: worker.id, projectId: project.id }]);
+    expect(matrix.body).toEqual([
+      { employeeId: worker.id, projectId: project.id },
+    ]);
 
     // Unassigning is idempotent too.
     await ctx.http
@@ -237,8 +244,16 @@ describe('Projects — CRUD, service orders, assignment matrix', () => {
         id: active.id,
         code: 'P-ACTIVE',
         name: 'P-ACTIVE',
+        customerId: null,
+        customerName: null,
+        defaultBillable: false,
         serviceOrders: [
-          { id: active.serviceOrders[0].id, orderNo: 'SA-1', title: 'Aktiv' },
+          {
+            id: active.serviceOrders[0].id,
+            orderNo: 'SA-1',
+            title: 'Aktiv',
+            defaultBillable: null,
+          },
         ],
       },
     ]);
@@ -332,12 +347,18 @@ describe('Projects — CRUD, service orders, assignment matrix', () => {
     });
     const order = project.serviceOrders[0];
     const now = new Date();
-    const mk = (hoursAgo: number, lengthHours: number, extra: Record<string, unknown> = {}) =>
+    const mk = (
+      hoursAgo: number,
+      lengthHours: number,
+      extra: Record<string, unknown> = {},
+    ) =>
       ctx.prisma.timeEntry.create({
         data: {
           employeeId: worker.id,
           clockIn: new Date(now.getTime() - hoursAgo * 60 * 60 * 1000),
-          clockOut: new Date(now.getTime() - (hoursAgo - lengthHours) * 60 * 60 * 1000),
+          clockOut: new Date(
+            now.getTime() - (hoursAgo - lengthHours) * 60 * 60 * 1000,
+          ),
           status: 'Pending',
           projectId: project.id,
           ...extra,
@@ -347,7 +368,12 @@ describe('Projects — CRUD, service orders, assignment matrix', () => {
     await mk(7, 2); // 120 min project-level
     await mk(4, 1, { status: 'Rejected' }); // ignored
     await ctx.prisma.timeEntry.create({
-      data: { employeeId: worker.id, clockIn: now, clockOut: null, projectId: project.id },
+      data: {
+        employeeId: worker.id,
+        clockIn: now,
+        clockOut: null,
+        projectId: project.id,
+      },
     }); // open → ignored
 
     const res = await ctx.http.get(`/api/projects/${project.id}`).expect(200);

@@ -49,6 +49,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma generate
 
+      - name: Test release tooling and database target safety
+        run: pnpm nx run api-e2e:test-ops
+
       # Caches the local Nx task cache between runs so unchanged projects
       # don't re-execute. The run_id in the primary key forces a fresh write
       # every build; the restore-keys fall back to the most recent good
@@ -120,6 +123,8 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5433/openclockwork_test?schema=public
+      E2E_DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5433/openclockwork_test?schema=public
+      E2E_ADMIN_DATABASE_URL: postgresql://openclockwork:openclockwork@localhost:5433/postgres
       JWT_SECRET: ci-jwt-secret-do-not-use-in-prod
       ERP_API_KEY: ci-erp-key
       # Pin the legacy fixtures to an explicit zone, independent of deployment defaults.

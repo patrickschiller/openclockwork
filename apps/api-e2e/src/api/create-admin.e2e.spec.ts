@@ -81,6 +81,41 @@ describe('Initial administrator command', () => {
     expect(await ctx.prisma.employee.count()).toBe(1);
   });
 
+  it('bootstraps a Solo owner without contract or personal-number arguments', async () => {
+    const result = await runCreateAdmin([
+      '--mode',
+      'Solo',
+      '--first-name',
+      'Alex',
+      '--last-name',
+      'Example',
+      '--email',
+      'solo@example.test',
+    ]);
+    expect(result.code).toBe(0);
+    const owner = await ctx.prisma.employee.findUniqueOrThrow({
+      where: { email: 'solo@example.test' },
+    });
+    expect(owner.personalNo).toBe('OWNER');
+    expect(Number(owner.weeklyHours)).toBe(0);
+    expect(
+      await ctx.prisma.installationSettings.findUnique({ where: { id: 1 } }),
+    ).toMatchObject({
+      mode: 'Solo',
+      ownerEmployeeId: owner.id,
+      setupCompleted: false,
+    });
+    expect(
+      await ctx.prisma.soloPolicy.findFirst({
+        where: { employeeId: owner.id },
+      }),
+    ).toMatchObject({
+      targetEnabled: false,
+      leaveEnabled: false,
+      gpsEnabled: false,
+    });
+  });
+
   it('validates command-line input before writing anything', async () => {
     const result = await runCreateAdmin([
       ...ADA_ARGS.slice(0, -3),

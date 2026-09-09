@@ -51,27 +51,38 @@ export class EmployeesService {
     }
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
     try {
-      const created = await this.prisma.employee.create({
-        data: {
-          personalNo: dto.personalNo,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          email: dto.email.toLowerCase(),
-          passwordHash,
-          role: dto.role,
-          timeModel: dto.timeModel,
-          weeklyHours: dto.weeklyHours,
-          annualLeaveDays: dto.annualLeaveDays,
-          startDate: new Date(dto.startDate),
-          overtimeOpeningBalanceMinutes: dto.overtimeOpeningBalanceMinutes ?? 0,
-          ...holidaySettings(dto),
-          holidayDates: dto.holidayDates ?? [],
-          allowDailyBlockBooking: dto.allowDailyBlockBooking ?? false,
-          isActive: true,
-          managerId: dto.managerId ?? null,
-          workScheduleId: dto.workScheduleId ?? null,
-        },
-        include: { workSchedule: true },
+      const created = await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(7261500)`;
+        const settings = await tx.installationSettings.findUnique({
+          where: { id: 1 },
+        });
+        if (settings?.mode === 'Solo')
+          throw new ForbiddenException(
+            'Enable Team mode before creating another employee',
+          );
+        return tx.employee.create({
+          data: {
+            personalNo: dto.personalNo,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            email: dto.email.toLowerCase(),
+            passwordHash,
+            role: dto.role,
+            timeModel: dto.timeModel,
+            weeklyHours: dto.weeklyHours,
+            annualLeaveDays: dto.annualLeaveDays,
+            startDate: new Date(dto.startDate),
+            overtimeOpeningBalanceMinutes:
+              dto.overtimeOpeningBalanceMinutes ?? 0,
+            ...holidaySettings(dto),
+            holidayDates: dto.holidayDates ?? [],
+            allowDailyBlockBooking: dto.allowDailyBlockBooking ?? false,
+            isActive: true,
+            managerId: dto.managerId ?? null,
+            workScheduleId: dto.workScheduleId ?? null,
+          },
+          include: { workSchedule: true },
+        });
       });
       return toEmployeeDto(created);
     } catch (err) {
@@ -131,10 +142,38 @@ export class EmployeesService {
         : { disconnect: true };
     }
     try {
-      const updated = await this.prisma.employee.update({
-        where: { id },
-        data,
-        include: { workSchedule: true },
+      const updated = await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(7261500)`;
+        const settings = await tx.installationSettings.findUnique({
+          where: { id: 1 },
+        });
+        if (settings?.mode === 'Solo')
+          throw new ForbiddenException(
+            'Use personal settings or enable Team mode before changing employee records',
+          );
+        const lockedCurrent = await tx.employee.findUniqueOrThrow({
+          where: { id },
+        });
+        if (
+          lockedCurrent.role === 'HRAdmin' &&
+          lockedCurrent.isActive &&
+          (dto.isActive === false ||
+            (dto.role !== undefined && dto.role !== 'HRAdmin'))
+        ) {
+          if (
+            !(await tx.employee.count({
+              where: { role: 'HRAdmin', isActive: true, id: { not: id } },
+            }))
+          )
+            throw new ForbiddenException(
+              'Cannot remove the last active administrator',
+            );
+        }
+        return tx.employee.update({
+          where: { id },
+          data,
+          include: { workSchedule: true },
+        });
       });
       return toEmployeeDto(updated);
     } catch (err) {
@@ -147,7 +186,7 @@ export class EmployeesService {
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     await this.prisma.employee.update({
       where: { id },
-      data: { passwordHash },
+      data: { passwordHash, authVersion: { increment: 1 } },
     });
   }
 

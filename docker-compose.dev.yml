@@ -71,7 +71,7 @@ services:
       [
         'sh',
         '-c',
-        './node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/prisma db seed && exec node dist/main.js',
+        './node_modules/.bin/prisma migrate deploy && exec node dist/main.js',
       ]
     healthcheck:
       test:
@@ -95,9 +95,9 @@ services:
         condition: service_healthy
     environment:
       API_UPSTREAM: http://api:3001
-      # This stack always seeds synthetic demo accounts. Operators can still
-      # override the pre-filled login explicitly with DEMO_MODE=false.
-      DEMO_MODE: ${DEMO_MODE:-true}
+      # Startup never seeds. Enable this only after explicitly seeding a
+      # separate disposable database with the guarded maintenance command.
+      DEMO_MODE: ${DEMO_MODE:-false}
       # `${VAR-default}` deliberately preserves an explicitly empty value so a
       # self-hoster can disable the optional support button.
       SUPPORT_URL: ${SUPPORT_URL-https://github.com/sponsors/patrickschiller}

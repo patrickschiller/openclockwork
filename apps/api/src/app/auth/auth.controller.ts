@@ -1,9 +1,20 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from './current-user.decorator';
 import { AuthService } from './auth.service';
 import {
   LoginDto,
+  ChangePasswordDto,
+  UpdateOwnProfileDto,
   RefreshDto,
   UpdatePreferencesDto,
   type EmployeeProfile,
@@ -17,6 +28,28 @@ import type { JwtUser } from './jwt.strategy';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  @Patch('me')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  profile(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: UpdateOwnProfileDto,
+  ): Promise<EmployeeProfile> {
+    return this.auth.updateOwnProfile(user.id, dto);
+  }
+
+  @Post('password')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  password(@CurrentUser() user: JwtUser, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(
+      user.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)

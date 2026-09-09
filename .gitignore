@@ -59,6 +59,8 @@ ehthumbs.db
 Desktop.ini
 
 # --- Misc local state ---
+backups/
+*.dump
 *.log
 .cache/
 .eslintcache

@@ -766,7 +766,7 @@ async function attempt(
   return fetch(`${baseUrl}${path}`, { ...init, headers });
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response = await attempt(path, init, readToken());
 
   // 401 → try to refresh once, then retry the original request.
@@ -800,6 +800,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+export async function downloadAuthenticated(
+  path: string,
+  fileName: string,
+): Promise<void> {
+  const fetchOnce = (token: string | null) =>
+    fetch(`${baseUrl}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+  let response = await fetchOnce(readToken());
+  if (response.status === 401) {
+    const fresh = await tryRefreshOnce();
+    if (fresh) response = await fetchOnce(fresh);
+  }
+  if (!response.ok)
+    throw new ApiError(response.status, `Download failed (${response.status})`);
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export const api = {
