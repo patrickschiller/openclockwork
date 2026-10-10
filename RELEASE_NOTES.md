@@ -1,3 +1,53 @@
+# OpenClockwork v2.0.1
+
+## Security fix
+
+- Fixes read authorization for personnel records, time accounts, vacation
+  balances, leave allowances, absences and working-time violations in
+  [PR #34](https://github.com/patrickschiller/openclockwork/pull/34), following a
+  finding from Codex Security Cloud. Employee lists and individual personnel
+  records now follow the authenticated actor's permitted scope. The related
+  account, vacation-balance, leave-allowance, absence and violation reads require
+  authentication and enforce access to the actor's own data, their direct reports
+  or the HR administrator's permitted scope. Absence lists without an employee
+  filter are scoped as well; an explicit unauthorized employee filter is rejected.
+- Keeps substitute selection and project assignment working through an
+  authenticated employee directory containing only IDs, first names and last
+  names. These selectors no longer require the full personnel-record list.
+- Updating existing installations to 2.0.1 is recommended. See the
+  [security advisory](https://github.com/patrickschiller/openclockwork/security/advisories/GHSA-4f2x-4pf8-wwx6)
+  for affected endpoints and mitigation.
+
+## Upgrade and compatibility
+
+- There are no new database migrations when upgrading from 2.0.0. Keep the
+  existing database, attachment volumes, identities, configuration and working
+  timezone. Do not seed or reset an existing installation for this update.
+  When upgrading from an older release, also follow its intervening migration
+  and upgrade requirements.
+- Read the [upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v2.0.1/UPGRADING.md)
+  and take a consistent backup before updating. Deploy matching API and web
+  images. If deploying them separately, deploy the API first and wait for
+  `/api/health` to report `2.0.1`, then deploy the web image. Reopen existing PWA
+  or browser tabs if they continue using a cached bundle.
+- Custom API clients must handle `401` and `403` responses and must not assume
+  `GET /api/employees` exposes every employee's personnel record. Use
+  `GET /api/employees/directory` for names and IDs needed by substitute and
+  project-assignment selectors. Keep personnel, account, vacation-balance,
+  `GET /api/employees/:employeeId/leave-allowances`, `GET /api/absences` and
+  `GET /api/violations` reads authenticated and within the actor's permitted
+  scope. Consult the
+  [OpenAPI contract](https://github.com/patrickschiller/openclockwork/blob/v2.0.1/apps/api/openapi.json)
+  for the updated directory response.
+
+## Docker images
+
+- `ghcr.io/patrickschiller/openclockwork-api:2.0.1`
+- `ghcr.io/patrickschiller/openclockwork-web:2.0.1`
+
+The release workflow also updates each image's `latest` tag. Pin `2.0.1` or a
+verified digest for production and use the same release for both images.
+
 # OpenClockwork v2.0.0
 
 OpenClockwork 2.0 introduces two explicit ways to run the same application:

@@ -28,7 +28,7 @@ country. No proprietary time-clock hardware or hosted subscription is required.
 **Existing installations remain in Team mode after an upgrade.** A mode change
 is a separate, authenticated administrator action with a preview and safety
 checks. Invoice creation, monetary billing, and CAUR coding-agent usage import
-are not included in 2.0.0; see the [roadmap](ROADMAP.md).
+are not included in 2.0.1; see the [roadmap](ROADMAP.md).
 
 ## Choose your mode
 
@@ -310,7 +310,7 @@ repository and enter its directory:
 ```bash
 git clone https://github.com/patrickschiller/openclockwork.git
 cd openclockwork
-git switch --detach v2.0.0
+git switch --detach v2.0.1
 cp .env.prod.example .env.prod
 ```
 
@@ -341,7 +341,7 @@ openssl rand -hex 32
 
 Open `.env.prod` in an editor and replace every `change-me` value:
 
-- Set `OPENCLOCKWORK_VERSION=2.0.0` for this release. Use the same explicit
+- Set `OPENCLOCKWORK_VERSION=2.0.1` for this release. Use the same explicit
   version for the API and web images; never deploy `latest`.
 - Put the first command's output into `POSTGRES_PASSWORD` and replace
   `change-me-database-password` inside `DATABASE_URL` with that exact same

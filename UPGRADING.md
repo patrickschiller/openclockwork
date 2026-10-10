@@ -25,6 +25,28 @@ Compose from managing their deletion, but this does not protect against manual
 volume removal, pruning unused volumes, Docker data loss or host failure. Do
 not replace a populated installation's volume with a new name during an upgrade.
 
+## Required for 2.0.1
+
+Version 2.0.1 fixes read access to personnel records, time accounts, vacation
+balances, leave allowances, absences and working-time violations. Updating
+existing installations is recommended. From 2.0.0,
+this update adds no database migrations and requires no seed or reset.
+Keep the existing data, volumes, configuration and working timezone, take a
+consistent backup, and deploy matching 2.0.1 API/web images as described below.
+
+Custom API clients must handle `401` and `403` responses and the scoped
+`GET /api/employees` list. Use the authenticated `GET /api/employees/directory`
+names/IDs response for substitute and project-assignment selectors instead
+of reading full personnel records. Personnel, account, vacation-balance,
+`GET /api/employees/:employeeId/leave-allowances`, `GET /api/absences` and
+`GET /api/violations` reads require authentication and remain within the
+actor's own data, direct reports or HR administrator scope. Unfiltered absence
+lists are scoped too; explicit unauthorized employee filters are rejected.
+See the updated [OpenAPI contract](apps/api/openapi.json).
+
+When upgrading from a version older than 2.0.0, also follow the 2.0.0
+requirements below and the release notes for every skipped version.
+
 ## Required for 2.0.0
 
 ### Existing 1.4.0 installations
@@ -313,7 +335,7 @@ runs in a non-production runtime; the API retains its production runtime.
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, **`2.0.0` for this upgrade**, only after preserving the old configuration
+Release, **`2.0.1` for this upgrade**, only after preserving the old configuration
 in the backup set. Pin matching API/web versions or verified digests. Do not use
 `latest`, a mutable `:local` image, or a source-build override for an unattended
 production upgrade. Keep the same PostgreSQL major version; a PostgreSQL major
@@ -335,7 +357,7 @@ The API waits for PostgreSQL and runs `prisma migrate deploy` before starting.
 Prisma records applied migrations in `_prisma_migrations` and skips them on
 subsequent starts. Production startup never seeds or resets the database.
 If API/web are deployed independently, deploy the API first, wait for its
-health endpoint to report `2.0.0`, then deploy the matching web image. The web
+health endpoint to report `2.0.1`, then deploy the matching web image. The web
 startup version check is not a promise of zero-downtime mixed-version operation;
 keep additional writers paused until verification completes.
 
@@ -364,7 +386,7 @@ oc exec -T api ./node_modules/.bin/prisma migrate status
 oc exec -T api wget -qO- http://127.0.0.1:3000/api/health
 ```
 
-Confirm `2.0.0` through the public web/proxy health route as well as the
+Confirm `2.0.1` through the public web/proxy health route as well as the
 container check. Sign in and verify the actual deployed mode, a known employee,
 an existing time entry, historic break totals, leave balances and configured
 attachment storage. A 1.4.0 upgrade must still be Team unless an administrator
