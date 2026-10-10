@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Employee, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   toEmployeeDto,
@@ -28,6 +29,43 @@ export class EmployeesService {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
     return employees.map(toEmployeeDto);
+  }
+
+  async listForActor(
+    actor: JwtUser,
+    opts: { includeInactive?: boolean } = {},
+  ): Promise<EmployeeDto[]> {
+    const accessFilter: Prisma.EmployeeWhereInput =
+      actor.role === 'HRAdmin'
+        ? {}
+        : actor.role === 'Manager'
+          ? { OR: [{ id: actor.id }, { managerId: actor.id }] }
+          : { id: actor.id };
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        AND: [
+          accessFilter,
+          ...(opts.includeInactive ? [] : [{ isActive: true }]),
+        ],
+      },
+      include: { workSchedule: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+    return employees.map(toEmployeeDto);
+  }
+
+  async assertCanRead(id: string, actor: JwtUser): Promise<void> {
+    if (actor.role === 'HRAdmin' || id === actor.id) return;
+    const visible =
+      actor.role === 'Manager' &&
+      (await this.prisma.employee.count({
+        where: { id, managerId: actor.id },
+      })) > 0;
+    if (!visible) {
+      throw new ForbiddenException(
+        'Employees may only access their own or their team records',
+      );
+    }
   }
 
   async getById(id: string): Promise<Employee> {

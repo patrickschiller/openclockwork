@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { EmployeesService } from './employees.service';
@@ -25,22 +27,32 @@ import {
 } from './employees.dto';
 
 @ApiTags('employees')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('employees')
 export class EmployeesController {
   constructor(private readonly employees: EmployeesService) {}
 
   @Get()
-  list(@Query('includeInactive') includeInactive?: string): Promise<EmployeeDto[]> {
-    return this.employees.list({ includeInactive: includeInactive === 'true' });
+  list(
+    @CurrentUser() user: JwtUser,
+    @Query('includeInactive') includeInactive?: string,
+  ): Promise<EmployeeDto[]> {
+    return this.employees.listForActor(user, {
+      includeInactive: includeInactive === 'true',
+    });
   }
 
   @Get(':id')
-  get(@Param('id', new ParseUUIDPipe()) id: string): Promise<EmployeeDto> {
+  async get(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<EmployeeDto> {
+    await this.employees.assertCanRead(id, user);
     return this.employees.getDtoById(id);
   }
 
   @Post()
-  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('HRAdmin')
   create(@Body() dto: CreateEmployeeDto): Promise<EmployeeDto> {
@@ -48,7 +60,6 @@ export class EmployeesController {
   }
 
   @Put(':id')
-  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('HRAdmin')
   update(
@@ -59,7 +70,6 @@ export class EmployeesController {
   }
 
   @Post(':id/password')
-  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('HRAdmin')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -71,18 +81,20 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('HRAdmin')
-  deactivate(@Param('id', new ParseUUIDPipe()) id: string): Promise<EmployeeDto> {
+  deactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<EmployeeDto> {
     return this.employees.deactivate(id);
   }
 
   @Post(':id/reactivate')
-  @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('HRAdmin')
-  reactivate(@Param('id', new ParseUUIDPipe()) id: string): Promise<EmployeeDto> {
+  reactivate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ): Promise<EmployeeDto> {
     return this.employees.reactivate(id);
   }
 }
