@@ -1,6 +1,6 @@
 # OpenClockwork Features
 
-OpenClockwork 2.0.0 provides **Solo** personal work tracking and **Team** time and
+OpenClockwork 2.0.1 provides **Solo** personal work tracking and **Team** time and
 attendance in one responsive, self-hosted application. Both keep deployment,
 data, and configuration under the operator's control, with German and English UI.
 

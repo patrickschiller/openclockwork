@@ -1710,7 +1710,7 @@ export interface components {
       status: string;
       /** @example openclockwork-api */
       service: string;
-      /** @example 2.0.0 */
+      /** @example 2.0.1 */
       version: string;
       /** Format: date-time */
       utcTimestamp: string;

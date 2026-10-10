@@ -9,7 +9,7 @@ export class HealthResponseDto {
   @ApiProperty({ example: 'openclockwork-api' })
   service!: string;
 
-  @ApiProperty({ example: '2.0.0' })
+  @ApiProperty({ example: '2.0.1' })
   version!: string;
 
   @ApiProperty({ format: 'date-time' })

@@ -13,8 +13,8 @@ employee, manager, kiosk, or approval setup has to be replaced by Solo. Choose
 ## Install and bootstrap
 
 Follow the [production installation guide](../README.md#production-installation-step-by-step).
-For this release, use the `v2.0.0` source tag and set
-`OPENCLOCKWORK_VERSION=2.0.0` in the private `.env.prod` file. Configure all
+For this release, use the `v2.0.1` source tag and set
+`OPENCLOCKWORK_VERSION=2.0.1` in the private `.env.prod` file. Configure all
 required independent secrets, browser origins, the installation's IANA working
 timezone (`TZ`), stable volume names, and TLS before using real personal data.
 
@@ -82,7 +82,7 @@ switch succeeds.
 3. **Create employees and reporting relationships.** Enter start dates, weekly
    hours, roles, managers, holiday calendars, and actual leave entitlements.
    Employee creation is administrator-managed; email invitation/onboarding is
-   not part of 2.0.0.
+   not part of 2.0.1.
 4. **Review accounts.** Configure opening time balances, annual leave,
    carry-over, expiry, and reasoned adjustments as applicable. Check calculations
    against representative contractual cases before operational use.

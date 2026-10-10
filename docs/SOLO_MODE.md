@@ -1,6 +1,6 @@
 # Solo mode
 
-Solo mode in OpenClockwork 2.0.0 is for one person managing their own work:
+Solo mode in OpenClockwork 2.0.1 is for one person managing their own work:
 freelancers, independent consultants, and owner-operated businesses. It provides
 time capture, customers, projects, service orders, personal calendar entries, and
 timesheets without manager approvals or a fictional HR department.
@@ -31,11 +31,11 @@ are **not implemented** in this release. See the [roadmap](../ROADMAP.md).
 
 Use the [production installation guide](../README.md#production-installation-step-by-step)
 for host requirements, independent secrets, TLS, persistent volumes, and backups.
-For 2.0.0, check out the `v2.0.0` tag and set the following in your private
+For 2.0.1, check out the `v2.0.1` tag and set the following in your private
 `.env.prod`:
 
 ```dotenv
-OPENCLOCKWORK_VERSION=2.0.0
+OPENCLOCKWORK_VERSION=2.0.1
 TZ=UTC
 ```
 
