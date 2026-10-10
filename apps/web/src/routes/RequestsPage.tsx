@@ -172,8 +172,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   const [error, setError] = useState<string | null>(null);
 
   const employees = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => api.employees(),
+    queryKey: ['employee-directory'],
+    queryFn: () => api.employeeDirectory(),
   });
 
   const fromDate = useMemo(() => new Date(`${from}T00:00:00.000Z`), [from]);
@@ -319,7 +319,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
                 .filter((e) => e.id !== employeeId)
                 .map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.firstName} {e.lastName} ({enumLabel(e.role)})
+                    {e.firstName} {e.lastName}
                   </option>
                 ))}
             </select>

@@ -32,11 +32,13 @@ export class AbsencesController {
 
   @Get()
   list(
+    @CurrentUser() user: JwtUser,
     @Query('employeeId') employeeId?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
   ): Promise<AbsenceDto[]> {
     return this.absences.list(
+      user,
       employeeId,
       from ? new Date(from) : undefined,
       to ? new Date(to) : undefined,
@@ -44,7 +46,10 @@ export class AbsencesController {
   }
 
   @Post()
-  create(@CurrentUser() user: JwtUser, @Body() dto: CreateAbsenceDto): Promise<AbsenceDto> {
+  create(
+    @CurrentUser() user: JwtUser,
+    @Body() dto: CreateAbsenceDto,
+  ): Promise<AbsenceDto> {
     return this.absences.create(user, dto);
   }
 

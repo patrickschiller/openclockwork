@@ -8,6 +8,7 @@ import {
 import type { Absence, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { JwtUser } from '../auth/jwt.strategy';
+import { EmployeesService } from '../employees/employees.service';
 import {
   toAbsenceDto,
   type AbsenceDto,
@@ -17,14 +18,21 @@ import {
 
 @Injectable()
 export class AbsencesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly employees: EmployeesService,
+  ) {}
 
   async list(
+    actor: JwtUser,
     employeeId: string | undefined,
     from?: Date,
     to?: Date,
   ): Promise<AbsenceDto[]> {
-    const where: Prisma.AbsenceWhereInput = {};
+    if (employeeId) await this.employees.assertCanRead(employeeId, actor);
+    const where: Prisma.AbsenceWhereInput = {
+      employee: this.employees.readScope(actor),
+    };
     if (employeeId) where.employeeId = employeeId;
     if (from || to) {
       where.OR = [

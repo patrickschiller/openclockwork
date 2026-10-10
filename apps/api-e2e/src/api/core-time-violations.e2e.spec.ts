@@ -197,8 +197,10 @@ describe('Violations — gap-based core-time detection', () => {
         },
       });
 
+      const token = await login(ctx.http, anna.email);
       const res = await ctx.http
         .get(`/api/violations?employeeId=${anna.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
       expect(res.body).toEqual([]);
     });
@@ -221,8 +223,10 @@ describe('Violations — gap-based core-time detection', () => {
         },
       });
 
+      const token = await login(ctx.http, anna.email);
       const res = await ctx.http
         .get(`/api/violations?employeeId=${anna.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
       expect(res.body).toHaveLength(1);
       expect(res.body[0]).toMatchObject({ boundary: '10:00–11:00', deltaMinutes: 60 });
@@ -290,8 +294,10 @@ describe('Violations — gap-based core-time detection', () => {
         ],
       });
 
+      const token = await login(ctx.http, anna.email);
       const res = await ctx.http
         .get(`/api/violations?employeeId=${anna.id}`)
+        .set('Authorization', `Bearer ${token}`)
         .expect(200);
 
       // Only yesterday's violation surfaces — today is in progress.

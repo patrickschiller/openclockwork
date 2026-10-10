@@ -12,13 +12,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { EmployeesService } from './employees.service';
 import {
   CreateEmployeeDto,
+  EmployeeDirectoryDto,
   SetPasswordDto,
   UpdateEmployeeDto,
   type EmployeeDto,
@@ -33,13 +36,27 @@ export class EmployeesController {
 
   @Get()
   list(
+    @CurrentUser() user: JwtUser,
     @Query('includeInactive') includeInactive?: string,
   ): Promise<EmployeeDto[]> {
-    return this.employees.list({ includeInactive: includeInactive === 'true' });
+    return this.employees.listForActor(user, {
+      includeInactive: includeInactive === 'true',
+    });
+  }
+
+  // Static route before ':id'; authenticated names without personnel details.
+  @Get('directory')
+  @ApiOkResponse({ type: [EmployeeDirectoryDto] })
+  directory(): Promise<EmployeeDirectoryDto[]> {
+    return this.employees.directory();
   }
 
   @Get(':id')
-  get(@Param('id', new ParseUUIDPipe()) id: string): Promise<EmployeeDto> {
+  async get(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<EmployeeDto> {
+    await this.employees.assertCanRead(id, user);
     return this.employees.getDtoById(id);
   }
 

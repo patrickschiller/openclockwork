@@ -7,10 +7,12 @@ import {
 } from '@nestjs/common';
 import type { Employee, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   toEmployeeDto,
   type CreateEmployeeDto,
+  type EmployeeDirectoryDto,
   type EmployeeDto,
   type UpdateEmployeeDto,
 } from './employees.dto';
@@ -21,6 +23,14 @@ const BCRYPT_ROUNDS = 10;
 export class EmployeesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async directory(): Promise<EmployeeDirectoryDto[]> {
+    return this.prisma.employee.findMany({
+      where: { isActive: true },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+  }
+
   async list(opts: { includeInactive?: boolean } = {}): Promise<EmployeeDto[]> {
     const employees = await this.prisma.employee.findMany({
       where: opts.includeInactive ? undefined : { isActive: true },
@@ -28,6 +38,45 @@ export class EmployeesService {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
     return employees.map(toEmployeeDto);
+  }
+
+  async listForActor(
+    actor: JwtUser,
+    opts: { includeInactive?: boolean } = {},
+  ): Promise<EmployeeDto[]> {
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        AND: [
+          this.readScope(actor),
+          ...(opts.includeInactive ? [] : [{ isActive: true }]),
+        ],
+      },
+      include: { workSchedule: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+    return employees.map(toEmployeeDto);
+  }
+
+  readScope(actor: JwtUser): Prisma.EmployeeWhereInput {
+    if (actor.role === 'HRAdmin') return {};
+    if (actor.role === 'Manager') {
+      return { OR: [{ id: actor.id }, { managerId: actor.id }] };
+    }
+    return { id: actor.id };
+  }
+
+  async assertCanRead(id: string, actor: JwtUser): Promise<void> {
+    if (actor.role === 'HRAdmin' || id === actor.id) return;
+    const visible =
+      actor.role === 'Manager' &&
+      (await this.prisma.employee.count({
+        where: { id, managerId: actor.id },
+      })) > 0;
+    if (!visible) {
+      throw new ForbiddenException(
+        'Employees may only access their own or their team records',
+      );
+    }
   }
 
   async getById(id: string): Promise<Employee> {

@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 
 const projectsMock = vi.fn();
-const employeesMock = vi.fn();
+const employeeDirectoryMock = vi.fn();
 const projectAssignmentsMock = vi.fn();
 const createProjectMock = vi.fn();
 const updateProjectMock = vi.fn();
@@ -18,7 +18,7 @@ const projectReportMock = vi.fn();
 vi.mock('../api/client', () => ({
   api: {
     projects: (...args: unknown[]) => projectsMock(...args),
-    employees: (...args: unknown[]) => employeesMock(...args),
+    employeeDirectory: (...args: unknown[]) => employeeDirectoryMock(...args),
     projectAssignments: (...args: unknown[]) => projectAssignmentsMock(...args),
     createProject: (...args: unknown[]) => createProjectMock(...args),
     updateProject: (...args: unknown[]) => updateProjectMock(...args),
@@ -90,19 +90,13 @@ const PROJECTS = [
 const EMPLOYEES = [
   {
     id: 'e-1',
-    personalNo: '1001',
     firstName: 'Anna',
     lastName: 'Müller',
-    role: 'Employee',
-    isActive: true,
   },
   {
     id: 'e-2',
-    personalNo: '1002',
     firstName: 'Bernd',
     lastName: 'Schulz',
-    role: 'Employee',
-    isActive: true,
   },
 ];
 
@@ -110,7 +104,7 @@ describe('AdminProjectsPage', () => {
   beforeEach(() => {
     role = 'HRAdmin';
     projectsMock.mockClear().mockResolvedValue(PROJECTS);
-    employeesMock.mockClear().mockResolvedValue(EMPLOYEES);
+    employeeDirectoryMock.mockClear().mockResolvedValue(EMPLOYEES);
     projectAssignmentsMock
       .mockClear()
       .mockResolvedValue([{ employeeId: 'e-1', projectId: 'p-1' }]);
@@ -194,28 +188,33 @@ describe('AdminProjectsPage', () => {
     });
   });
 
-  it('renders the assignment matrix and toggles assignments', async () => {
-    const { AdminProjectsPage } = await import('./AdminProjectsPage');
-    renderWithProviders(<AdminProjectsPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Zuweisungsmatrix')).toBeDefined();
-    });
+  it.each(['HRAdmin', 'Manager'])(
+    'lets %s assign projects using only directory names',
+    async (actorRole) => {
+      role = actorRole;
+      const { AdminProjectsPage } = await import('./AdminProjectsPage');
+      renderWithProviders(<AdminProjectsPage />);
+      await waitFor(() => {
+        expect(screen.getByText('Zuweisungsmatrix')).toBeDefined();
+      });
 
-    const annaP1 = await screen.findByLabelText('Anna Müller – PRJ-001');
-    const berndP2 = screen.getByLabelText('Bernd Schulz – PRJ-002');
-    expect((annaP1 as HTMLInputElement).checked).toBe(true);
-    expect((berndP2 as HTMLInputElement).checked).toBe(false);
+      const annaP1 = await screen.findByLabelText('Anna Müller – PRJ-001');
+      const berndP2 = screen.getByLabelText('Bernd Schulz – PRJ-002');
+      expect(employeeDirectoryMock).toHaveBeenCalled();
+      expect((annaP1 as HTMLInputElement).checked).toBe(true);
+      expect((berndP2 as HTMLInputElement).checked).toBe(false);
 
-    // Unchecking an assigned cell unassigns; checking an empty one assigns.
-    fireEvent.click(annaP1);
-    await waitFor(() => {
-      expect(unassignProjectMock).toHaveBeenCalledWith('p-1', 'e-1');
-    });
-    fireEvent.click(berndP2);
-    await waitFor(() => {
-      expect(assignProjectMock).toHaveBeenCalledWith('p-2', 'e-2');
-    });
-  });
+      // Unchecking an assigned cell unassigns; checking an empty one assigns.
+      fireEvent.click(annaP1);
+      await waitFor(() => {
+        expect(unassignProjectMock).toHaveBeenCalledWith('p-1', 'e-1');
+      });
+      fireEvent.click(berndP2);
+      await waitFor(() => {
+        expect(assignProjectMock).toHaveBeenCalledWith('p-2', 'e-2');
+      });
+    },
+  );
 
   it('flags overbooked plans in red and shows IST-only without a plan', async () => {
     const { AdminProjectsPage } = await import('./AdminProjectsPage');

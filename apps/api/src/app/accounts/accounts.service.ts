@@ -10,6 +10,7 @@ import type { HolidayProvider } from 'shared';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { VacationBalanceService } from './vacation-balance.service';
 import type { AccountDto } from './accounts.dto';
 
@@ -22,7 +23,8 @@ export class AccountsService {
     private readonly schedules: WorkSchedulesService,
   ) {}
 
-  async account(employeeId: string): Promise<AccountDto> {
+  async account(employeeId: string, actor: JwtUser): Promise<AccountDto> {
+    await this.employees.assertCanRead(employeeId, actor);
     const employee = await this.employees.getById(employeeId);
     const schedule = await this.schedules.resolveForEmployee(employeeId);
     const now = new Date();

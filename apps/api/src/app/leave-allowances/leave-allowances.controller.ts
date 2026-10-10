@@ -13,25 +13,34 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CronKeyGuard } from './cron-key.guard';
 import { LeaveAllowancesService } from './leave-allowances.service';
-import { UpsertLeaveAllowanceDto, type LeaveAllowanceDto } from './leave-allowances.dto';
+import {
+  UpsertLeaveAllowanceDto,
+  type LeaveAllowanceDto,
+} from './leave-allowances.dto';
 
 @ApiTags('leave-allowances')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('employees/:employeeId/leave-allowances')
 export class LeaveAllowancesController {
   constructor(private readonly service: LeaveAllowancesService) {}
 
   @Get()
-  list(@Param('employeeId', new ParseUUIDPipe()) employeeId: string): Promise<LeaveAllowanceDto[]> {
-    return this.service.list(employeeId);
+  list(
+    @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<LeaveAllowanceDto[]> {
+    return this.service.list(employeeId, user);
   }
 
   @Put(':year')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   upsert(
     @Param('employeeId', new ParseUUIDPipe()) employeeId: string,
