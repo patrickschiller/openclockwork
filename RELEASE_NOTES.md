@@ -2,7 +2,7 @@
 
 ## Security fix
 
-- Fixes read authorization for personnel records, time accounts, vacation
+- Fixes read authorization in Team mode for personnel records, time accounts, vacation
   balances, leave allowances, absences and working-time violations in
   [PR #34](https://github.com/patrickschiller/openclockwork/pull/34), following a
   finding from Codex Security Cloud. Employee lists and individual personnel

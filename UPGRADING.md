@@ -27,7 +27,7 @@ not replace a populated installation's volume with a new name during an upgrade.
 
 ## Required for 2.0.1
 
-Version 2.0.1 fixes read access to personnel records, time accounts, vacation
+Version 2.0.1 fixes read access in Team mode to personnel records, time accounts, vacation
 balances, leave allowances, absences and working-time violations. Updating
 existing installations is recommended. From 2.0.0,
 this update adds no database migrations and requires no seed or reset.
