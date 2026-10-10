@@ -8,6 +8,9 @@ targetScope = 'subscription'
 @description('Where to deploy. Default = West Europe for the reference topology.')
 param location string = 'westeurope'
 
+@description('IANA timezone for the API business day and background jobs. Keep the existing value when upgrading an installation.')
+param timeZone string = 'UTC'
+
 @description('Lowercase prefix used for all resource names. Keep short — storage account + ACR names cap at 24 chars including the env + hash suffix.')
 @minLength(3)
 @maxLength(10)
@@ -25,6 +28,9 @@ param demoResetCronExpression string = '0 3 * * *'
 
 @description('Postgres admin login. Cannot be "azure_superuser", "admin", or other reserved names.')
 param postgresAdminLogin string = 'ocadmin'
+
+@description('Database name. Keep the existing value on upgrade. A NEW disposable reset-enabled demo must explicitly use openclockwork_demo (optionally with underscore-separated alphanumeric suffixes).')
+param postgresDatabaseName string = 'openclockwork'
 
 @secure()
 @description('Postgres admin password. Generate with: openssl rand -base64 32.')
@@ -106,6 +112,7 @@ module pg 'modules/postgres.bicep' = {
     location: location
     administratorLogin: postgresAdminLogin
     administratorPassword: postgresAdminPassword
+    databaseName: postgresDatabaseName
   }
 }
 
@@ -191,7 +198,7 @@ module apiApp 'modules/container-app.bicep' = {
       { name: 'SWAGGER_ENABLED', value: 'false' }
       // Wall-clock timezone — core-time + off-hours logic reasons in
       // local time, so the server must run in the deployment's zone.
-      { name: 'TZ', value: 'Europe/Berlin' }
+      { name: 'TZ', value: timeZone }
       { name: 'API_CORS_ORIGINS', value: 'https://${webAppName}.${acaEnv.outputs.defaultDomain}' }
       { name: 'TERMINAL_CHALLENGE_TTL_SECONDS', value: string(terminalChallengeTtlSeconds) }
       { name: 'TERMINAL_PAIRING_TTL_SECONDS', value: string(terminalPairingTtlSeconds) }
@@ -283,7 +290,7 @@ module cronJob 'modules/container-app-job.bicep' = {
       'curl -fsS --max-time 30 -X POST -H "X-Cron-Key: $CRON_API_KEY" "$API_URL/api/cron/expire-carryovers"'
     ]
     triggerType: 'Schedule'
-    // Daily at 02:00 UTC — well past most German workday cut-offs.
+    // Daily at 02:00 UTC; adjust job timing to the deployment’s business timezone.
     cronExpression: '0 2 * * *'
     replicaTimeoutSeconds: 120
     cpu: '0.25'
@@ -300,8 +307,7 @@ module cronJob 'modules/container-app-job.bicep' = {
 
 // Destructive nightly reset for a public demo. It removes all application
 // rows and uploaded attachments, then recreates the documented seed data.
-// The job contains two explicit guards so an accidental deployment cannot
-// reset a non-demo environment.
+// Independent namespace and confirmation guards reject non-demo targets.
 var demoResetJobName = '${namePrefix}-${environment}-demo-reset'
 
 module demoResetJob 'modules/container-app-job.bicep' = if (enableDemoReset && environment == 'demo') {
@@ -323,8 +329,11 @@ module demoResetJob 'modules/container-app-job.bicep' = if (enableDemoReset && e
     acrLoginServer: acr.outputs.loginServer
     userAssignedIdentityId: uami.outputs.id
     envVars: [
-      { name: 'NODE_ENV', value: 'production' }
-      { name: 'TZ', value: 'Europe/Berlin' }
+      // Only this explicitly disposable maintenance job is non-production;
+      // the public API remains NODE_ENV=production.
+      { name: 'NODE_ENV', value: 'development' }
+      { name: 'TZ', value: timeZone }
+      { name: 'OPENCLOCKWORK_RESET_CONFIRM_DATABASE', value: postgresDatabaseName }
       { name: 'DEMO_RESET_ENABLED', value: 'true' }
       { name: 'DEMO_RESET_CONFIRMATION', value: 'DELETE-AND-RESEED-OPENClockwork-DEMO' }
       { name: 'STORAGE_BACKEND', value: 'azure-blob' }

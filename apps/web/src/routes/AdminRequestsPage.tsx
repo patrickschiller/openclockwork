@@ -463,7 +463,11 @@ function RequestRow({
   });
   const returnIt = useMutation({
     mutationFn: () =>
-      api.returnRequest(request.id, actorId, note || 'Bitte überarbeiten'),
+      api.returnRequest(
+        request.id,
+        actorId,
+        note || t('approvals.reviseDefault'),
+      ),
     onSuccess: refresh,
   });
   const hrConfirm = useMutation({
@@ -501,7 +505,7 @@ function RequestRow({
               {enumLabel(request.type)} ·{' '}
               {isTimeAdjustment
                 ? `${formatDateTime(request.from)} – ${formatDateTime(request.to)}`
-                : `${formatDate(request.from)} – ${formatDate(request.to)}`}
+                : `${formatDate(request.from.slice(0, 10))} – ${formatDate(request.to.slice(0, 10))}`}
             </p>
             <p className="text-xs text-muted-foreground">
               {isTimeAdjustment
@@ -604,7 +608,7 @@ function RequestRow({
 }
 
 function AuditTrail({ requestId }: { requestId: string }) {
-  const { enumLabel, formatDate } = useI18n();
+  const { t, enumLabel, formatDate, formatDateTime } = useI18n();
   const requestQuery = useQuery({
     queryKey: ['request', requestId],
     queryFn: () => api.getRequest(requestId),
@@ -617,10 +621,10 @@ function AuditTrail({ requestId }: { requestId: string }) {
   return (
     <>
       <SheetHeader>
-        <SheetTitle>Audit-Verlauf</SheetTitle>
+        <SheetTitle>{t('requests.auditHistory')}</SheetTitle>
         <SheetDescription>
           {requestQuery.data
-            ? `${enumLabel(requestQuery.data.type)} · ${formatDate(requestQuery.data.from)} – ${formatDate(requestQuery.data.to)}`
+            ? `${enumLabel(requestQuery.data.type)} · ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.from : requestQuery.data.from.slice(0, 10))} – ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.to : requestQuery.data.to.slice(0, 10))}`
             : '…'}
         </SheetDescription>
       </SheetHeader>
@@ -632,7 +636,7 @@ function AuditTrail({ requestId }: { requestId: string }) {
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{enumLabel(ev.kind)}</span>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(ev.at).toLocaleString('de-DE')}
+                    {formatDateTime(ev.at)}
                   </span>
                 </div>
                 {ev.note && (

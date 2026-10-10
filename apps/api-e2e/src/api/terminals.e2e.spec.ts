@@ -411,6 +411,15 @@ describe('Tablet terminals', () => {
       TERMINAL_INPUT.maxAccuracyMeters,
     );
     expect(firstOut.body.entry.clockOutPositionTimestamp).toBeTruthy();
+    const storedEntry = await ctx.prisma.timeEntry.findUniqueOrThrow({
+      where: { id: firstOut.body.entry.id },
+    });
+    expect(storedEntry.terminalLocationLabel).toBe(
+      TERMINAL_INPUT.locationLabel,
+    );
+    expect(storedEntry.clockOutTerminalLocationLabel).toBe(
+      TERMINAL_INPUT.locationLabel,
+    );
 
     await ctx.http
       .post('/api/terminals/scan')
@@ -547,6 +556,12 @@ describe('Tablet terminals', () => {
     expect(historicalEntry.clockOutTerminalId).toBeNull();
     expect(historicalEntry.clockInChallengeId).toBeNull();
     expect(historicalEntry.clockOutChallengeId).toBeNull();
+    expect(historicalEntry.terminalLocationLabel).toBe(
+      TERMINAL_INPUT.locationLabel,
+    );
+    expect(historicalEntry.clockOutTerminalLocationLabel).toBe(
+      TERMINAL_INPUT.locationLabel,
+    );
     expect(Number(historicalEntry.latitude)).toBeCloseTo(
       TERMINAL_INPUT.latitude,
     );

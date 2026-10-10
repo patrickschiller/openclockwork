@@ -129,7 +129,7 @@ describe('LoginPage', () => {
     localStorageMock.setItem('openclockwork.locale', 'en');
     loginMock.mockRejectedValueOnce(new ApiError(500, 'Internal server error'));
     renderWithProviders(<LoginPage />);
-    fireEvent.change(screen.getByLabelText(/E-Mail/i), {
+    fireEvent.change(screen.getByLabelText(/Email/i), {
       target: { value: 'a@b.c' },
     });
     fireEvent.change(screen.getByLabelText(/Password/i), {

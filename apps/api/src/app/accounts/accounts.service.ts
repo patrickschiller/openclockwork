@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   calculateNetMinutes,
+  parseBreakRules,
   calculateOvertimeMinutes,
   calculateVacationDays,
   calculateWorkingDays,
@@ -37,7 +38,7 @@ export class AccountsService {
         clockIn: { gte: yearStart },
         clockOut: { not: null },
       },
-      select: { clockIn: true, clockOut: true },
+      select: { clockIn: true, clockOut: true, breakRules: true },
     });
     let netMinutesYtd = 0;
     for (const e of entries) {
@@ -45,7 +46,10 @@ export class AccountsService {
       const gross = Math.floor(
         (e.clockOut.getTime() - e.clockIn.getTime()) / 60_000,
       );
-      netMinutesYtd += calculateNetMinutes(gross);
+      netMinutesYtd += calculateNetMinutes(
+        gross,
+        parseBreakRules(e.breakRules),
+      );
     }
 
     // Soll-Befreiung: Vacation (approved) + Sickness + Training count as
@@ -71,7 +75,7 @@ export class AccountsService {
     );
 
     // Soll counts from the employee's startDate using their working-day mask
-    // and Bundesland-specific holiday calendar.
+    // and configured holiday calendar.
     const overtime = calculateOvertimeMinutes({
       startDate: employee.startDate,
       year,

@@ -1,9 +1,9 @@
 {
   "name": "openclockwork",
-  "version": "1.2.2",
+  "version": "2.0.0",
   "license": "Apache-2.0",
   "private": true,
-  "description": "OpenClockwork — open-source digital time-and-attendance management",
+  "description": "OpenClockwork — self-hosted time and attendance with configurable work rules for organisations worldwide",
   "homepage": "https://github.com/patrickschiller/openclockwork",
   "repository": {
     "type": "git",
@@ -25,9 +25,10 @@
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:create-admin": "node --import tsx prisma/create-admin.ts",
-    "db:reset": "prisma migrate reset --force",
+    "db:reset-owner-password": "node --import tsx prisma/reset-owner-password.ts",
+    "db:reset": "node ops/safe-db-reset.mjs",
     "db:demo-reset": "node --import tsx prisma/demo-reset.ts",
-    "generate:api": "ts-node --project apps/api/tsconfig.app.json --transpile-only apps/api/src/generate-openapi.ts && openapi-typescript apps/api/openapi.json -o apps/web/src/api/generated.ts && nx format:write --files=apps/api/openapi.json,apps/web/src/api/generated.ts",
+    "generate:api": "nx build shared && ts-node --project apps/api/tsconfig.app.json --transpile-only apps/api/src/generate-openapi.ts && openapi-typescript apps/api/openapi.json -o apps/web/src/api/generated.ts && nx format:write --files=apps/api/openapi.json,apps/web/src/api/generated.ts",
     "verify:api": "pnpm generate:api && git diff --exit-code -- apps/api/openapi.json apps/web/src/api/generated.ts",
     "release:verify-tag": "node ops/verify-release-version.mjs"
   },

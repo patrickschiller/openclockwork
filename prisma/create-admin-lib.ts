@@ -31,7 +31,13 @@ export const INITIAL_ADMIN_BUNDESLAENDER = [
   'TH',
 ] as const;
 
+export const INITIAL_ADMIN_HOLIDAY_CALENDARS = [
+  'NONE',
+  ...INITIAL_ADMIN_BUNDESLAENDER.map((state) => `DE-${state}` as const),
+] as const;
+
 export interface InitialAdminInput {
+  mode?: 'Solo' | 'Team';
   personalNo: string;
   firstName: string;
   lastName: string;
@@ -40,7 +46,9 @@ export interface InitialAdminInput {
   weeklyHours: number;
   annualLeaveDays: number;
   startDate: string;
-  bundesland: (typeof INITIAL_ADMIN_BUNDESLAENDER)[number];
+  /** Deprecated alias for existing setup scripts. */
+  bundesland?: (typeof INITIAL_ADMIN_BUNDESLAENDER)[number];
+  holidayCalendar?: (typeof INITIAL_ADMIN_HOLIDAY_CALENDARS)[number];
 }
 
 export class InitialAdminAlreadyExistsError extends Error {
@@ -80,12 +88,13 @@ export async function createInitialAdmin(
     try {
       return await prisma.$transaction(
         async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(7261500)`;
           const existingEmployee = await tx.employee.findFirst({
             select: { id: true },
           });
           if (existingEmployee) throw new InitialAdminAlreadyExistsError();
 
-          return tx.employee.create({
+          const employee = await tx.employee.create({
             data: {
               personalNo: normalized.personalNo,
               firstName: normalized.firstName,
@@ -97,10 +106,46 @@ export async function createInitialAdmin(
               weeklyHours: normalized.weeklyHours,
               annualLeaveDays: normalized.annualLeaveDays,
               startDate: new Date(`${normalized.startDate}T00:00:00.000Z`),
-              bundesland: normalized.bundesland,
+              holidayCalendar: normalized.holidayCalendar,
+              bundesland: normalized.holidayCalendar?.startsWith('DE-')
+                ? normalized.holidayCalendar.slice(3)
+                : null,
               isActive: true,
             },
           });
+          const mode = input.mode ?? 'Team';
+          await tx.installationSettings.upsert({
+            where: { id: 1 },
+            create: {
+              id: 1,
+              mode,
+              ownerEmployeeId: mode === 'Solo' ? employee.id : null,
+              setupCompleted: mode === 'Team',
+            },
+            update: {
+              mode,
+              ownerEmployeeId: mode === 'Solo' ? employee.id : null,
+              setupCompleted: mode === 'Team',
+              revision: { increment: 1 },
+            },
+          });
+          if (mode === 'Solo') {
+            const now = new Date();
+            const date = new Date(
+              Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()),
+            );
+            await tx.soloPolicy.create({
+              data: { employeeId: employee.id, effectiveFrom: date },
+            });
+            await tx.installationEvent.create({
+              data: {
+                actorId: employee.id,
+                action: 'SoloCreated',
+                after: { mode, ownerEmployeeId: employee.id },
+              },
+            });
+          }
+          return employee;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
@@ -119,6 +164,8 @@ export async function createInitialAdmin(
 function validateInitialAdminInput(
   input: InitialAdminInput,
 ): InitialAdminInput {
+  if (input.mode && !['Solo', 'Team'].includes(input.mode))
+    throw new Error('Mode must be Solo or Team');
   const personalNo = requiredText(input.personalNo, 'Personal number', 40);
   const firstName = requiredText(input.firstName, 'First name', 120);
   const lastName = requiredText(input.lastName, 'Last name', 120);
@@ -132,9 +179,33 @@ function validateInitialAdminInput(
       `Time model must be one of: ${INITIAL_ADMIN_TIME_MODELS.join(', ')}.`,
     );
   }
-  if (!INITIAL_ADMIN_BUNDESLAENDER.includes(input.bundesland)) {
+  if (
+    input.bundesland &&
+    !INITIAL_ADMIN_BUNDESLAENDER.includes(input.bundesland)
+  ) {
     throw new Error(
-      `Bundesland must be one of: ${INITIAL_ADMIN_BUNDESLAENDER.join(', ')}.`,
+      `Legacy state alias must be one of: ${INITIAL_ADMIN_BUNDESLAENDER.join(', ')}.`,
+    );
+  }
+  if (
+    input.bundesland &&
+    input.holidayCalendar &&
+    input.holidayCalendar !== `DE-${input.bundesland}`
+  ) {
+    throw new Error(
+      'bundesland and holidayCalendar must identify the same calendar.',
+    );
+  }
+  const holidayCalendar =
+    input.holidayCalendar ??
+    (input.bundesland ? `DE-${input.bundesland}` : 'NONE');
+  if (
+    !(INITIAL_ADMIN_HOLIDAY_CALENDARS as readonly string[]).includes(
+      holidayCalendar,
+    )
+  ) {
+    throw new Error(
+      `Holiday calendar must be one of: ${INITIAL_ADMIN_HOLIDAY_CALENDARS.join(', ')}.`,
     );
   }
   assertNonNegativeNumber(input.weeklyHours, 'Weekly hours');
@@ -143,6 +214,7 @@ function validateInitialAdminInput(
 
   return {
     ...input,
+    holidayCalendar,
     personalNo,
     firstName,
     lastName,

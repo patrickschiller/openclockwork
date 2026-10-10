@@ -18,12 +18,20 @@ import { Label } from '@/components/ui/label';
 import {
   api,
   type CoreTimeWindowDto,
+  type BreakRuleDto,
   type WorkScheduleDto,
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
 
-const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
+function weekdayLabels(languageTag: string): string[] {
+  return Array.from({ length: 7 }, (_, index) =>
+    new Intl.DateTimeFormat(languageTag, {
+      weekday: 'short',
+      timeZone: 'UTC',
+    }).format(new Date(Date.UTC(2024, 0, 1 + index))),
+  );
+}
 const TIME_MODELS = [
   'Vollzeit',
   'Teilzeit',
@@ -45,16 +53,18 @@ interface FormDraft {
   frameEnd: string;
   isDefault: boolean;
   workingDays: number;
+  breakRules: BreakRuleDto[];
   cores: CoreDraft[];
 }
 
 const EMPTY_DRAFT: FormDraft = {
   name: '',
   description: '',
-  frameStart: '07:00',
-  frameEnd: '23:00',
+  frameStart: '00:00',
+  frameEnd: '23:59',
   isDefault: false,
   workingDays: 31, // Mo–Fr
+  breakRules: [],
   cores: [],
 };
 
@@ -66,6 +76,7 @@ function fromSchedule(s: WorkScheduleDto): FormDraft {
     frameEnd: s.frameEnd,
     isDefault: s.isDefault,
     workingDays: s.workingDays,
+    breakRules: s.breakRules ?? [],
     cores: s.coreTimes.map((c) => ({
       label: c.label ?? '',
       start: c.start,
@@ -75,22 +86,25 @@ function fromSchedule(s: WorkScheduleDto): FormDraft {
   };
 }
 
-function weekdayLabel(mask: number): string {
+function weekdayLabel(mask: number, labels: string[]): string {
   if (mask === 0) return '—';
-  if (mask === 31) return 'Mo–Fr';
-  if (mask === 127) return 'Mo–So';
+  if (mask === 31) return `${labels[0]}–${labels[4]}`;
+  if (mask === 127) return `${labels[0]}–${labels[6]}`;
   const out: string[] = [];
-  for (let i = 0; i < 7; i += 1)
-    if (mask & (1 << i)) out.push(WEEKDAY_LABELS[i]);
+  for (let i = 0; i < 7; i += 1) if (mask & (1 << i)) out.push(labels[i]);
   return out.join(', ');
 }
 
-function describeCores(cores: CoreTimeWindowDto[]): string {
-  if (cores.length === 0) return 'keine Kernzeit';
+function describeCores(
+  cores: CoreTimeWindowDto[],
+  labels: string[],
+  emptyLabel: string,
+): string {
+  if (cores.length === 0) return emptyLabel;
   return cores
     .map(
       (c) =>
-        `${c.label ? c.label + ' ' : ''}${c.start}–${c.end} (${weekdayLabel(c.weekdays)})`,
+        `${c.label ? c.label + ' ' : ''}${c.start}–${c.end} (${weekdayLabel(c.weekdays, labels)})`,
     )
     .join(' · ');
 }
@@ -195,7 +209,8 @@ function ScheduleCard({
   employees,
 }: ScheduleCardProps) {
   const qc = useQueryClient();
-  const { t, enumLabel } = useI18n();
+  const { t, enumLabel, languageTag } = useI18n();
+  const labels = weekdayLabels(languageTag);
   const [bulkModel, setBulkModel] =
     useState<(typeof TIME_MODELS)[number]>('Vollzeit');
   const [override, setOverride] = useState(false);
@@ -208,7 +223,7 @@ function ScheduleCard({
   const bulkAssign = useMutation({
     mutationFn: () => api.bulkAssignSchedule(schedule.id, bulkModel, override),
     onSuccess: (r) => {
-      setBulkResult(`${r.assigned} zugewiesen, ${r.skipped} übersprungen`);
+      setBulkResult(t('schedules.assignedResult', r));
       qc.invalidateQueries({ queryKey: ['work-schedules'] });
     },
   });
@@ -229,16 +244,30 @@ function ScheduleCard({
           <p className="text-muted-foreground">{schedule.description}</p>
         )}
         <p>
-          <span className="font-medium">Rahmen:</span> {schedule.frameStart}–
-          {schedule.frameEnd}
+          <span className="font-medium">{t('schedules.frame')}:</span>{' '}
+          {schedule.frameStart}–{schedule.frameEnd}
         </p>
         <p>
-          <span className="font-medium">Arbeitstage:</span>{' '}
-          {weekdayLabel(schedule.workingDays)}
+          <span className="font-medium">{t('schedules.workingDays')}:</span>{' '}
+          {weekdayLabel(schedule.workingDays, labels)}
         </p>
         <p>
-          <span className="font-medium">Kernzeiten:</span>{' '}
-          {describeCores(schedule.coreTimes)}
+          <span className="font-medium">{t('schedules.coreTimes')}:</span>{' '}
+          {describeCores(schedule.coreTimes, labels, t('schedules.noCoreTime'))}
+        </p>
+
+        <p>
+          <span className="font-medium">{t('schedules.breakRules')}:</span>{' '}
+          {schedule.breakRules?.length
+            ? schedule.breakRules
+                .map((rule) =>
+                  t('schedules.breakRuleSummary', {
+                    after: rule.afterMinutes,
+                    deduction: rule.breakMinutes,
+                  }),
+                )
+                .join(' · ')
+            : t('schedules.noBreakRules')}
         </p>
 
         <div className="rounded-md border bg-muted/30 p-3">
@@ -260,7 +289,7 @@ function ScheduleCard({
               >
                 {TIME_MODELS.map((tm) => (
                   <option key={tm} value={tm}>
-                    {tm}
+                    {enumLabel(tm)}
                   </option>
                 ))}
               </select>
@@ -279,7 +308,9 @@ function ScheduleCard({
               disabled={bulkAssign.isPending}
               onClick={() => bulkAssign.mutate()}
             >
-              {bulkAssign.isPending ? 'Weise zu…' : 'Bulk zuweisen'}
+              {bulkAssign.isPending
+                ? t('schedules.assigning')
+                : t('schedules.bulkAssign')}
             </Button>
             {bulkResult && (
               <span className="text-xs text-muted-foreground">
@@ -321,8 +352,8 @@ function ScheduleCard({
             onClick={() => remove.mutate()}
             title={
               schedule.employeeCount > 0
-                ? 'Zuerst alle Mitarbeiter:innen einem anderen Plan zuweisen'
-                : 'Plan löschen'
+                ? t('schedules.deleteHint')
+                : t('common.delete')
             }
           >
             <Trash2 className="mr-1 h-4 w-4" /> {t('common.delete')}
@@ -340,7 +371,8 @@ interface ScheduleEditorProps {
 }
 
 function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
-  const { t } = useI18n();
+  const { t, languageTag } = useI18n();
+  const labels = weekdayLabels(languageTag);
   const [draft, setDraft] = useState<FormDraft>(state.draft);
   const [error, setError] = useState<string | null>(null);
 
@@ -357,6 +389,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
         frameEnd: draft.frameEnd,
         isDefault: draft.isDefault,
         workingDays: draft.workingDays,
+        breakRules: draft.breakRules,
         coreTimes: draft.cores.map((c) => ({
           label: c.label.trim() || null,
           start: c.start,
@@ -402,12 +435,25 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
   const valid = useMemo(() => {
     if (!draft.name.trim()) return false;
     if (draft.frameStart >= draft.frameEnd) return false;
+    if (
+      !draft.breakRules.every(
+        (rule) =>
+          Number.isInteger(rule.afterMinutes) &&
+          rule.afterMinutes >= 0 &&
+          rule.afterMinutes <= 1440 &&
+          Number.isInteger(rule.breakMinutes) &&
+          rule.breakMinutes >= 0 &&
+          rule.breakMinutes <= rule.afterMinutes,
+      )
+    )
+      return false;
+    if (draft.breakRules.length > 50) return false;
     return draft.cores.every((c) => c.start < c.end && c.weekdays > 0);
   }, [draft]);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-h-[90dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {state.id ? t('schedules.edit') : t('schedules.new')}
@@ -438,7 +484,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label htmlFor="fs">Rahmen Start</Label>
+              <Label htmlFor="fs">{t('schedules.frameStart')}</Label>
               <Input
                 id="fs"
                 type="time"
@@ -449,7 +495,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="fe">Rahmen Ende</Label>
+              <Label htmlFor="fe">{t('schedules.frameEnd')}</Label>
               <Input
                 id="fe"
                 type="time"
@@ -468,19 +514,16 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                 setDraft({ ...draft, isDefault: e.target.checked })
               }
             />
-            Als Default-Plan markieren (wird verwendet, wenn Mitarbeiter keinen
-            eigenen Plan hat)
+            {t('schedules.defaultHint')}
           </label>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Arbeitstage</p>
+            <p className="text-sm font-medium">{t('schedules.workingDays')}</p>
             <p className="text-xs text-muted-foreground">
-              An Tagen außerhalb dieser Auswahl gilt der Mitarbeiter als
-              nicht-anwesend — keine Soll-Stunden, keine Urlaubsabrechnung.
-              Default Mo–Fr.
+              {t('schedules.workingDaysHint')}
             </p>
             <div className="flex flex-wrap gap-1 text-xs">
-              {WEEKDAY_LABELS.map((label, i) => {
+              {labels.map((label, i) => {
                 const bit = 1 << i;
                 const active = (draft.workingDays & bit) !== 0;
                 return (
@@ -508,6 +551,105 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">{t('schedules.breakRules')}</p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={draft.breakRules.length >= 50}
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    breakRules: [
+                      ...draft.breakRules,
+                      { afterMinutes: 0, breakMinutes: 0 },
+                    ],
+                  })
+                }
+              >
+                <Plus className="mr-1 h-4 w-4" /> {t('schedules.addBreakRule')}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t('schedules.breakRulesHint')}
+            </p>
+            {draft.breakRules.map((rule, index) => (
+              <div
+                key={index}
+                className="grid grid-cols-[1fr_1fr_auto] items-end gap-2"
+              >
+                <div className="space-y-1">
+                  <Label htmlFor={`break-after-${index}`}>
+                    {t('schedules.breakAfter')}
+                  </Label>
+                  <Input
+                    id={`break-after-${index}`}
+                    type="number"
+                    min={0}
+                    max={1440}
+                    step={1}
+                    value={rule.afterMinutes}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        breakRules: draft.breakRules.map((current, i) =>
+                          i === index
+                            ? {
+                                ...current,
+                                afterMinutes: Number(event.target.value),
+                              }
+                            : current,
+                        ),
+                      })
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor={`break-minutes-${index}`}>
+                    {t('schedules.breakMinutes')}
+                  </Label>
+                  <Input
+                    id={`break-minutes-${index}`}
+                    type="number"
+                    min={0}
+                    max={rule.afterMinutes}
+                    step={1}
+                    value={rule.breakMinutes}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        breakRules: draft.breakRules.map((current, i) =>
+                          i === index
+                            ? {
+                                ...current,
+                                breakMinutes: Number(event.target.value),
+                              }
+                            : current,
+                        ),
+                      })
+                    }
+                  />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t('common.remove')}
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      breakRules: draft.breakRules.filter(
+                        (_, i) => i !== index,
+                      ),
+                    })
+                  }
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <p className="text-sm font-medium">{t('schedules.coreTimes')}</p>
               <Button size="sm" variant="outline" onClick={addCore}>
                 <Plus className="mr-1 h-4 w-4" /> {t('schedules.addCoreTime')}
@@ -523,18 +665,22 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                   <li key={idx} className="space-y-2 rounded-md border p-3">
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
                       <div>
-                        <Label className="text-xs">Bezeichnung</Label>
+                        <Label className="text-xs">
+                          {t('schedules.coreLabel')}
+                        </Label>
                         <Input
                           value={c.label}
                           onChange={(e) =>
                             updateCore(idx, { label: e.target.value })
                           }
-                          placeholder="z. B. Vormittag"
+                          placeholder={t('schedules.corePlaceholder')}
                           className="mt-1 h-8 text-sm"
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">Start</Label>
+                        <Label className="text-xs">
+                          {t('schedules.start')}
+                        </Label>
                         <Input
                           type="time"
                           value={c.start}
@@ -545,7 +691,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">Ende</Label>
+                        <Label className="text-xs">{t('schedules.end')}</Label>
                         <Input
                           type="time"
                           value={c.end}
@@ -567,7 +713,7 @@ function ScheduleEditor({ state, onClose, onSaved }: ScheduleEditorProps) {
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1 text-xs">
-                      {WEEKDAY_LABELS.map((label, i) => {
+                      {labels.map((label, i) => {
                         const bit = 1 << i;
                         const active = (c.weekdays & bit) !== 0;
                         return (

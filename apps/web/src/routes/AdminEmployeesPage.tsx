@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, KeyRound, UserMinus, UserPlus, Pencil } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -19,6 +19,7 @@ import {
   api,
   BUNDESLAND_LABEL,
   type Bundesland,
+  type HolidayCalendar,
   type CreateEmployeePayload,
   type EmployeeDto,
   type EmployeeRole,
@@ -149,21 +150,31 @@ export function AdminEmployeesPage() {
             <table className="w-full text-sm">
               <thead className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2">PersNr</th>
-                  <th className="px-4 py-2">Name</th>
-                  <th className="px-4 py-2">E-Mail</th>
-                  <th className="px-4 py-2">Rolle</th>
-                  <th className="px-4 py-2">Modell</th>
-                  <th className="px-4 py-2 text-right">Wo. h</th>
-                  <th className="px-4 py-2 text-right">Urlaub</th>
-                  <th className="px-4 py-2">Eintritt</th>
-                  <th className="px-4 py-2 text-right">Übertrag</th>
-                  <th className="px-4 py-2">Land</th>
-                  <th className="px-4 py-2">Manager</th>
-                  <th className="px-4 py-2">Arbeitszeitplan</th>
+                  <th className="px-4 py-2">{t('employees.personalNo')}</th>
+                  <th className="px-4 py-2">{t('common.name')}</th>
+                  <th className="px-4 py-2">{t('common.email')}</th>
+                  <th className="px-4 py-2">{t('common.role')}</th>
+                  <th className="px-4 py-2">{t('employees.timeModel')}</th>
+                  <th className="px-4 py-2 text-right">
+                    {t('employees.weeklyHours')}
+                  </th>
+                  <th className="px-4 py-2 text-right">
+                    {t('employees.annualLeaveDays')}
+                  </th>
+                  <th className="px-4 py-2">{t('employees.startDate')}</th>
+                  <th className="px-4 py-2 text-right">
+                    {t('employees.overtimeBalanceShort')}
+                  </th>
+                  <th className="px-4 py-2">
+                    {t('employees.holidayCalendar')}
+                  </th>
+                  <th className="px-4 py-2">{t('common.manager')}</th>
+                  <th className="px-4 py-2">{t('employees.workSchedule')}</th>
                   <th className="px-4 py-2">{t('employees.dailyBlock')}</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2 text-right">Aktionen</th>
+                  <th className="px-4 py-2">{t('common.status')}</th>
+                  <th className="px-4 py-2 text-right">
+                    {t('common.actions')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -203,15 +214,26 @@ export function AdminEmployeesPage() {
                       </td>
                       <td
                         className="px-4 py-2 text-right text-xs"
-                        title={`${e.overtimeOpeningBalanceMinutes} min Übertrag`}
+                        title={t('employees.overtimeBalanceHint', {
+                          minutes: e.overtimeOpeningBalanceMinutes,
+                        })}
                       >
                         {formatHm(e.overtimeOpeningBalanceMinutes)}
                       </td>
                       <td
                         className="px-4 py-2 font-mono text-xs"
-                        title={BUNDESLAND_LABEL[e.bundesland]}
+                        title={t('employees.holidaySummary', {
+                          calendar:
+                            e.holidayCalendar === 'NONE'
+                              ? t('employees.holidayCalendarNone')
+                              : e.holidayCalendar,
+                          count: e.holidayDates?.length ?? 0,
+                        })}
                       >
-                        {e.bundesland}
+                        {e.holidayCalendar === 'NONE' ? '—' : e.holidayCalendar}
+                        {e.holidayDates?.length
+                          ? ` +${e.holidayDates.length}`
+                          : ''}
                       </td>
                       <td className="px-4 py-2 text-xs text-muted-foreground">
                         {manager
@@ -377,16 +399,28 @@ function EmployeeEditor({
     role: (seed?.role ?? 'Employee') as EmployeeRole,
     timeModel: (seed?.timeModel ?? 'Vollzeit') as TimeModel,
     weeklyHours: seed?.weeklyHours ?? 40,
-    annualLeaveDays: seed?.annualLeaveDays ?? 30,
+    annualLeaveDays: seed?.annualLeaveDays ?? 0,
     startDate: seed?.startDate ?? todayIsoDate(),
     overtimeOpeningBalanceMinutes: seed?.overtimeOpeningBalanceMinutes ?? 0,
-    bundesland: (seed?.bundesland ?? 'NW') as Bundesland,
+    holidayCalendar: (seed?.holidayCalendar ?? 'NONE') as HolidayCalendar,
+    holidayDatesText: (seed?.holidayDates ?? []).join(', '),
     managerId: seed?.managerId ?? '',
     workScheduleId: seed?.workScheduleId ?? '',
     allowDailyBlockBooking: seed?.allowDailyBlockBooking ?? false,
     isActive: seed?.isActive ?? true,
   });
   const [error, setError] = useState<string | null>(null);
+  const holidayDates = [
+    ...new Set(draft.holidayDatesText.split(/[\s,;]+/).filter(Boolean)),
+  ];
+  const validHolidayDates = holidayDates.every((date) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+    const parsed = new Date(`${date}T00:00:00Z`);
+    return (
+      !Number.isNaN(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 10) === date
+    );
+  });
 
   const save = useMutation({
     mutationFn: () => {
@@ -404,7 +438,8 @@ function EmployeeEditor({
           startDate: draft.startDate,
           overtimeOpeningBalanceMinutes:
             Number(draft.overtimeOpeningBalanceMinutes) || 0,
-          bundesland: draft.bundesland,
+          holidayCalendar: draft.holidayCalendar,
+          holidayDates,
           managerId: draft.managerId || null,
           workScheduleId: draft.workScheduleId || null,
           allowDailyBlockBooking: draft.allowDailyBlockBooking,
@@ -429,6 +464,8 @@ function EmployeeEditor({
         workScheduleId: draft.workScheduleId || null,
         allowDailyBlockBooking: draft.allowDailyBlockBooking,
         isActive: draft.isActive,
+        holidayCalendar: draft.holidayCalendar,
+        holidayDates,
       };
       return api.updateEmployee(id, payload);
     },
@@ -438,6 +475,7 @@ function EmployeeEditor({
   });
 
   const valid =
+    validHolidayDates &&
     draft.personalNo.trim().length > 0 &&
     draft.firstName.trim().length > 0 &&
     draft.lastName.trim().length > 0 &&
@@ -448,7 +486,7 @@ function EmployeeEditor({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {isCreate ? t('employees.new') : t('employees.edit')}
@@ -461,42 +499,42 @@ function EmployeeEditor({
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <Field
-            label="Personal-Nr"
+            label={t('employees.personalNo')}
             value={draft.personalNo}
             onChange={(v) => setDraft({ ...draft, personalNo: v })}
           />
           <Field
-            label="E-Mail"
+            label={t('common.email')}
             value={draft.email}
             onChange={(v) => setDraft({ ...draft, email: v })}
             type="email"
           />
           <Field
-            label="Vorname"
+            label={t('employees.firstName')}
             value={draft.firstName}
             onChange={(v) => setDraft({ ...draft, firstName: v })}
           />
           <Field
-            label="Nachname"
+            label={t('employees.lastName')}
             value={draft.lastName}
             onChange={(v) => setDraft({ ...draft, lastName: v })}
           />
           {isCreate && (
             <Field
-              label="Initial-Passwort (≥ 8 Zeichen)"
+              label={t('employees.initialPassword')}
               value={draft.password}
               onChange={(v) => setDraft({ ...draft, password: v })}
               type="password"
             />
           )}
           <Select
-            label="Rolle"
+            label={t('common.role')}
             value={draft.role}
             onChange={(v) => setDraft({ ...draft, role: v as EmployeeRole })}
             options={ROLES.map((r) => ({ value: r, label: enumLabel(r) }))}
           />
           <Select
-            label="Zeitmodell"
+            label={t('employees.timeModel')}
             value={draft.timeModel}
             onChange={(v) => setDraft({ ...draft, timeModel: v as TimeModel })}
             options={TIME_MODELS.map((model) => ({
@@ -505,25 +543,25 @@ function EmployeeEditor({
             }))}
           />
           <Field
-            label="Wochenstunden"
+            label={t('employees.weeklyHours')}
             value={String(draft.weeklyHours)}
             onChange={(v) => setDraft({ ...draft, weeklyHours: Number(v) })}
             type="number"
           />
           <Field
-            label="Jahresurlaub (Tage)"
+            label={t('employees.annualLeaveDays')}
             value={String(draft.annualLeaveDays)}
             onChange={(v) => setDraft({ ...draft, annualLeaveDays: Number(v) })}
             type="number"
           />
           <Field
-            label="Eintrittsdatum"
+            label={t('employees.startDate')}
             value={draft.startDate}
             onChange={(v) => setDraft({ ...draft, startDate: v })}
             type="date"
           />
           <Field
-            label="Übertrag Überstunden (Minuten, ± erlaubt)"
+            label={t('employees.overtimeBalance')}
             value={String(draft.overtimeOpeningBalanceMinutes)}
             onChange={(v) =>
               setDraft({ ...draft, overtimeOpeningBalanceMinutes: Number(v) })
@@ -531,20 +569,50 @@ function EmployeeEditor({
             type="number"
           />
           <Select
-            label="Bundesland (Feiertage)"
-            value={draft.bundesland}
-            onChange={(v) =>
-              setDraft({ ...draft, bundesland: v as Bundesland })
+            label={t('employees.holidayCalendar')}
+            value={draft.holidayCalendar}
+            onChange={(value) =>
+              setDraft({ ...draft, holidayCalendar: value as HolidayCalendar })
             }
-            options={(Object.keys(BUNDESLAND_LABEL) as Bundesland[]).map(
-              (c) => ({
-                value: c,
-                label: `${c} — ${BUNDESLAND_LABEL[c]}`,
-              }),
-            )}
+            options={[
+              { value: 'NONE', label: t('employees.holidayCalendarNone') },
+              ...(Object.keys(BUNDESLAND_LABEL) as Bundesland[]).map(
+                (region) => ({
+                  value: `DE-${region}`,
+                  label: t('employees.holidayCalendarGermany', {
+                    region: BUNDESLAND_LABEL[region],
+                  }),
+                }),
+              ),
+            ]}
           />
+          <div className="col-span-2 space-y-2">
+            <Label htmlFor="holiday-dates">{t('employees.holidayDates')}</Label>
+            <textarea
+              id="holiday-dates"
+              rows={3}
+              value={draft.holidayDatesText}
+              onChange={(event) =>
+                setDraft({ ...draft, holidayDatesText: event.target.value })
+              }
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              aria-describedby="holiday-dates-hint"
+              aria-invalid={!validHolidayDates}
+            />
+            <p
+              id="holiday-dates-hint"
+              className="text-xs text-muted-foreground"
+            >
+              {t('employees.holidayDatesHint')}
+            </p>
+            {!validHolidayDates && (
+              <p className="text-xs text-destructive">
+                {t('employees.holidayDatesInvalid')}
+              </p>
+            )}
+          </div>
           <Select
-            label="Manager"
+            label={t('common.manager')}
             value={draft.managerId}
             onChange={(v) => setDraft({ ...draft, managerId: v })}
             options={[
@@ -558,7 +626,7 @@ function EmployeeEditor({
             ]}
           />
           <Select
-            label="Arbeitszeitplan"
+            label={t('employees.workSchedule')}
             value={draft.workScheduleId}
             onChange={(v) => setDraft({ ...draft, workScheduleId: v })}
             options={[
@@ -596,7 +664,7 @@ function EmployeeEditor({
                   setDraft({ ...draft, isActive: e.target.checked })
                 }
               />
-              aktiv (deaktivierte Mitarbeiter:innen können sich nicht einloggen)
+              {t('employees.activeHint')}
             </label>
           )}
         </div>
@@ -635,10 +703,14 @@ function Field({
   onChange: (v: string) => void;
   type?: string;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
       <Input
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         type={type}
@@ -658,10 +730,14 @@ function Select({
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
 }) {
+  const id = useId();
   return (
     <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
       <select
+        id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -692,7 +768,7 @@ function PasswordDialog({
     mutationFn: () => api.setEmployeePassword(employee.id, password),
     onSuccess: () => setDone(true),
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Setzen fehlgeschlagen'),
+      setError(e instanceof Error ? e.message : t('employees.passwordFailed')),
   });
 
   return (
@@ -701,7 +777,10 @@ function PasswordDialog({
         <DialogHeader>
           <DialogTitle>{t('employees.password')}</DialogTitle>
           <DialogDescription>
-            Für {employee.firstName} {employee.lastName} ({employee.email})
+            {t('employees.passwordFor', {
+              name: `${employee.firstName} ${employee.lastName}`,
+              email: employee.email,
+            })}
           </DialogDescription>
         </DialogHeader>
         {done ? (
@@ -740,7 +819,9 @@ function PasswordDialog({
                 set.mutate();
               }}
             >
-              {set.isPending ? 'Setze…' : 'Setzen'}
+              {set.isPending
+                ? t('employees.passwordSetting')
+                : t('employees.passwordSet')}
             </Button>
           )}
         </DialogFooter>

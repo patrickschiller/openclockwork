@@ -1,9 +1,16 @@
+import 'dotenv/config';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import safety from '../ops/db-target-safety.cjs';
 
-const prisma = new PrismaClient();
+let prisma: PrismaClient;
 
 const DEFAULT_PASSWORD = 'openclockwork';
+// Optional sample policy, intentionally not a statement of local legal requirements.
+const DEMO_BREAK_RULES = [
+  { afterMinutes: 360, breakMinutes: 30 },
+  { afterMinutes: 540, breakMinutes: 45 },
+];
 const DEMO_TERMINAL_ID = '00000000-0000-4000-8000-000000000120';
 
 const UMLAUT_MAP: Record<string, string> = {
@@ -44,7 +51,8 @@ async function ensureEmployee(input: {
     ? await prisma.employee.findUnique({ where: { email: input.managerEmail } })
     : null;
   const opening = input.overtimeOpeningBalanceMinutes ?? 0;
-  const bundesland = input.bundesland ?? 'NW';
+  const bundesland = input.bundesland ?? null;
+  const holidayCalendar = bundesland ? `DE-${bundesland}` : 'NONE';
   const allowDailyBlockBooking = input.allowDailyBlockBooking ?? false;
   const data: Prisma.EmployeeCreateInput = {
     personalNo: input.personalNo,
@@ -59,6 +67,7 @@ async function ensureEmployee(input: {
     startDate: input.startDate,
     overtimeOpeningBalanceMinutes: opening,
     bundesland,
+    holidayCalendar,
     allowDailyBlockBooking,
     isActive: true,
     ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
@@ -77,6 +86,7 @@ async function ensureEmployee(input: {
       startDate: input.startDate,
       overtimeOpeningBalanceMinutes: opening,
       bundesland,
+      holidayCalendar,
       allowDailyBlockBooking,
       ...(manager ? { manager: { connect: { id: manager.id } } } : {}),
     },
@@ -123,6 +133,7 @@ async function ensureWorkSchedule(seed: ScheduleSeed) {
       frameStart: seed.frameStart,
       frameEnd: seed.frameEnd,
       isDefault: !!seed.isDefault,
+      breakRules: DEMO_BREAK_RULES,
     };
     const schedule = existing
       ? await tx.workSchedule.update({ where: { id: existing.id }, data })
@@ -195,6 +206,7 @@ async function ensureTimeEntry(
       clockIn,
       clockOut,
       source: 'Manual',
+      breakRules: DEMO_BREAK_RULES,
       status: 'Approved',
       requiresApproval: false,
       projectId: booking.projectId ?? null,
@@ -276,7 +288,7 @@ async function ensureDemoTerminal() {
         longitude: null,
         radiusMeters: null,
         maxAccuracyMeters: null,
-        timeZone: 'Europe/Berlin',
+        timeZone: process.env.TZ || 'UTC',
         isActive: true,
         activatedAt,
       },
@@ -298,6 +310,14 @@ async function ensureDemoTerminal() {
 }
 
 async function main() {
+  const target = safety.assertSeedTarget();
+  prisma = new PrismaClient({ datasourceUrl: target.databaseUrl });
+  const [connected] = await prisma.$queryRaw<
+    Array<{ database: string; schema: string }>
+  >`
+    SELECT current_database() AS database, current_schema() AS schema
+  `;
+  safety.assertConnectedDatabase(target, connected.database, connected.schema);
   // Default startDates so seed employees have a sensible bookkeeping anchor.
   // The HR/managers were "always there"; some employees joined recently, one
   // is migrated from a legacy system and arrives with an overtime credit.
@@ -446,7 +466,7 @@ async function main() {
       model: 'Vertrauensarbeitszeit' as const,
       startDate: Y0401,
       opening: 0,
-      bundesland: 'NW',
+      bundesland: undefined,
     },
     {
       personalNo: '1006',
@@ -457,7 +477,7 @@ async function main() {
       model: 'Teilzeit' as const,
       startDate: Y0501,
       opening: 540,
-      bundesland: 'NW',
+      bundesland: undefined,
     },
   ];
 
@@ -605,9 +625,13 @@ async function main() {
 main()
   .catch((err) => {
     // eslint-disable-next-line no-console
-    console.error(err);
+    console.error(
+      err instanceof safety.DatabaseTargetRefusedError
+        ? err.message
+        : 'Seed failed; no connection details are printed.',
+    );
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await prisma?.$disconnect();
   });

@@ -66,7 +66,7 @@ export function LoginPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">E-Mail</Label>
+                <Label htmlFor="email">{t('common.email')}</Label>
                 <Input
                   id="email"
                   type="email"

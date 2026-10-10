@@ -9,6 +9,9 @@
 using './main.bicep'
 
 param location = 'westeurope'
+
+// IANA timezone for business-day calculations; retain the existing timezone on upgrades.
+param timeZone = 'UTC'
 param namePrefix = 'oclock'
 param environment = 'dev'
 
@@ -23,6 +26,10 @@ param demoResetCronExpression = '0 3 * * *'
 
 // Postgres admin login. Avoid reserved names like admin, root, postgres.
 param postgresAdminLogin = 'ocadmin'
+
+// Preserve an existing installation's name. Only a NEW disposable demo should
+// explicitly use 'openclockwork_demo' before enabling its destructive reset job.
+param postgresDatabaseName = 'openclockwork'
 
 // REPLACE: openssl rand -base64 32 | tr -d '/+=' | head -c 32
 param postgresAdminPassword = 'CHANGE-ME-postgres'

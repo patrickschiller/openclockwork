@@ -53,14 +53,14 @@ export class EmployeesController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   create(@Body() dto: CreateEmployeeDto): Promise<EmployeeDto> {
     return this.employees.create(dto);
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -70,7 +70,7 @@ export class EmployeesController {
   }
 
   @Post(':id/password')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   @HttpCode(HttpStatus.NO_CONTENT)
   setPassword(
@@ -81,7 +81,7 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
@@ -90,7 +90,7 @@ export class EmployeesController {
   }
 
   @Post(':id/reactivate')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles('HRAdmin')
   reactivate(
     @Param('id', new ParseUUIDPipe()) id: string,

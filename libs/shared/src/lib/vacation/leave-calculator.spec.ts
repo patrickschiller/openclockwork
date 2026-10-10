@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { calculateVacationDays, calculateWorkingDays, isWeekend } from './leave-calculator.js';
+import {
+  calculateVacationDays,
+  calculateWorkingDays,
+  isWeekend,
+} from './leave-calculator.js';
 import {
   BUNDESLAENDER,
   holidayProviderFor,
+  holidayProviderForCalendar,
   holidaysFor,
   nrwHolidays,
   NrwHolidayProvider,
@@ -19,19 +24,24 @@ describe('isWeekend', () => {
   });
 });
 
-describe('calculateWorkingDays — defaults (NRW + Mo–Fr)', () => {
+describe('calculateWorkingDays — defaults (no holidays + Mon–Fri)', () => {
   it('5 weekdays in a normal week', () => {
     const from = new Date(Date.UTC(2026, 4, 4));
     const to = new Date(Date.UTC(2026, 4, 10));
     expect(calculateWorkingDays(from, to)).toBe(5);
   });
-  it('skips Tag der Arbeit 2026-05-01 (Friday)', () => {
+  it('does not assume a German public holiday on 2026-05-01 (Friday)', () => {
     const from = new Date(Date.UTC(2026, 3, 27));
     const to = new Date(Date.UTC(2026, 4, 1));
-    expect(calculateWorkingDays(from, to)).toBe(4);
+    expect(calculateWorkingDays(from, to)).toBe(5);
+    expect(
+      calculateWorkingDays(from, to, { holidayProvider: NrwHolidayProvider }),
+    ).toBe(4);
   });
   it('returns 0 when range is inverted', () => {
-    expect(calculateWorkingDays(new Date('2026-06-01'), new Date('2026-05-01'))).toBe(0);
+    expect(
+      calculateWorkingDays(new Date('2026-06-01'), new Date('2026-05-01')),
+    ).toBe(0);
   });
   it('single weekday range counts 1', () => {
     const d = new Date(Date.UTC(2026, 4, 4));
@@ -45,7 +55,9 @@ describe('calculateWorkingDays — custom workingDays bitmask', () => {
 
   it('Saturday counted when schedule includes it', () => {
     expect(calculateWorkingDays(SAT, SAT, { workingDays: 31 })).toBe(0);
-    expect(calculateWorkingDays(SAT, SAT, { workingDays: 31 | WEEKDAY_BITS.Sat })).toBe(1);
+    expect(
+      calculateWorkingDays(SAT, SAT, { workingDays: 31 | WEEKDAY_BITS.Sat }),
+    ).toBe(1);
   });
   it('Sunday remains a non-working day for a Mo–Sat schedule', () => {
     expect(
@@ -58,7 +70,9 @@ describe('calculateWorkingDays — custom workingDays bitmask', () => {
       new Date(Date.UTC(2026, 4, 10)),
     ];
     const mask = WEEKDAY_BITS.Tue | WEEKDAY_BITS.Thu;
-    expect(calculateWorkingDays(monToSun[0], monToSun[1], { workingDays: mask })).toBe(2);
+    expect(
+      calculateWorkingDays(monToSun[0], monToSun[1], { workingDays: mask }),
+    ).toBe(2);
   });
 });
 
@@ -68,7 +82,9 @@ describe('per-state holiday providers', () => {
   });
   it('Karfreitag 2026 (April 3) is everywhere', () => {
     for (const code of BUNDESLAENDER) {
-      expect(holidayProviderFor(code).isHoliday(new Date(Date.UTC(2026, 3, 3)))).toBe(true);
+      expect(
+        holidayProviderFor(code).isHoliday(new Date(Date.UTC(2026, 3, 3))),
+      ).toBe(true);
     }
   });
   it('Fronleichnam 2026 (June 4) is observed in BY but not in NI', () => {
@@ -92,11 +108,15 @@ describe('per-state holiday providers', () => {
     expect(holidayProviderFor('NW').isHoliday(ref)).toBe(false);
   });
   it('Bayern has more public holidays than Niedersachsen', () => {
-    expect(holidaysFor('BY', 2026).length).toBeGreaterThan(holidaysFor('NI', 2026).length);
+    expect(holidaysFor('BY', 2026).length).toBeGreaterThan(
+      holidaysFor('NI', 2026).length,
+    );
   });
   it('default NrwHolidayProvider is equivalent to NW', () => {
     const sample = new Date(Date.UTC(2026, 5, 4));
-    expect(NrwHolidayProvider.isHoliday(sample)).toBe(holidayProviderFor('NW').isHoliday(sample));
+    expect(NrwHolidayProvider.isHoliday(sample)).toBe(
+      holidayProviderFor('NW').isHoliday(sample),
+    );
   });
 });
 
@@ -104,8 +124,12 @@ describe('calculateWorkingDays — per-state', () => {
   it('Fronleichnam reduces NW working days vs NI for that week', () => {
     const from = new Date(Date.UTC(2026, 5, 1));
     const to = new Date(Date.UTC(2026, 5, 5));
-    const nw = calculateWorkingDays(from, to, { holidayProvider: holidayProviderFor('NW') });
-    const ni = calculateWorkingDays(from, to, { holidayProvider: holidayProviderFor('NI') });
+    const nw = calculateWorkingDays(from, to, {
+      holidayProvider: holidayProviderFor('NW'),
+    });
+    const ni = calculateWorkingDays(from, to, {
+      holidayProvider: holidayProviderFor('NI'),
+    });
     expect(ni - nw).toBe(1);
   });
 });
@@ -120,27 +144,45 @@ describe('calculateVacationDays — Halbtage', () => {
   });
 
   it('halfDayStart subtracts 0.5 from the first day', () => {
-    expect(calculateVacationDays(monday, friday, { halfDayStart: true })).toBe(4.5);
+    expect(calculateVacationDays(monday, friday, { halfDayStart: true })).toBe(
+      4.5,
+    );
   });
 
   it('halfDayEnd subtracts 0.5 from the last day', () => {
-    expect(calculateVacationDays(monday, friday, { halfDayEnd: true })).toBe(4.5);
+    expect(calculateVacationDays(monday, friday, { halfDayEnd: true })).toBe(
+      4.5,
+    );
   });
 
   it('both halves on a multi-day range → -1.0', () => {
-    expect(calculateVacationDays(monday, friday, { halfDayStart: true, halfDayEnd: true })).toBe(4);
+    expect(
+      calculateVacationDays(monday, friday, {
+        halfDayStart: true,
+        halfDayEnd: true,
+      }),
+    ).toBe(4);
   });
 
   it('single-day range with halfDayStart → 0.5', () => {
-    expect(calculateVacationDays(monday, monday, { halfDayStart: true })).toBe(0.5);
+    expect(calculateVacationDays(monday, monday, { halfDayStart: true })).toBe(
+      0.5,
+    );
   });
 
   it('single-day range with halfDayEnd → 0.5', () => {
-    expect(calculateVacationDays(monday, monday, { halfDayEnd: true })).toBe(0.5);
+    expect(calculateVacationDays(monday, monday, { halfDayEnd: true })).toBe(
+      0.5,
+    );
   });
 
-  it('single-day range with both flags → still 0.5 (can\'t take two halves of one day)', () => {
-    expect(calculateVacationDays(monday, monday, { halfDayStart: true, halfDayEnd: true })).toBe(0.5);
+  it("single-day range with both flags → still 0.5 (can't take two halves of one day)", () => {
+    expect(
+      calculateVacationDays(monday, monday, {
+        halfDayStart: true,
+        halfDayEnd: true,
+      }),
+    ).toBe(0.5);
   });
 
   it('halfDayStart on a holiday/weekend has no effect (day was already 0)', () => {
@@ -148,6 +190,33 @@ describe('calculateVacationDays — Halbtage', () => {
     const sat = new Date(Date.UTC(2026, 4, 2));
     const fri = new Date(Date.UTC(2026, 4, 8));
     const noHalf = calculateVacationDays(sat, fri); // 5 workdays Mon–Fri
-    expect(calculateVacationDays(sat, fri, { halfDayStart: true })).toBe(noHalf);
+    expect(calculateVacationDays(sat, fri, { halfDayStart: true })).toBe(
+      noHalf,
+    );
+  });
+});
+
+describe('international holiday configuration', () => {
+  it('excludes explicit dates for any country, without inheriting German holidays', () => {
+    const calendar = holidayProviderForCalendar('NONE', ['2026-07-01']);
+    expect(calendar.isHoliday(new Date('2026-07-01T00:00:00Z'))).toBe(true);
+    expect(calendar.isHoliday(new Date('2026-05-01T00:00:00Z'))).toBe(false);
+    expect(
+      calculateVacationDays(new Date('2026-06-29'), new Date('2026-07-03'), {
+        holidayProvider: calendar,
+        halfDayEnd: true,
+      }),
+    ).toBe(3.5);
+    expect(calendar.list(2027)).toEqual([]);
+  });
+
+  it('supplements regional presets and deduplicates overlapping dates', () => {
+    const calendar = holidayProviderForCalendar('DE-NW', [
+      '2026-05-01',
+      '2026-07-01',
+      '2026-07-01',
+    ]);
+    expect(calendar.list(2026)).toHaveLength(12);
+    expect(calendar.isHoliday(new Date('2026-06-04'))).toBe(true);
   });
 });

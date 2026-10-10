@@ -12,7 +12,11 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, type WorkingTimeReportDto } from '../api/client';
+import {
+  api,
+  type WorkingTimeReportDto,
+  type WorkingTimeReportLocationDto,
+} from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
 
@@ -20,7 +24,9 @@ interface CsvLabels {
   date: string;
   employee: string;
   start: string;
+  clockInLocation: string;
   end: string;
+  clockOutLocation: string;
   gross: string;
   break: string;
   net: string;
@@ -43,17 +49,41 @@ function formatTime(value: string, languageTag: string): string {
   });
 }
 
+function formatLocation(
+  location: WorkingTimeReportLocationDto | null | undefined,
+  languageTag: string,
+): string {
+  if (!location) return '–';
+  const coordinates =
+    location.latitude !== null && location.longitude !== null
+      ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+      : null;
+  const accuracy =
+    location.accuracyMeters === null
+      ? null
+      : `±${new Intl.NumberFormat(languageTag, {
+          maximumFractionDigits: 0,
+        }).format(location.accuracyMeters)} m`;
+  const parts = [location.label, coordinates, accuracy].filter(
+    (part): part is string => Boolean(part),
+  );
+  return parts.length > 0 ? parts.join(' · ') : '–';
+}
+
 export function workingTimeReportToCsv(
   report: WorkingTimeReportDto,
   labels: CsvLabels,
   languageTag: string,
   statusLabel: (status: string) => string,
+  includeLocations = false,
 ): string {
   const header = [
     labels.date,
     labels.employee,
     labels.start,
+    ...(includeLocations ? [labels.clockInLocation] : []),
     labels.end,
+    ...(includeLocations ? [labels.clockOutLocation] : []),
     labels.gross,
     labels.break,
     labels.net,
@@ -64,7 +94,13 @@ export function workingTimeReportToCsv(
       row.date,
       row.employeeName,
       formatTime(row.clockIn, languageTag),
+      ...(includeLocations
+        ? [formatLocation(row.clockInLocation, languageTag)]
+        : []),
       formatTime(row.clockOut, languageTag),
+      ...(includeLocations
+        ? [formatLocation(row.clockOutLocation, languageTag)]
+        : []),
       formatMinutes(row.grossMinutes),
       formatMinutes(row.breakMinutes),
       formatMinutes(row.netMinutes),
@@ -75,9 +111,7 @@ export function workingTimeReportToCsv(
   );
   const total = [
     labels.total,
-    '',
-    '',
-    '',
+    ...Array.from({ length: includeLocations ? 5 : 3 }, () => ''),
     formatMinutes(report.totals.grossMinutes),
     formatMinutes(report.totals.breakMinutes),
     formatMinutes(report.totals.netMinutes),
@@ -101,11 +135,12 @@ function defaultRange(): { from: string; to: string } {
 
 export function AdminWorkingTimesPage() {
   const user = useCurrentUser();
-  const { t, enumLabel, locale } = useI18n();
+  const { t, enumLabel, languageTag } = useI18n();
   const initialRange = useMemo(defaultRange, []);
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
   const [employeeId, setEmployeeId] = useState('');
+  const [includeLocations, setIncludeLocations] = useState(false);
   const isAuthorized = user.role === 'HRAdmin';
   const validRange = from !== '' && to !== '' && from <= to;
 
@@ -116,8 +151,20 @@ export function AdminWorkingTimesPage() {
   });
   const availableEmployees = employees.data ?? [];
   const report = useQuery({
-    queryKey: ['working-time-report', from, to, employeeId || null],
-    queryFn: () => api.workingTimeReport(from, to, employeeId || undefined),
+    queryKey: [
+      'working-time-report',
+      from,
+      to,
+      employeeId || null,
+      includeLocations,
+    ],
+    queryFn: () =>
+      api.workingTimeReport(
+        from,
+        to,
+        employeeId || undefined,
+        includeLocations,
+      ),
     enabled: isAuthorized && validRange,
   });
 
@@ -134,15 +181,18 @@ export function AdminWorkingTimesPage() {
         date: t('reports.date'),
         employee: t('common.employee'),
         start: t('reports.start'),
+        clockInLocation: t('reports.clockInLocation'),
         end: t('reports.end'),
+        clockOutLocation: t('reports.clockOutLocation'),
         gross: t('reports.gross'),
         break: t('reports.break'),
         net: t('reports.net'),
         status: t('common.status'),
         total: t('reports.total'),
       },
-      locale === 'de' ? 'de-DE' : 'en-US',
+      languageTag,
       enumLabel,
+      includeLocations,
     );
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -152,8 +202,6 @@ export function AdminWorkingTimesPage() {
     link.click();
     URL.revokeObjectURL(url);
   };
-
-  const languageTag = locale === 'de' ? 'de-DE' : 'en-US';
 
   return (
     <div className="space-y-6">
@@ -211,6 +259,18 @@ export function AdminWorkingTimesPage() {
                 ))}
               </select>
             </div>
+            <div className="flex h-10 items-center gap-2">
+              <input
+                id="working-time-include-locations"
+                type="checkbox"
+                className="h-4 w-4"
+                checked={includeLocations}
+                onChange={(event) => setIncludeLocations(event.target.checked)}
+              />
+              <Label htmlFor="working-time-include-locations">
+                {t('reports.includeLocations')}
+              </Label>
+            </div>
             <Button
               variant="outline"
               disabled={!report.data || report.data.rows.length === 0}
@@ -247,13 +307,25 @@ export function AdminWorkingTimesPage() {
             </p>
           ) : report.data && report.data.rows.length > 0 ? (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-sm">
+              <table
+                className={`w-full ${includeLocations ? 'min-w-[1180px]' : 'min-w-[860px]'} text-sm`}
+              >
                 <thead>
                   <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <th className="py-2 pr-3">{t('reports.date')}</th>
                     <th className="py-2 pr-3">{t('common.employee')}</th>
                     <th className="py-2 pr-3">{t('reports.start')}</th>
+                    {includeLocations && (
+                      <th className="py-2 pr-3">
+                        {t('reports.clockInLocation')}
+                      </th>
+                    )}
                     <th className="py-2 pr-3">{t('reports.end')}</th>
+                    {includeLocations && (
+                      <th className="py-2 pr-3">
+                        {t('reports.clockOutLocation')}
+                      </th>
+                    )}
                     <th className="py-2 pr-3 text-right">
                       {t('reports.gross')}
                     </th>
@@ -274,9 +346,19 @@ export function AdminWorkingTimesPage() {
                       <td className="whitespace-nowrap py-2 pr-3">
                         {formatTime(row.clockIn, languageTag)}
                       </td>
+                      {includeLocations && (
+                        <td className="py-2 pr-3">
+                          {formatLocation(row.clockInLocation, languageTag)}
+                        </td>
+                      )}
                       <td className="whitespace-nowrap py-2 pr-3">
                         {formatTime(row.clockOut, languageTag)}
                       </td>
+                      {includeLocations && (
+                        <td className="py-2 pr-3">
+                          {formatLocation(row.clockOutLocation, languageTag)}
+                        </td>
+                      )}
                       <td className="py-2 pr-3 text-right">
                         {formatMinutes(row.grossMinutes)}
                       </td>
@@ -290,7 +372,10 @@ export function AdminWorkingTimesPage() {
                     </tr>
                   ))}
                   <tr className="font-medium">
-                    <td className="py-3 pr-3" colSpan={4}>
+                    <td
+                      className="py-3 pr-3"
+                      colSpan={includeLocations ? 6 : 4}
+                    >
                       {t('reports.total')}
                     </td>
                     <td className="py-3 pr-3 text-right">

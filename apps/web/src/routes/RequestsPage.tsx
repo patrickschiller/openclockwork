@@ -41,7 +41,7 @@ function formatRange(
   if (type === 'TimeAdjustment') {
     return `${f.toLocaleString(locale)} – ${t.toLocaleString(locale)}`;
   }
-  return `${f.toLocaleDateString(locale)} – ${t.toLocaleDateString(locale)}`;
+  return `${f.toLocaleDateString(locale, { timeZone: 'UTC' })} – ${t.toLocaleDateString(locale, { timeZone: 'UTC' })}`;
 }
 
 function minutesBetween(fromIso: string, toIso: string): number {
@@ -51,7 +51,7 @@ function minutesBetween(fromIso: string, toIso: string): number {
 
 export function RequestsPage() {
   const user = useCurrentUser();
-  const { t, enumLabel, locale } = useI18n();
+  const { t, enumLabel, languageTag } = useI18n();
   const employeeId = user.id;
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -106,7 +106,7 @@ export function RequestsPage() {
                         r.type as RequestType,
                         r.from,
                         r.to,
-                        locale === 'de' ? 'de-DE' : 'en-US',
+                        languageTag,
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -186,25 +186,6 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
 
   const isTimeAdjustment = type === 'TimeAdjustment';
 
-  const isOffHours = useMemo(() => {
-    if (!isTimeAdjustment) return false;
-    // datetime-local strings are interpreted as local time when passed to Date.
-    const f = new Date(fromDt);
-    const t = new Date(toDt);
-    if (Number.isNaN(f.getTime()) || Number.isNaN(t.getTime())) return false;
-    if (f.getHours() < 7) return true;
-    if (t.getHours() > 23 || (t.getHours() === 23 && t.getMinutes() > 0))
-      return true;
-    if (
-      t.getFullYear() !== f.getFullYear() ||
-      t.getMonth() !== f.getMonth() ||
-      t.getDate() !== f.getDate()
-    ) {
-      return true; // crosses midnight
-    }
-    return false;
-  }, [isTimeAdjustment, fromDt, toDt]);
-
   const invalidRange = useMemo(() => {
     if (isTimeAdjustment)
       return new Date(toDt).getTime() <= new Date(fromDt).getTime();
@@ -246,7 +227,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
     },
     onSuccess: () => onClose(),
     onError: (e) =>
-      setError(e instanceof Error ? e.message : 'Antrag fehlgeschlagen'),
+      setError(e instanceof Error ? e.message : t('requests.submitFailed')),
   });
 
   const insufficientVacation =
@@ -333,7 +314,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
               onChange={(e) => setSubstituteId(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">— keine —</option>
+              <option value="">{t('common.none')}</option>
               {employees.data
                 .filter((e) => e.id !== employeeId)
                 .map((e) => (
@@ -354,7 +335,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
                 checked={halfDayStart}
                 onChange={(e) => setHalfDayStart(e.target.checked)}
               />
-              Erster Tag halb
+              {t('requests.firstHalfDay')}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -363,14 +344,14 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
                 checked={halfDayEnd}
                 onChange={(e) => setHalfDayEnd(e.target.checked)}
               />
-              Letzter Tag halb
+              {t('requests.lastHalfDay')}
             </label>
           </div>
         )}
 
         {type === 'SpecialLeave' && (
           <div className="space-y-2">
-            <Label htmlFor="attachment">Beleg (optional, max 10 MB)</Label>
+            <Label htmlFor="attachment">{t('requests.attachmentLabel')}</Label>
             <Input
               id="attachment"
               type="file"
@@ -388,21 +369,20 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
         {type === 'Vacation' && balance.data && (
           <Alert>
             <AlertDescription>
-              <strong>{balance.data.remainingDays.toFixed(1)} Tage</strong>{' '}
-              verfügbar ({balance.data.totalEntitlement.toFixed(1)} gesamt −{' '}
-              {balance.data.approvedDays.toFixed(1)} genehmigt −{' '}
-              {balance.data.pendingDays.toFixed(1)} eingereicht).
+              {t('requests.balanceHint', {
+                remaining: balance.data.remainingDays.toFixed(1),
+                total: balance.data.totalEntitlement.toFixed(1),
+                approved: balance.data.approvedDays.toFixed(1),
+                pending: balance.data.pendingDays.toFixed(1),
+              })}
             </AlertDescription>
           </Alert>
         )}
 
-        {isOffHours && (
+        {isTimeAdjustment && (
           <Alert variant="destructive">
             <AlertDescription>
-              Zeit liegt außerhalb der Rahmenarbeitszeit 07:00–23:00. Der/die
-              Vorgesetzte muss zuerst die <strong>Sondergenehmigung</strong> für
-              die Zeiten außerhalb erteilen, anschließend bestätigt HR die
-              eigentliche Zeitkorrektur (zweistufiger Workflow).
+              {t('requests.timeAdjustmentPolicy')}
             </AlertDescription>
           </Alert>
         )}
@@ -411,8 +391,8 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
           <Alert variant="destructive">
             <AlertDescription>
               {isTimeAdjustment
-                ? '"Bis" muss nach "Von" liegen.'
-                : '"Bis" darf nicht vor "Von" liegen.'}
+                ? t('requests.invalidTimeRange')
+                : t('requests.invalidDateRange')}
             </AlertDescription>
           </Alert>
         )}

@@ -127,8 +127,8 @@ export function getTimeZoneOptions(preferred: string[] = []): string[] {
 export function getBrowserTimeZone(): string {
   try {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return isValidTimeZone(timeZone) ? timeZone : 'Europe/Berlin';
+    return isValidTimeZone(timeZone) ? timeZone : 'UTC';
   } catch {
-    return 'Europe/Berlin';
+    return 'UTC';
   }
 }

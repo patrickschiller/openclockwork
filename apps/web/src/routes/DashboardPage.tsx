@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useI18n } from '../app/i18n';
+import { selectUpcomingVacations } from '../util/upcoming-vacations';
 
 function fmtMinutes(min: number): string {
   const sign = min < 0 ? '−' : '';
@@ -190,8 +191,16 @@ export function DashboardPage() {
                     className="flex items-center justify-between gap-2"
                   >
                     <span>
-                      {enumLabel(r.type)} · {formatDate(r.from)} –{' '}
-                      {formatDate(r.to)}
+                      {enumLabel(r.type)} ·{' '}
+                      {formatDate(
+                        r.type === 'TimeAdjustment'
+                          ? r.from
+                          : r.from.slice(0, 10),
+                      )}{' '}
+                      –{' '}
+                      {formatDate(
+                        r.type === 'TimeAdjustment' ? r.to : r.to.slice(0, 10),
+                      )}
                     </span>
                     <Badge variant="secondary">
                       {enumLabel(r.workflowState)}
@@ -431,19 +440,10 @@ function UpcomingVacations({
   year: number;
 }) {
   const { t, enumLabel, formatDate } = useI18n();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const upcoming = requests
-    .filter((r) => {
-      if (r.workflowState === 'Rejected' || r.workflowState === 'Cancelled')
-        return false;
-      const to = new Date(r.to);
-      const from = new Date(r.from);
-      // Show anything that hasn't fully ended yet AND falls in the displayed year window.
-      return to >= today && from.getFullYear() <= year + 1;
-    })
-    .sort((a, b) => new Date(a.from).getTime() - new Date(b.from).getTime())
-    .slice(0, 4);
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const upcoming = selectUpcomingVacations(requests, year, today);
 
   return (
     <div className="space-y-2">
@@ -459,7 +459,14 @@ function UpcomingVacations({
           {upcoming.map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-2">
               <span>
-                {formatDate(r.from)} – {formatDate(r.to)} ·{' '}
+                {formatDate(
+                  r.type === 'TimeAdjustment' ? r.from : r.from.slice(0, 10),
+                )}{' '}
+                –{' '}
+                {formatDate(
+                  r.type === 'TimeAdjustment' ? r.to : r.to.slice(0, 10),
+                )}{' '}
+                ·{' '}
                 <span className="text-muted-foreground">
                   {t('dashboard.workDays', {
                     count: r.calculatedDays.toFixed(1),

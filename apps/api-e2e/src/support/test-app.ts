@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { AppModule } from '../../../api/src/app/app.module';
 import { PrismaService } from '../../../api/src/app/prisma/prisma.service';
 import * as request from 'supertest';
+import { assertConnectedDatabase, assertE2eTarget } from './database-target';
 
 export interface TestContext {
   app: INestApplication;
@@ -17,6 +18,12 @@ export interface TestContext {
 
 const RESET_SQL = `
   TRUNCATE TABLE
+    "InstallationSettings",
+    "InstallationEvent",
+    "SoloPolicy",
+    "PersonalDay",
+    "TimeEntryAudit",
+    "Customer",
     "TerminalChallengeRedemption",
     "TerminalChallenge",
     "TerminalDevice",
@@ -38,6 +45,8 @@ const RESET_SQL = `
 `;
 
 export async function createTestApp(): Promise<TestContext> {
+  const target = assertE2eTarget();
+  process.env.DATABASE_URL = target.databaseUrl;
   const moduleRef = await Test.createTestingModule({
     imports: [AppModule],
   }).compile();
@@ -60,6 +69,17 @@ export async function createTestApp(): Promise<TestContext> {
     prisma,
     http,
     reset: async () => {
+      const current = assertE2eTarget();
+      if (current.databaseUrl !== target.databaseUrl)
+        throw new Error(
+          'Refusing E2E reset: the selected connection changed after app creation.',
+        );
+      const [connected] = await prisma.$queryRaw<
+        Array<{ database: string; schema: string }>
+      >`
+        SELECT current_database() AS database, current_schema() AS schema
+      `;
+      assertConnectedDatabase(target, connected.database, connected.schema);
       await prisma.$executeRawUnsafe(RESET_SQL);
     },
     close: async () => {
@@ -81,6 +101,8 @@ export interface SeedEmployeeInput {
   startDate?: Date;
   overtimeOpeningBalanceMinutes?: number;
   bundesland?: string;
+  holidayCalendar?: string;
+  holidayDates?: string[];
   allowDailyBlockBooking?: boolean;
   managerId?: string | null;
   workScheduleId?: string | null;
@@ -110,6 +132,11 @@ export async function seedEmployee(
       startDate: input.startDate ?? defaultStart,
       overtimeOpeningBalanceMinutes: input.overtimeOpeningBalanceMinutes ?? 0,
       bundesland: input.bundesland ?? 'NW',
+      // Existing domain fixtures deliberately exercise German regional calendars.
+      // Production/new employee defaults are country-neutral.
+      holidayCalendar:
+        input.holidayCalendar ?? `DE-${input.bundesland ?? 'NW'}`,
+      holidayDates: input.holidayDates ?? [],
       allowDailyBlockBooking: input.allowDailyBlockBooking ?? false,
       isActive: true,
       managerId: input.managerId ?? null,

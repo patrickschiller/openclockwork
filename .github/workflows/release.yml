@@ -70,6 +70,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm prisma generate
 
+      - name: Test release tooling and database target safety
+        run: pnpm nx run api-e2e:test-ops
+
       - name: Lint workspace
         run: pnpm nx run-many -t lint
 
@@ -161,7 +164,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          release_notes=$(<RELEASE_NOTES.md)
+          release_notes=$(node ops/release-notes.mjs)
           gh release create "$RELEASE_TAG" \
             --verify-tag \
             --fail-on-no-commits \

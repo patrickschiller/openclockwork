@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
+  ArrayMaxSize,
+  ArrayUnique,
+  Matches,
+  ValidateIf,
   IsBoolean,
   IsEmail,
   IsEnum,
@@ -14,6 +19,7 @@ import {
   MinLength,
 } from 'class-validator';
 import type { Employee, WorkSchedule } from '@prisma/client';
+import { HOLIDAY_CALENDARS, type HolidayCalendar } from 'shared';
 
 const ROLES = ['Employee', 'Manager', 'HRAdmin'] as const;
 const TIME_MODELS = [
@@ -57,7 +63,9 @@ export interface EmployeeDto {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes: number;
-  bundesland: string;
+  bundesland: string | null;
+  holidayCalendar: string;
+  holidayDates: string[];
   allowDailyBlockBooking: boolean;
   managerId: string | null;
   workScheduleId: string | null;
@@ -84,6 +92,8 @@ export function toEmployeeDto(e: EmployeeWithSchedule | Employee): EmployeeDto {
     startDate: dateOnly(e.startDate),
     overtimeOpeningBalanceMinutes: e.overtimeOpeningBalanceMinutes,
     bundesland: e.bundesland,
+    holidayCalendar: e.holidayCalendar,
+    holidayDates: e.holidayDates,
     allowDailyBlockBooking: e.allowDailyBlockBooking,
     managerId: e.managerId,
     workScheduleId: e.workScheduleId,
@@ -144,7 +154,7 @@ export class CreateEmployeeDto {
   @ApiProperty({
     example: '2026-04-01',
     description:
-      'ISO date when the employee starts; Soll-Stunden are counted from here.',
+      'ISO date when the employee starts; target working hours are counted from here.',
   })
   @IsISO8601({ strict: true })
   startDate!: string;
@@ -159,13 +169,37 @@ export class CreateEmployeeDto {
 
   @ApiPropertyOptional({
     enum: BUNDESLAENDER,
-    default: 'NW',
+    deprecated: true,
     description:
-      'ISO-3166-2 code of the German state — drives the holiday calendar.',
+      'Legacy alias for a DE-XX holidayCalendar; use holidayCalendar for new clients.',
   })
   @IsOptional()
   @IsEnum(BUNDESLAENDER)
   bundesland?: (typeof BUNDESLAENDER)[number];
+
+  @ApiPropertyOptional({
+    enum: HOLIDAY_CALENDARS,
+    default: 'NONE',
+    description:
+      'Optional holiday preset. NONE makes no public-holiday assumptions; explicit holidayDates work in every country.',
+  })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsEnum(HOLIDAY_CALENDARS)
+  holidayCalendar?: HolidayCalendar;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['2026-07-01'],
+    description:
+      'Explicit non-working dates in YYYY-MM-DD format; supplement the selected preset.',
+  })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(3660)
+  @ArrayUnique()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { each: true })
+  @IsISO8601({ strict: true }, { each: true })
+  holidayDates?: string[];
 
   @ApiPropertyOptional({
     default: false,
@@ -244,10 +278,34 @@ export class UpdateEmployeeDto {
   @IsInt()
   overtimeOpeningBalanceMinutes?: number;
 
-  @ApiPropertyOptional({ enum: BUNDESLAENDER })
+  @ApiPropertyOptional({ enum: BUNDESLAENDER, deprecated: true })
   @IsOptional()
   @IsEnum(BUNDESLAENDER)
   bundesland?: (typeof BUNDESLAENDER)[number];
+
+  @ApiPropertyOptional({
+    enum: HOLIDAY_CALENDARS,
+    default: 'NONE',
+    description:
+      'Optional holiday preset. NONE makes no public-holiday assumptions; explicit holidayDates work in every country.',
+  })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsEnum(HOLIDAY_CALENDARS)
+  holidayCalendar?: HolidayCalendar;
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['2026-07-01'],
+    description:
+      'Explicit non-working dates in YYYY-MM-DD format; supplement the selected preset.',
+  })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsArray()
+  @ArrayMaxSize(3660)
+  @ArrayUnique()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { each: true })
+  @IsISO8601({ strict: true }, { each: true })
+  holidayDates?: string[];
 
   @ApiPropertyOptional({
     description:

@@ -168,4 +168,46 @@ describe('AppShell', () => {
       screen.queryByText(`OpenClockwork-Version ${APP_VERSION}`),
     ).toBeNull();
   });
+
+  it('constrains full Solo bottom labels in five narrow columns without shrinking touch targets', () => {
+    render(
+      <MemoryRouter>
+        <AppShell solo />
+      </MemoryRouter>,
+    );
+    const nav = screen.getByRole('navigation', { name: 'Mobile Navigation' });
+    expect(
+      within(nav).getByRole('list').classList.contains('grid-cols-5'),
+    ).toBe(true);
+    for (const label of [
+      'Übersicht',
+      'Zeiten',
+      'Kalender',
+      'Berichte',
+      'Mehr',
+    ]) {
+      const text = within(nav).getByText(label);
+      expect(text.classList.contains('text-xs')).toBe(true);
+      expect(text.classList.contains('min-[360px]:text-sm')).toBe(true);
+      expect(text.classList.contains('leading-5')).toBe(true);
+      expect(text.classList.contains('max-w-full')).toBe(true);
+      expect(text.classList.contains('break-words')).toBe(true);
+      expect(text.parentElement?.classList.contains('py-2.5')).toBe(true);
+    }
+  });
+
+  it('preserves existing Team bottom label styling', () => {
+    render(
+      <MemoryRouter>
+        <AppShell />
+      </MemoryRouter>,
+    );
+    const nav = screen.getByRole('navigation', { name: 'Mobile Navigation' });
+    expect(
+      within(nav).getByText('Dashboard').classList.contains('text-xs'),
+    ).toBe(false);
+    expect(within(nav).getByText('Mehr').classList.contains('text-xs')).toBe(
+      false,
+    );
+  });
 });

@@ -53,7 +53,10 @@ export class RequestsService {
     private readonly schedules: WorkSchedulesService,
   ) {}
 
-  async list(filter: ListRequestsFilter): Promise<RequestDto[]> {
+  async list(
+    filter: ListRequestsFilter,
+    actorId: string,
+  ): Promise<RequestDto[]> {
     const where: Prisma.RequestWhereInput = {};
     if (filter.employeeId) where.employeeId = filter.employeeId;
     if (filter.status)
@@ -66,19 +69,22 @@ export class RequestsService {
       where.currentApproverId = filter.currentApproverId;
     if (filter.substituteId) where.substituteId = filter.substituteId;
     const rows = await this.prisma.request.findMany({
-      where,
+      where: { AND: [where, await this.visibilityWhere(actorId)] },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
     return rows.map(toRequestDto);
   }
 
-  async getById(id: string): Promise<RequestDto> {
-    return toRequestDto(await this.assertRequest(id));
+  async getById(id: string, actorId: string): Promise<RequestDto> {
+    const request = await this.assertRequest(id);
+    await this.assertCanView(request, actorId);
+    return toRequestDto(request);
   }
 
-  async events(id: string): Promise<RequestEventDto[]> {
-    await this.assertRequest(id);
+  async events(id: string, actorId: string): Promise<RequestEventDto[]> {
+    const request = await this.assertRequest(id);
+    await this.assertCanView(request, actorId);
     const rows = await this.prisma.requestEvent.findMany({
       where: { requestId: id },
       orderBy: { occurredAt: 'asc' },
@@ -242,12 +248,13 @@ export class RequestsService {
     const request = await this.assertRequest(id);
     if (request.type === 'Vacation') {
       // Vacation must use the multi-stage workflow.
+      await this.assertApprover(request, actorId);
       return this.transitionVacation(request, 'manager_approve', actorId, note);
     }
     if (requiresTwoStageApproval(request)) {
       // Off-hours TimeAdjustment: manager approves the off-hours allowance,
       // then HR finalises the actual time correction.
-      await this.assertApproverRole(actorId);
+      await this.assertApprover(request, actorId);
       return this.transitionVacation(
         request,
         'manager_approve_with_hr',
@@ -255,7 +262,7 @@ export class RequestsService {
         note,
       );
     }
-    await this.assertApproverRole(actorId);
+    await this.assertApprover(request, actorId);
     const alreadyApproved = request.workflowState === 'Approved';
     const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.request.update({
@@ -288,9 +295,10 @@ export class RequestsService {
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.type === 'Vacation') {
+      await this.assertApprover(request, actorId);
       return this.transitionVacation(request, 'manager_reject', actorId, note);
     }
-    await this.assertApproverRole(actorId);
+    await this.assertApprover(request, actorId);
     const updated = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.request.update({
         where: { id: request.id },
@@ -321,7 +329,7 @@ export class RequestsService {
     requiresHrConfirmation: boolean,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
-    await this.assertApproverRole(actorId);
+    await this.assertApprover(request, actorId);
     // Off-hours TimeAdjustments always need HR confirmation, regardless of the
     // flag set by the manager — the spec calls for a "Sondergenehmigung" first,
     // then the actual time correction.
@@ -339,7 +347,7 @@ export class RequestsService {
     note: string | null,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
-    await this.assertApproverRole(actorId);
+    await this.assertApprover(request, actorId);
     return this.transitionVacation(request, 'manager_reject', actorId, note);
   }
 
@@ -398,7 +406,7 @@ export class RequestsService {
     note: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
-    await this.assertApproverRole(actorId);
+    await this.assertApprover(request, actorId);
     return this.transitionVacation(request, 'manager_return', actorId, note);
   }
 
@@ -424,7 +432,7 @@ export class RequestsService {
       try {
         const request = await this.assertRequest(id);
         if (request.workflowState === 'PendingManager') {
-          await this.assertApproverRole(actorId);
+          await this.assertApprover(request, actorId);
           const forced = requiresTwoStageApproval(request);
           const event: WorkflowEvent =
             requiresHrConfirmation || forced
@@ -489,7 +497,7 @@ export class RequestsService {
       try {
         const request = await this.assertRequest(id);
         if (request.workflowState === 'PendingManager') {
-          await this.assertApproverRole(actorId);
+          await this.assertApprover(request, actorId);
           const updated = await this.transitionVacation(
             request,
             'manager_reject',
@@ -543,6 +551,11 @@ export class RequestsService {
     if (request.employeeId !== actorId) {
       // HR/Manager may also cancel — check role.
       const actor = await this.employees.getById(actorId);
+      if (actor.role === 'Manager' && request.currentApproverId !== actorId) {
+        throw new ForbiddenException(
+          'Managers may only cancel assigned requests',
+        );
+      }
       if (actor.role !== 'Manager' && actor.role !== 'HRAdmin') {
         throw new ForbiddenException(
           'Only the requester or a Manager/HRAdmin may cancel',
@@ -643,12 +656,16 @@ export class RequestsService {
     tx: Prisma.TransactionClient,
     request: Request,
   ): Promise<void> {
+    const schedule = await this.schedules.resolveForEmployee(
+      request.employeeId,
+    );
     await tx.timeEntry.create({
       data: {
         employeeId: request.employeeId,
         clockIn: request.from,
         clockOut: request.to,
         source: 'Manual',
+        breakRules: schedule.breakRules,
         status: 'Approved',
         requiresApproval: false,
       },
@@ -661,12 +678,51 @@ export class RequestsService {
     return request;
   }
 
-  private async assertApproverRole(actorId: string): Promise<void> {
+  private async assertApprover(
+    request: Request,
+    actorId: string,
+  ): Promise<void> {
     const actor = await this.employees.getById(actorId);
     if (actor.role !== 'Manager' && actor.role !== 'HRAdmin') {
       throw new ForbiddenException(
         'Only Manager or HRAdmin may approve/reject',
       );
+    }
+    if (actor.role === 'Manager' && request.currentApproverId !== actorId) {
+      throw new ForbiddenException(
+        'Managers may only transition assigned requests',
+      );
+    }
+  }
+
+  private async visibilityWhere(
+    actorId: string,
+  ): Promise<Prisma.RequestWhereInput> {
+    const actor = await this.employees.getById(actorId);
+    if (actor.role === 'HRAdmin') return {};
+    return {
+      OR: [
+        { employeeId: actorId },
+        { approverId: actorId },
+        { currentApproverId: actorId },
+        { substituteId: actorId },
+      ],
+    };
+  }
+
+  private async assertCanView(
+    request: Request,
+    actorId: string,
+  ): Promise<void> {
+    const actor = await this.employees.getById(actorId);
+    if (
+      actor.role !== 'HRAdmin' &&
+      request.employeeId !== actorId &&
+      request.approverId !== actorId &&
+      request.currentApproverId !== actorId &&
+      request.substituteId !== actorId
+    ) {
+      throw new ForbiddenException('Not permitted to view this request');
     }
   }
 

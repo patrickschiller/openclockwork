@@ -127,6 +127,14 @@ file to hide it. It is never an entitlement or a prerequisite for the terminal.
 The required `terminalQrSecret` is stored separately in Key Vault and must not
 reuse `jwtSecret`; the example parameter file generates both independently.
 
+Set `timeZone` to the IANA timezone used for business-day calculations and
+background jobs. New installations default to `UTC`. When upgrading an existing
+installation, explicitly retain its previous timezone (for example,
+`Europe/Berlin`) to keep existing booking-day boundaries. Terminal timezones
+are configured separately per terminal; stored terminal settings are preserved.
+Holiday calendars and automatic break deductions are explicit employee and
+work-schedule settings, independent of the deployment timezone.
+
 The web image verifies `/api/health` before nginx starts and only accepts an API
 that reports the same OpenClockwork version. Update the API revision (and run
 the migration job) before updating the web revision. This prevents a partial
@@ -139,9 +147,20 @@ For the public demo, set these values in the local, gitignored
 
 ```bicep
 param environment = 'demo'
+param postgresDatabaseName = 'openclockwork_demo'
 param enableDemoReset = true
 param demoResetCronExpression = '0 3 * * *'
 ```
+
+These settings are for a **new, disposable demo installation only**. Version
+2.0.0 rejects seed/reset against the default `openclockwork` database and rejects
+these commands under `NODE_ENV=production`. The template keeps the API in
+production mode but runs only the explicitly enabled demo maintenance job in
+development mode with an exact database-name confirmation. Existing demo jobs
+must be reviewed before upgrading. Do not change a populated installation's
+database name to bypass the guard: keep its data and provision a separate demo,
+or leave the destructive job disabled. Production bootstrapping and ordinary
+migrations do not require seed/reset or a non-production runtime.
 
 Each reset restores the synthetic employees, projects, bookings, and one active
 `Demo-Empfang` terminal. The terminal deliberately has geofencing disabled and

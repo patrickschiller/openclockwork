@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Open-source time and attendance for teams that want trustworthy rules, modern self-hosting, and no proprietary punch-clock hardware.</strong>
+  <strong>Self-hosted time tracking for one-person businesses and teams. Your work, your rules, your data.</strong>
 </p>
 
 <p align="center">
@@ -14,16 +14,37 @@
   <a href="https://github.com/patrickschiller/openclockwork/releases/latest"><img src="https://img.shields.io/github/v/release/patrickschiller/openclockwork" alt="Latest GitHub release"></a>
 </p>
 
-OpenClockwork is a mobile-first, self-hostable working-time system for small and
-mid-sized organisations. Employees can clock in and out, scan a rotating QR
-code from a wall-mounted tablet, or—when HR explicitly enables it—book their
-contractual daily target as one completed block.
+OpenClockwork 2.0 brings two operating modes to one open-source application.
+**Solo** helps an independent professional track personal work, organise customer
+projects, and produce timesheets without inventing an HR department. **Team**
+supports employee attendance, work schedules, leave, approvals, and tablet
+terminals. Both use the same self-hosted PostgreSQL, API, and responsive PWA.
 
-The domain model covers real working-time behaviour: statutory break deduction,
-target/actual accounts, configurable schedules and core hours, German public
-holidays, leave balances, multi-stage approvals, projects, service orders, and
-auditable reporting. The UI ships in German and English and works as an
-installable PWA on phones, tablets, and desktops.
+The interface is available in German and English on phones, tablets, and
+desktops. Language is independent of working-time rules: targets, breaks,
+holidays, and leave are explicit configuration, not assumptions about your
+country. No proprietary time-clock hardware or hosted subscription is required.
+
+**Existing installations remain in Team mode after an upgrade.** A mode change
+is a separate, authenticated administrator action with a preview and safety
+checks. Invoice creation, monetary billing, and CAUR coding-agent usage import
+are not included in 2.0.0; see the [roadmap](ROADMAP.md).
+
+## Choose your mode
+
+|                 | Solo                                                                     | Team                                                                |
+| --------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| Best fit        | One person tracking their own work                                       | An organisation managing multiple people                            |
+| Daily workflow  | Timer, manual entries, direct corrections, personal calendar             | Employee bookings, requests, manager/HR workflows                   |
+| Work rules      | Optional targets, leave account, breaks, and personal hints              | Employee contracts, schedules, leave allowances, and approvals      |
+| Customer work   | Customers, projects/orders, billable classification, personal timesheets | Assigned projects/orders, PLAN/IST reports, HR working-time reports |
+| Shared terminal | Not available in Solo                                                    | Paired tablet QR terminals with optional geofencing                 |
+| Start here      | [Solo guide](docs/SOLO_MODE.md)                                          | [Team guide](docs/TEAM_MODE.md)                                     |
+
+Read [Operating modes](docs/OPERATING_MODES.md) for boundaries and safe
+transitions. Solo is not a separate account tier or a license restriction; it
+is an installation-wide workflow and access mode. Team does not yet expose the
+Solo customer-management and billable-timesheet UI.
 
 <p align="center">
   <img src="assets/screenshots/tablet/kiosk.png" alt="OpenClockwork tablet terminal with a rotating QR code" width="100%">
@@ -36,12 +57,16 @@ installable PWA on phones, tablets, and desktops.
 </p>
 
 <p align="center">
-  <strong>One responsive PWA for employees, managers, HR, and paired kiosk devices.</strong><br>
+  <strong>Team-mode examples: employee booking, QR scanning, and leave requests.</strong><br>
   <a href="FEATURES.md">Explore the complete feature overview</a>
 </p>
 
 ## Highlights
 
+- **A complete personal workflow.** In Solo, start with all attendance-related
+  accounts disabled, capture actual work, correct or cancel it with an audit
+  trail, organise customers/projects/orders, and export billable or non-billable
+  timesheets. Private notes stay out of customer reports.
 - **Flexible time capture.** Clock actual start/end times, add an optional GPS
   position and project, or use an HR-enabled daily-target block.
 - **QR tablet terminal.** Pair an iPad or another tablet once, show a rotating
@@ -50,22 +75,43 @@ installable PWA on phones, tablets, and desktops.
 - **Optional geofencing.** A terminal can work entirely without GPS or require a
   fresh employee position inside a server-validated radius with a configured
   accuracy limit.
-- **Compliance-oriented domain logic.** Break deduction, working frames, core
+- **Configurable working-time rules.** Break deduction, working frames, core
   hours, target/actual balances, public holidays, and leave calculations live in
   tested backend/shared-domain code.
-- **Real approval workflows.** Vacation, home office, special leave, time
+- **Team approval workflows.** Vacation, home office, special leave, time
   corrections, substitute confirmation, manager approval, HR confirmation,
   bulk actions, and workflow history.
 - **Projects and reporting.** Assign employees, structure projects by service
   order, compare PLAN and IST hours, edit booking targets, split entries, and
-  export customer or working-time reports.
+  export customer or working-time reports with optional clock-in/out locations.
 - **Self-hosted and API-first.** PostgreSQL, NestJS, React, OpenAPI, Socket.IO,
   Docker, and an Azure reference deployment—without SaaS lock-in.
-- **German and English.** Centralised translations, locale-aware dates, and a
-  persistent language switcher across the login, employee, manager, HR, and
-  kiosk experiences.
+- **Localised interface.** German and English translations, browser-aware dates,
+  and a persistent language switcher across login, Solo, employee, manager, HR,
+  and kiosk experiences.
 
-## Tablet terminal
+Solo corrections are owner actions, not employee approval requests. Optional
+personal policies are effective-dated; changing tomorrow's rules does not
+rewrite yesterday's bookings. See the [feature overview](FEATURES.md) for a
+mode-by-mode breakdown.
+
+## Use in any country
+
+Language does not select a country's work rules. Configure the installation's
+IANA working timezone, employee holiday calendars, leave allowances, working
+days, and schedule break rules for your organisation. New employee records
+start without a regional holiday preset or assumed annual leave entitlement;
+new schedules start without automatic break deduction. Existing German state
+calendars remain available as optional presets, and custom holiday dates can
+represent other countries, regions, and company closures.
+
+The API currently evaluates working days and schedule boundaries in one
+deployment timezone (`TZ`, default `UTC`). Set this explicitly before recording
+real data. A kiosk's display timezone does not change payroll or working-day
+boundaries. Multiple simultaneous employee working timezones and additional
+maintained regional calendars are covered in the [roadmap](ROADMAP.md).
+
+## Tablet terminal (Team mode)
 
 An HR administrator creates a terminal with an internal name, visible location,
 custom message, optional logo, IANA time zone, and optional GPS geofence. After
@@ -85,8 +131,9 @@ The security model is deliberately separate from an employee session:
 - daily signing material is derived from a dedicated `TERMINAL_QR_SECRET`, not
   from `JWT_SECRET`;
 - clock-in/out uses the authenticated employee identity from the bearer token;
-- geofence, position, accuracy, and radius snapshots remain in the historical
-  booking audit record even if the terminal is later deleted permanently;
+- terminal location labels, geofence positions, accuracy, and radius snapshots
+  remain in the historical booking audit record even if the terminal is later
+  deleted permanently;
 - pairing, kiosk, and mobile camera/location flows are documented for trusted
   local HTTPS and managed iPad deployments.
 
@@ -96,18 +143,37 @@ device replacement, revocation, and troubleshooting.
 
 ## Project status
 
-**Stable and ready for self-hosting.** Employee, manager, HR, terminal,
-approval, reporting, and deployment workflows are covered by automated tests.
-Stable releases follow semantic versioning and include release notes and upgrade
-instructions.
+OpenClockwork is intended for self-hosting, with automated domain, API, and UI
+tests, versioned releases, and documented upgrade procedures. See
+[release notes](RELEASE_NOTES.md) for the scope and validation of each version;
+do not treat automated coverage as certification of every browser, device, or
+organisation-specific policy.
+
+**Why 2.0?** This version deliberately marks a new product generation: Solo and
+Team are both first-class workflows. The major number is not a claim that the
+release requires a data reset or intentionally breaks existing Team APIs.
+Existing installations migrate forward and retain Team mode. Future
+compatibility changes follow semantic versioning and will be called out in
+release notes and [UPGRADING.md](UPGRADING.md).
 
 Operators must still validate organisation-specific working-time rules,
 collective agreements, payroll integrations, privacy requirements, backups,
 monitoring, and incident procedures. OpenClockwork provides technical controls;
 it is not legal advice.
 
+Exact clock-in and clock-out locations are excluded from HR working-time reports
+by default. HR administrators must explicitly include them in the on-screen
+report and CSV export; operators remain responsible for a lawful purpose,
+appropriate access, and retention periods for this personal data.
+
 See the [latest release](https://github.com/patrickschiller/openclockwork/releases/latest)
 and read [UPGRADING.md](UPGRADING.md) before changing an existing installation.
+
+The PWA is online-first. A running timer remains server state while a device is
+offline; new writes require server confirmation and are not queued as offline
+bookings. CSV export starts a browser download, and print/PDF uses the browser's
+print dialog. Verify both handoffs in your chosen browser or installed PWA;
+embedded browsers may handle downloads and printing differently.
 
 ## Tech stack
 
@@ -141,7 +207,9 @@ assets/           Brand sources and documentation screenshots
 
 ## Getting started
 
-Prerequisites: **Node.js 20+**, **pnpm 9+**, and **Docker**.
+For production, use the [versioned Docker installation](#production-installation-step-by-step)
+below; Node.js and pnpm are not required on that host. Source development needs
+**Node.js 20+**, **pnpm 9+**, and **Docker**.
 
 ### Development with Node.js and Docker
 
@@ -150,14 +218,22 @@ git clone https://github.com/patrickschiller/openclockwork.git
 cd openclockwork
 
 pnpm install
+cp .env.example .env
 docker compose up -d db
-pnpm prisma migrate dev
+pnpm prisma generate
+pnpm prisma migrate deploy
+pnpm db:create-admin
 pnpm nx run-many -t serve -p api,web
 ```
 
 Open `http://localhost:4200`. Vite proxies API calls to
-`http://localhost:3000`. The interface starts in German; use the language menu
-on the login screen or in the application header to switch to English.
+`http://localhost:3000`. The interface uses a supported browser language, falling
+back to English. Use the language menu on the login screen or in the application
+header to choose English or German; your choice is saved.
+
+The bootstrap command is for an empty employee table and asks you to choose
+Solo or Team. Keep an existing `.env` and its database identity when returning
+to an existing checkout; do not rerun initial setup or copy over its secrets.
 
 ### Full local Docker stack
 
@@ -176,8 +252,19 @@ docker compose \
 | API        | `http://localhost:3001` | `3001:3001`                 |
 | PostgreSQL | `localhost:5432`        | configurable with `DB_PORT` |
 
-The API applies pending migrations and loads synthetic development data before
-starting. Stop the stack with:
+The API applies pending migrations before starting. It does **not** automatically
+load synthetic data: ordinary development startup must not overwrite a database
+or silently create demo users. For a new empty database, use the same interactive
+bootstrap entry point, targeting the development stack:
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file .env.dev \
+  exec api node --import tsx prisma/create-admin.ts
+```
+
+Keep demos in a deliberately separate development/demo database and follow the
+seed command's explicit safety requirements. Never seed a production database
+or use seeding to repair an existing installation. Stop the stack with:
 
 ```bash
 docker compose -f docker-compose.dev.yml --env-file .env.dev down
@@ -211,7 +298,9 @@ the regular HTTP port to a tablet.
 Production installations use versioned API and web images from the GitHub
 Container Registry. The database starts empty: production never loads the
 development/demo seed. Follow every step below to configure the installation
-and create its first HR administrator.
+and create its first Solo owner or Team HR administrator. Upgrading an existing
+database is a different workflow: use [UPGRADING.md](UPGRADING.md), do not run
+bootstrap again, and keep the existing volume names.
 
 ### 1. Prepare the host and configuration
 
@@ -221,6 +310,7 @@ repository and enter its directory:
 ```bash
 git clone https://github.com/patrickschiller/openclockwork.git
 cd openclockwork
+git switch --detach v2.0.0
 cp .env.prod.example .env.prod
 ```
 
@@ -251,8 +341,8 @@ openssl rand -hex 32
 
 Open `.env.prod` in an editor and replace every `change-me` value:
 
-- Set `OPENCLOCKWORK_VERSION` to the exact version from the GitHub Release,
-  without the leading `v`. Never deploy `latest`.
+- Set `OPENCLOCKWORK_VERSION=2.0.0` for this release. Use the same explicit
+  version for the API and web images; never deploy `latest`.
 - Put the first command's output into `POSTGRES_PASSWORD` and replace
   `change-me-database-password` inside `DATABASE_URL` with that exact same
   value. These two locations must match.
@@ -327,7 +417,7 @@ All services should be healthy, the migrations should be current, and the
 health endpoint should return HTTP 200. Replace `8080` if `WEB_PORT` has been
 changed. The login form is intentionally empty in production at this point.
 
-### 5. Create the first HR administrator
+### 5. Choose Solo or Team and create the first account
 
 Run the interactive bootstrap command from the production host. Do not add
 `-T`: the command requires a terminal for its prompts.
@@ -337,30 +427,51 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod \
   exec api node --import tsx prisma/create-admin.ts
 ```
 
-Enter the administrator's personnel number, name, email address, time model,
-weekly hours, annual leave, start date, and German state. Defaults are shown in
-square brackets and can be accepted with Enter.
+The first prompt asks for `Solo` or `Team` (interactive default: `Solo`).
 
-The command creates exactly one active `HRAdmin` and prints a random initial
-password once. Store that password in the organisation's approved password
-manager. The command refuses to run if any employee already exists, and it
-never imports the demo seed.
+- **Solo:** enter your first name, last name, and email. The command creates the
+  single owner; no personnel number, contract hours, leave entitlement, manager,
+  or work schedule is required. Personal targets, leave, hints, daily blocks,
+  GPS, and automatic break deductions start disabled.
+- **Team:** enter the first administrator's personnel number, name, email, time
+  model, weekly hours, leave allowance, start date, and optional holiday preset.
+  Enter the organisation's actual values; the displayed defaults are not legal
+  or contractual recommendations.
+
+Both choices create exactly one active `HRAdmin` identity internally and print a
+strong random initial password once. In Solo, the application presents that
+identity as the **owner**, not as a separate HR department. Store the password
+privately. Bootstrap refuses to run if any employee already exists and never
+imports the demo seed.
+
+Unattended setup accepts explicit non-secret fields; use `--help` for the
+options. For compatibility, an invocation with options but without `--mode`
+defaults to **Team**. Merely appending `--mode Solo` or `--mode Team` does not
+start interactive prompts: supply the required identity fields as well.
 
 ### 6. Sign in and replace the initial password
 
 1. Open the configured public URL (or `http://localhost:8080` while testing
    directly on the host; use the configured `WEB_PORT` if it differs).
 2. Sign in with the email address and generated initial password from step 5.
-3. Open **Administration → Employees**, select the key action for your own
-   account, and set a new unique password of at least eight characters.
-4. Sign out and sign in again with the new password before discarding the
-   initial password.
+3. In **Settings → Password**, enter the current password and a new unique
+   password of at least 12 characters. The signed-in owner/administrator can
+   also review their name and email in Settings.
+4. Password changes invalidate existing access and refresh sessions. Sign in
+   again with the new password before discarding the initial password.
 
-### 7. Finish the organisation setup
+### 7. Finish setup for your mode
 
-Review the new administrator's employee master data, then create the required
-work schedules, employees, projects, and assignments through the administration
-pages. Nothing from `prisma/seed.ts` belongs in a production database.
+- **Solo:** the first login opens personal setup. Confirm the displayed working
+  timezone and either leave the optional policies off or configure the ones you
+  need. Complete setup, then create a customer/project or start tracking internal
+  work. Follow [the Solo walkthrough](docs/SOLO_MODE.md).
+- **Team:** review the administrator's employee data, then create schedules,
+  employees, reporting relationships, projects, and assignments. Configure
+  terminal kiosks only if wanted. Follow [the Team walkthrough](docs/TEAM_MODE.md).
+
+Nothing from `prisma/seed.ts` belongs in a production database. Switching mode
+later is explicit and guarded; it is not a substitute for completing setup.
 
 ### 8. Protect the installation
 
@@ -411,6 +522,10 @@ You can also support the project through
 ## Documentation
 
 - [Complete feature overview](FEATURES.md)
+- [Operating modes: choose and switch safely](docs/OPERATING_MODES.md)
+- [Solo: personal setup, customer work, reports, and recovery](docs/SOLO_MODE.md)
+- [Team: employees, schedules, approvals, terminals, and reports](docs/TEAM_MODE.md)
+- [Roadmap: billing, agent usage, and further internationalisation](ROADMAP.md)
 - [iPad terminal setup and operations (German)](docs/IPAD_TERMINAL_SETUP.de.md)
 - [Upgrade procedure](UPGRADING.md)
 - [Release process](RELEASING.md)

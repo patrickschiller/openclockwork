@@ -79,6 +79,8 @@ export const BUNDESLAND_LABEL: Record<Bundesland, string> = {
   TH: 'Thüringen',
 };
 
+export type HolidayCalendar = 'NONE' | `DE-${Bundesland}`;
+
 export interface EmployeeDto {
   id: string;
   personalNo: string;
@@ -91,7 +93,9 @@ export interface EmployeeDto {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes: number;
-  bundesland: Bundesland;
+  holidayCalendar: HolidayCalendar;
+  holidayDates: string[];
+  bundesland?: Bundesland | null;
   allowDailyBlockBooking: boolean;
   managerId: string | null;
   workScheduleId: string | null;
@@ -111,6 +115,8 @@ export interface CreateEmployeePayload {
   annualLeaveDays: number;
   startDate: string; // YYYY-MM-DD
   overtimeOpeningBalanceMinutes?: number;
+  holidayCalendar?: HolidayCalendar;
+  holidayDates?: string[];
   bundesland?: Bundesland;
   allowDailyBlockBooking?: boolean;
   managerId: string | null;
@@ -128,6 +134,8 @@ export interface UpdateEmployeePayload {
   annualLeaveDays?: number;
   startDate?: string;
   overtimeOpeningBalanceMinutes?: number;
+  holidayCalendar?: HolidayCalendar;
+  holidayDates?: string[];
   bundesland?: Bundesland;
   allowDailyBlockBooking?: boolean;
   managerId?: string | null;
@@ -296,6 +304,15 @@ export interface WorkingTimeReportRowDto {
   grossMinutes: number;
   breakMinutes: number;
   netMinutes: number;
+  clockInLocation?: WorkingTimeReportLocationDto | null;
+  clockOutLocation?: WorkingTimeReportLocationDto | null;
+}
+
+export interface WorkingTimeReportLocationDto {
+  label: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracyMeters: number | null;
 }
 
 export interface WorkingTimeReportEmployeeDto {
@@ -470,6 +487,11 @@ export interface CoreTimeWindowDto {
   weekdays: number;
 }
 
+export interface BreakRuleDto {
+  afterMinutes: number;
+  breakMinutes: number;
+}
+
 export interface WorkScheduleDto {
   id: string;
   name: string;
@@ -478,6 +500,7 @@ export interface WorkScheduleDto {
   frameEnd: string;
   isDefault: boolean;
   workingDays: number;
+  breakRules: BreakRuleDto[];
   coreTimes: CoreTimeWindowDto[];
   employeeCount: number;
   updatedAt: string;
@@ -490,6 +513,7 @@ export interface UpsertWorkSchedulePayload {
   frameEnd: string;
   isDefault: boolean;
   workingDays: number;
+  breakRules: BreakRuleDto[];
   coreTimes: Array<{
     label: string | null;
     start: string;
@@ -742,7 +766,7 @@ async function attempt(
   return fetch(`${baseUrl}${path}`, { ...init, headers });
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response = await attempt(path, init, readToken());
 
   // 401 → try to refresh once, then retry the original request.
@@ -776,6 +800,31 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+export async function downloadAuthenticated(
+  path: string,
+  fileName: string,
+): Promise<void> {
+  const fetchOnce = (token: string | null) =>
+    fetch(`${baseUrl}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+  let response = await fetchOnce(readToken());
+  if (response.status === 401) {
+    const fresh = await tryRefreshOnce();
+    if (fresh) response = await fetchOnce(fresh);
+  }
+  if (!response.ok)
+    throw new ApiError(response.status, `Download failed (${response.status})`);
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export const api = {
@@ -863,9 +912,15 @@ export const api = {
       `/api/projects/${id}/report${qs ? `?${qs}` : ''}`,
     );
   },
-  workingTimeReport: (from: string, to: string, employeeId?: string) => {
+  workingTimeReport: (
+    from: string,
+    to: string,
+    employeeId?: string,
+    includeLocations = false,
+  ) => {
     const params = new URLSearchParams({ from, to });
     if (employeeId) params.set('employeeId', employeeId);
+    if (includeLocations) params.set('includeLocations', 'true');
     return request<WorkingTimeReportDto>(
       `/api/reports/working-times?${params.toString()}`,
     );

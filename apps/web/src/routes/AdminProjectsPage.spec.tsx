@@ -41,7 +41,12 @@ vi.mock('../app/auth', () => ({
     lastName: 'User',
     role,
   }),
-  useAuth: () => ({ user: null, login: vi.fn(), logout: vi.fn(), loading: false }),
+  useAuth: () => ({
+    user: null,
+    login: vi.fn(),
+    logout: vi.fn(),
+    loading: false,
+  }),
 }));
 
 const PROJECTS = [
@@ -135,7 +140,9 @@ describe('AdminProjectsPage', () => {
     role = 'Employee';
     const { AdminProjectsPage } = await import('./AdminProjectsPage');
     renderWithProviders(<AdminProjectsPage />);
-    expect(screen.getByText(/Managern und HR-Admins vorbehalten/i)).toBeDefined();
+    expect(
+      screen.getByText(/Managern und HR-Admins vorbehalten/i),
+    ).toBeDefined();
     expect(projectsMock).not.toHaveBeenCalled();
   });
 
@@ -178,7 +185,11 @@ describe('AdminProjectsPage', () => {
 
     await waitFor(() => {
       expect(createProjectMock).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'PRJ-003', name: 'Drittes Projekt', isActive: true }),
+        expect.objectContaining({
+          code: 'PRJ-003',
+          name: 'Drittes Projekt',
+          isActive: true,
+        }),
       );
     });
   });
@@ -226,9 +237,15 @@ describe('AdminProjectsPage', () => {
     });
 
     fireEvent.click(screen.getByRole('button', { name: /Neues Projekt/i }));
-    fireEvent.change(await screen.findByLabelText('Code'), { target: { value: 'PRJ-003' } });
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Drittes Projekt' } });
-    fireEvent.change(screen.getByLabelText(/PLAN-Zeit/i), { target: { value: '99,5' } });
+    fireEvent.change(await screen.findByLabelText('Code'), {
+      target: { value: 'PRJ-003' },
+    });
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Drittes Projekt' },
+    });
+    fireEvent.change(screen.getByLabelText(/PLAN-Zeit/i), {
+      target: { value: '99,5' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /^Speichern$/ }));
 
     await waitFor(() => {
@@ -247,10 +264,55 @@ describe('AdminProjectsPage', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /Auswertung/i })[0]);
     await waitFor(() => {
-      expect(projectReportMock).toHaveBeenCalledWith('p-1', undefined, undefined);
+      expect(projectReportMock).toHaveBeenCalledWith(
+        'p-1',
+        undefined,
+        undefined,
+      );
       expect(screen.getByText('Wireframes erstellt')).toBeDefined();
       // Appears in the matrix AND the report table once the dialog is open.
       expect(screen.getAllByText('Anna Müller').length).toBeGreaterThan(1);
     });
   });
+});
+
+describe('project report CSV locales', () => {
+  it.each([
+    ['en-GB', 'Date,Employee,Service order,hours,Activity', '1.50'],
+    ['de-DE', 'Datum;Mitarbeiter:in;Service-Auftrag;Stunden;Tätigkeit', '1,50'],
+  ])(
+    'uses %s headers and decimal conventions and escapes punctuation',
+    async (languageTag, header, hours) => {
+      const { reportToCsv } = await import('./AdminProjectsPage');
+      const { catalogs } = await import('../app/i18n');
+      const catalog = languageTag.startsWith('de') ? catalogs.de : catalogs.en;
+      const csv = reportToCsv(
+        {
+          projectCode: 'PROJECT-1',
+          projectName: 'Synthetic project',
+          from: null,
+          to: null,
+          rows: [
+            {
+              date: '2026-07-01',
+              employeeName: 'Alex Example',
+              orderNo: null,
+              orderTitle: null,
+              grossMinutes: 90,
+              activity: 'Review, design; "approved"',
+            },
+          ],
+          totalGrossMinutes: 90,
+        },
+        languageTag,
+        (key) => catalog[key],
+      );
+      expect(csv.startsWith('\uFEFF' + header)).toBe(true);
+      expect(csv).toContain(hours);
+      expect(csv.split('\r\n').at(-1)).toBe(
+        languageTag === 'de-DE' ? 'Gesamt;;;"1,50";' : 'Total,,,1.50,',
+      );
+      expect(csv).toContain('"Review, design; ""approved"""');
+    },
+  );
 });

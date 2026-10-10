@@ -22,13 +22,13 @@ import { DemoNotice } from './DemoNotice';
 import { BrandMark } from './BrandMark';
 import { APP_VERSION } from './app-version';
 
-export function AppShell() {
+export function AppShell({ solo = false }: { solo?: boolean }) {
   const { user, logout } = useAuth();
   const { t, enumLabel } = useI18n();
   useRealtimeInvalidation();
   const install = useInstallPrompt();
   const role = user?.role ?? 'Employee';
-  const items = useMemo(() => visibleNavItems(role), [role]);
+  const items = useMemo(() => visibleNavItems(role, solo), [role, solo]);
   const bottomItems = useMemo(
     () => items.filter((i) => i.showInBottomNav),
     [items],
@@ -96,7 +96,9 @@ export function AppShell() {
                     {user.email}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t('common.role')}: {enumLabel(user.role)}
+                    {solo
+                      ? t('solo.owner')
+                      : `${t('common.role')}: ${enumLabel(user.role)}`}
                   </p>
                 </DropdownMenuLabel>
               ) : (
@@ -139,7 +141,8 @@ export function AppShell() {
           </div>
         </main>
 
-        {location.pathname.startsWith('/admin/') && (
+        {(location.pathname.startsWith('/admin/') ||
+          location.pathname === '/settings') && (
           <footer className="px-4 pb-28 text-center text-xs text-muted-foreground md:px-8 md:pb-5">
             <p>{t('shell.adminFooter')}</p>
             <p>{t('shell.adminVersion', { version: APP_VERSION })}</p>
@@ -161,6 +164,7 @@ export function AppShell() {
                 <BottomNavLink
                   item={item}
                   active={location.pathname === item.to}
+                  compactLabels={solo}
                 />
               </li>
             ))}
@@ -169,6 +173,7 @@ export function AppShell() {
                 <MobileOverflowMenu
                   items={overflowItems}
                   currentPath={location.pathname}
+                  compactLabels={solo}
                   active={overflowItems.some(
                     (item) => location.pathname === item.to,
                   )}
@@ -186,10 +191,12 @@ function MobileOverflowMenu({
   items,
   currentPath,
   active,
+  compactLabels = false,
 }: {
   items: NavItem[];
   currentPath: string;
   active: boolean;
+  compactLabels?: boolean;
 }) {
   const { t } = useI18n();
 
@@ -205,7 +212,9 @@ function MobileOverflowMenu({
           aria-label={t('shell.openMore')}
         >
           <Menu className="h-7 w-7" aria-hidden="true" />
-          <span>{t('shell.more')}</span>
+          <span className={compactLabels ? compactBottomLabelClass : undefined}>
+            {t('shell.more')}
+          </span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
@@ -259,7 +268,20 @@ function SidebarLink({ item }: { item: NavItem }) {
   );
 }
 
-function BottomNavLink({ item, active }: { item: NavItem; active: boolean }) {
+// Five columns provide only 61px each at a 305px client width. Keep the
+// full Solo labels within their column without reducing the touch target.
+const compactBottomLabelClass =
+  'max-w-full break-words px-0.5 text-center text-xs leading-5 min-[360px]:text-sm';
+
+function BottomNavLink({
+  item,
+  active,
+  compactLabels = false,
+}: {
+  item: NavItem;
+  active: boolean;
+  compactLabels?: boolean;
+}) {
   const Icon = item.icon;
   const { t } = useI18n();
   return (
@@ -272,7 +294,9 @@ function BottomNavLink({ item, active }: { item: NavItem; active: boolean }) {
       )}
     >
       <Icon className="h-7 w-7" aria-hidden="true" />
-      <span>{t(item.labelKey)}</span>
+      <span className={compactLabels ? compactBottomLabelClass : undefined}>
+        {t(item.labelKey)}
+      </span>
     </NavLink>
   );
 }
