@@ -51,6 +51,18 @@ export type EmployeeWithSchedule = Employee & {
   workSchedule: WorkSchedule | null;
 };
 
+/** Minimal names for choosing a substitute or assigning a project. */
+export class EmployeeDirectoryDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty()
+  firstName!: string;
+
+  @ApiProperty()
+  lastName!: string;
+}
+
 export interface EmployeeDto {
   id: string;
   personalNo: string;

@@ -81,6 +81,12 @@ export const BUNDESLAND_LABEL: Record<Bundesland, string> = {
 
 export type HolidayCalendar = 'NONE' | `DE-${Bundesland}`;
 
+export interface EmployeeDirectoryDto {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface EmployeeDto {
   id: string;
   personalNo: string;
@@ -844,6 +850,8 @@ export const api = {
     request<EmployeeDto[]>(
       `/api/employees${includeInactive ? '?includeInactive=true' : ''}`,
     ),
+  employeeDirectory: () =>
+    request<EmployeeDirectoryDto[]>('/api/employees/directory'),
   createEmployee: (payload: CreateEmployeePayload) =>
     request<EmployeeDto>('/api/employees', {
       method: 'POST',

@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   api,
+  type EmployeeDirectoryDto,
   type ProjectAssignmentDto,
   type ProjectDto,
   type ProjectReportDto,
@@ -123,8 +124,8 @@ export function AdminProjectsPage() {
     enabled: isAuthorized,
   });
   const employees = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => api.employees(),
+    queryKey: ['employee-directory'],
+    queryFn: () => api.employeeDirectory(),
     enabled: isAuthorized,
   });
   const assignments = useQuery({
@@ -149,7 +150,7 @@ export function AdminProjectsPage() {
     );
   }
 
-  const activeEmployees = (employees.data ?? []).filter((e) => e.isActive);
+  const activeEmployees = employees.data ?? [];
 
   return (
     <div className="space-y-6">
@@ -549,12 +550,7 @@ function ServiceOrderRow({
 
 interface MatrixProps {
   projects: ProjectDto[];
-  employees: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    personalNo: string;
-  }[];
+  employees: EmployeeDirectoryDto[];
   assignments: ProjectAssignmentDto[];
 }
 
@@ -636,9 +632,6 @@ function AssignmentMatrix({ projects, employees, assignments }: MatrixProps) {
               <tr key={emp.id} className="border-b last:border-0">
                 <td className="py-2 pr-4">
                   {emp.firstName} {emp.lastName}
-                  <span className="ml-1 text-xs text-muted-foreground">
-                    ({emp.personalNo})
-                  </span>
                 </td>
                 {projects.map((p) => {
                   const isAssigned = assigned.has(`${emp.id}:${p.id}`);

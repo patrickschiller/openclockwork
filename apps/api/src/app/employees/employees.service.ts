@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   toEmployeeDto,
   type CreateEmployeeDto,
+  type EmployeeDirectoryDto,
   type EmployeeDto,
   type UpdateEmployeeDto,
 } from './employees.dto';
@@ -21,6 +22,14 @@ const BCRYPT_ROUNDS = 10;
 @Injectable()
 export class EmployeesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async directory(): Promise<EmployeeDirectoryDto[]> {
+    return this.prisma.employee.findMany({
+      where: { isActive: true },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+  }
 
   async list(opts: { includeInactive?: boolean } = {}): Promise<EmployeeDto[]> {
     const employees = await this.prisma.employee.findMany({
@@ -35,16 +44,10 @@ export class EmployeesService {
     actor: JwtUser,
     opts: { includeInactive?: boolean } = {},
   ): Promise<EmployeeDto[]> {
-    const accessFilter: Prisma.EmployeeWhereInput =
-      actor.role === 'HRAdmin'
-        ? {}
-        : actor.role === 'Manager'
-          ? { OR: [{ id: actor.id }, { managerId: actor.id }] }
-          : { id: actor.id };
     const employees = await this.prisma.employee.findMany({
       where: {
         AND: [
-          accessFilter,
+          this.readScope(actor),
           ...(opts.includeInactive ? [] : [{ isActive: true }]),
         ],
       },
@@ -52,6 +55,14 @@ export class EmployeesService {
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
     return employees.map(toEmployeeDto);
+  }
+
+  readScope(actor: JwtUser): Prisma.EmployeeWhereInput {
+    if (actor.role === 'HRAdmin') return {};
+    if (actor.role === 'Manager') {
+      return { OR: [{ id: actor.id }, { managerId: actor.id }] };
+    }
+    return { id: actor.id };
   }
 
   async assertCanRead(id: string, actor: JwtUser): Promise<void> {

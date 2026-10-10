@@ -815,6 +815,33 @@
         "tags": ["employees"]
       }
     },
+    "/api/employees/directory": {
+      "get": {
+        "operationId": "EmployeesController_directory",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmployeeDirectoryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["employees"]
+      }
+    },
     "/api/employees/{id}": {
       "get": {
         "operationId": "EmployeesController_get",
@@ -2782,6 +2809,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "tags": ["leave-allowances"]
       }
     },
@@ -3780,6 +3812,11 @@
             "description": ""
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "tags": ["violations"]
       }
     },
@@ -4661,6 +4698,22 @@
           }
         },
         "required": ["status", "service", "version", "utcTimestamp"]
+      },
+      "EmployeeDirectoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "firstName", "lastName"]
       },
       "CreateEmployeeDto": {
         "type": "object",

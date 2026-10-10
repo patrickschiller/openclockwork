@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { detectCoreTimeViolationsForDay } from 'shared';
+import type { JwtUser } from '../auth/jwt.strategy';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
@@ -28,7 +29,13 @@ export class ViolationsService {
     private readonly schedules: WorkSchedulesService,
   ) {}
 
-  async list(employeeId: string, from?: Date, to?: Date): Promise<ViolationDto[]> {
+  async list(
+    employeeId: string,
+    actor: JwtUser,
+    from?: Date,
+    to?: Date,
+  ): Promise<ViolationDto[]> {
+    await this.employees.assertCanRead(employeeId, actor);
     const employee = await this.employees.getById(employeeId);
     if (employee.timeModel === 'Vertrauensarbeitszeit') return [];
 
@@ -84,7 +91,10 @@ export class ViolationsService {
       }
     }
     // Stable ordering: newest day first, then by window start.
-    out.sort((a, b) => b.date.localeCompare(a.date) || a.boundary.localeCompare(b.boundary));
+    out.sort(
+      (a, b) =>
+        b.date.localeCompare(a.date) || a.boundary.localeCompare(b.boundary),
+    );
     return out;
   }
 }

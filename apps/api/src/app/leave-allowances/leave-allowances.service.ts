@@ -1,13 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { EmployeeLeaveAllowance } from '@prisma/client';
+import type { JwtUser } from '../auth/jwt.strategy';
+import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { toLeaveAllowanceDto, type LeaveAllowanceDto, type UpsertLeaveAllowanceDto } from './leave-allowances.dto';
+import {
+  toLeaveAllowanceDto,
+  type LeaveAllowanceDto,
+  type UpsertLeaveAllowanceDto,
+} from './leave-allowances.dto';
 
 @Injectable()
 export class LeaveAllowancesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly employees: EmployeesService,
+  ) {}
 
-  async list(employeeId: string): Promise<LeaveAllowanceDto[]> {
+  async list(employeeId: string, actor: JwtUser): Promise<LeaveAllowanceDto[]> {
+    await this.employees.assertCanRead(employeeId, actor);
     await this.assertEmployee(employeeId);
     const rows = await this.prisma.employeeLeaveAllowance.findMany({
       where: { employeeId },
@@ -16,7 +26,10 @@ export class LeaveAllowancesService {
     return rows.map(toLeaveAllowanceDto);
   }
 
-  async getOrDefault(employeeId: string, year: number): Promise<EmployeeLeaveAllowance> {
+  async getOrDefault(
+    employeeId: string,
+    year: number,
+  ): Promise<EmployeeLeaveAllowance> {
     const existing = await this.prisma.employeeLeaveAllowance.findUnique({
       where: { employeeId_year: { employeeId, year } },
     });
@@ -39,7 +52,9 @@ export class LeaveAllowancesService {
     dto: UpsertLeaveAllowanceDto,
   ): Promise<LeaveAllowanceDto> {
     await this.assertEmployee(employeeId);
-    const carryOverExpiresOn = dto.carryOverExpiresOn ? new Date(dto.carryOverExpiresOn) : null;
+    const carryOverExpiresOn = dto.carryOverExpiresOn
+      ? new Date(dto.carryOverExpiresOn)
+      : null;
     const row = await this.prisma.employeeLeaveAllowance.upsert({
       where: { employeeId_year: { employeeId, year } },
       create: {
@@ -71,7 +86,9 @@ export class LeaveAllowancesService {
    * The reason — including the amount and the original expiry date — is
    * appended to `adjustmentReason` so the audit trail survives the write.
    */
-  async expireCarryOvers(asOf: Date = new Date()): Promise<{ scanned: number; expired: number }> {
+  async expireCarryOvers(
+    asOf: Date = new Date(),
+  ): Promise<{ scanned: number; expired: number }> {
     const candidates = await this.prisma.employeeLeaveAllowance.findMany({
       where: {
         carryOverExpiresOn: { not: null, lt: asOf },
@@ -81,9 +98,12 @@ export class LeaveAllowancesService {
     let expired = 0;
     for (const row of candidates) {
       const lost = Number(row.carryOverDays);
-      const dateStr = row.carryOverExpiresOn?.toISOString().slice(0, 10) ?? 'unknown';
+      const dateStr =
+        row.carryOverExpiresOn?.toISOString().slice(0, 10) ?? 'unknown';
       const note = `Carry-over of ${lost.toFixed(2)} days expired on ${dateStr}`;
-      const reason = row.adjustmentReason ? `${row.adjustmentReason}; ${note}` : note;
+      const reason = row.adjustmentReason
+        ? `${row.adjustmentReason}; ${note}`
+        : note;
       await this.prisma.employeeLeaveAllowance.update({
         where: { id: row.id },
         data: { carryOverDays: 0, adjustmentReason: reason },
@@ -94,8 +114,11 @@ export class LeaveAllowancesService {
   }
 
   private async assertEmployee(employeeId: string) {
-    const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
-    if (!employee) throw new NotFoundException(`Employee ${employeeId} not found`);
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+    if (!employee)
+      throw new NotFoundException(`Employee ${employeeId} not found`);
     return employee;
   }
 }

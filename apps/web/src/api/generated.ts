@@ -324,6 +324,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/employees/directory': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['EmployeesController_directory'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/employees/{id}': {
     parameters: {
       query?: never;
@@ -1698,6 +1714,12 @@ export interface components {
       version: string;
       /** Format: date-time */
       utcTimestamp: string;
+    };
+    EmployeeDirectoryDto: {
+      /** Format: uuid */
+      id: string;
+      firstName: string;
+      lastName: string;
     };
     CreateEmployeeDto: {
       /** @example 1001 */
@@ -3227,6 +3249,25 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  EmployeesController_directory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EmployeeDirectoryDto'][];
+        };
       };
     };
   };
