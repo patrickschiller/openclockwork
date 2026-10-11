@@ -56,7 +56,9 @@ test('the login form refuses bogus credentials with a visible error', async ({
   await page.getByLabel('E-Mail').fill('nope@nope.nope');
   await page.getByLabel('Passwort').fill('definitely-wrong');
   await page.getByRole('button', { name: 'Anmelden' }).click();
-  await expect(page.getByText(/Invalid credentials/i)).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveText(
+    'E-Mail-Adresse oder Passwort ist falsch.',
+  );
 });
 
 test('the unpaired kiosk is public and uses its dedicated home-screen manifest', async ({

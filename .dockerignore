@@ -19,3 +19,5 @@ legacy
 docs
 backups
 **/*.dump
+.pnpm-store
+.planning

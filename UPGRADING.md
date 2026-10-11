@@ -25,6 +25,56 @@ Compose from managing their deletion, but this does not protect against manual
 volume removal, pruning unused volumes, Docker data loss or host failure. Do
 not replace a populated installation's volume with a new name during an upgrade.
 
+## Required for 2.1.0
+
+Version 2.1.0 adds personal-number/PIN identification to paired Team terminals.
+Upgrade directly from 2.0.1 with matching 2.1.0 API/web images. The 2.0.1
+personnel-data access restrictions described below remain in effect.
+
+The additive migration `20260930090000_terminal_pin_credentials` adds terminal
+authentication configuration, PIN credentials, shared attempt counters,
+short-lived booking grants and immutable terminal audit events. Existing
+terminals default to QR-only, and existing challenges retain their QR purpose.
+Employee, terminal and time-entry identities and historical snapshots remain.
+Solo does not gain terminal access. Keep all existing migration files unchanged;
+run `prisma migrate deploy`, never a reset or seed. A local preview that already
+applied this migration must retain it and its data rather than recreate it.
+
+### Opting in to PIN
+
+QR-only installations can upgrade without the new PIN/audit secrets. Enabling
+PIN is an explicit operator and HR configuration step:
+
+1. Provide independent `TERMINAL_PIN_PEPPER` and `TERMINAL_AUDIT_KEY` values of
+   at least 32 characters to every API instance. Neither may equal the other or
+   the existing JWT/QR secrets. Keep the same versioned keyset across instances,
+   preserve historical verification keys and back them up separately from the
+   database. Do not change the installation's working timezone.
+2. Separate the migration/role-administration connection from the API runtime
+   connection. Use `docker-compose.terminal-pin.yml` together with the existing
+   production Compose configuration. `MIGRATION_DATABASE_URL` supplies the
+   privileged migration job; `DATABASE_URL` must use the restricted runtime
+   role and its matching `TERMINAL_RUNTIME_DB_PASSWORD` of at least 20 characters.
+   The job applies migrations and grants before the API starts. The API must not
+   receive the migration credentials. Reapply runtime grants after migrations;
+   the production API refuses unsafe audit ownership or modification rights.
+3. Before production PIN use, configure and verify an independently retained
+   audit archive, its retention, access controls, regular exports, monitoring
+   and recovery procedure. The supplied local export/anchor adapter tests the
+   integrity chain; a file in the app's volume is not an immutable external
+   archive. These are deployment requirements, not services provisioned by
+   installing or publishing the release.
+4. In HR administration, enable PIN for the selected terminal and issue each
+   employee a separate terminal PIN. Confirm identity first, then explicitly
+   select clock-in or clock-out. Verify QR, reset/revocation, retries and any
+   configured geofence on the deployment's actual kiosk devices.
+
+Include the PIN overlay in every subsequent Compose operation, including
+backup and upgrade commands. See the [PIN operations guide](docs/TERMINAL_AUTH_OPERATIONS.de.md)
+for role setup, key rotation and audit verification, and the
+[isolated local test guide](docs/LOCAL_PIN_DOCKER_TEST.de.md) for synthetic tests.
+RFID is not part of 2.1.0.
+
 ## Required for 2.0.1
 
 Version 2.0.1 fixes read access in Team mode to personnel records, time accounts, vacation
@@ -32,7 +82,9 @@ balances, leave allowances, absences and working-time violations. Updating
 existing installations is recommended. From 2.0.0,
 this update adds no database migrations and requires no seed or reset.
 Keep the existing data, volumes, configuration and working timezone, take a
-consistent backup, and deploy matching 2.0.1 API/web images as described below.
+consistent backup, and deploy matching API/web versions. These access changes
+also apply when upgrading directly to 2.1.0; follow its additional requirements
+above and the deployment procedure below.
 
 Custom API clients must handle `401` and `403` responses and the scoped
 `GET /api/employees` list. Use the authenticated `GET /api/employees/directory`
@@ -335,7 +387,7 @@ runs in a non-production runtime; the API retains its production runtime.
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, **`2.0.1` for this upgrade**, only after preserving the old configuration
+Release, **`2.1.0` for this upgrade**, only after preserving the old configuration
 in the backup set. Pin matching API/web versions or verified digests. Do not use
 `latest`, a mutable `:local` image, or a source-build override for an unattended
 production upgrade. Keep the same PostgreSQL major version; a PostgreSQL major
@@ -347,17 +399,22 @@ Use the `oc` function and exact deployment configuration selected in step 1:
 oc pull api web
 ```
 
+With the PIN overlay, also run `oc pull migrate`; its image must match the API
+version. The `oc` function must include the same overlay as the deployed stack.
+
 ## 3. Apply the update
 
 ```bash
 oc up -d
 ```
 
-The API waits for PostgreSQL and runs `prisma migrate deploy` before starting.
+The standard stack waits for PostgreSQL and runs `prisma migrate deploy` before
+starting the API. With the PIN overlay, the separate `migrate` service applies
+migrations and runtime grants; the API waits for its successful completion.
 Prisma records applied migrations in `_prisma_migrations` and skips them on
 subsequent starts. Production startup never seeds or resets the database.
 If API/web are deployed independently, deploy the API first, wait for its
-health endpoint to report `2.0.1`, then deploy the matching web image. The web
+health endpoint to report `2.1.0`, then deploy the matching web image. The web
 startup version check is not a promise of zero-downtime mixed-version operation;
 keep additional writers paused until verification completes.
 
@@ -380,18 +437,31 @@ existing installation. Keep production isolated from demo/reset workflows.
 
 ```bash
 oc ps
-
-oc exec -T api ./node_modules/.bin/prisma migrate status
-
 oc exec -T api wget -qO- http://127.0.0.1:3000/api/health
 ```
 
-Confirm `2.0.1` through the public web/proxy health route as well as the
+Check migration status with the migration-capable connection. For the standard
+QR-only stack, run `oc exec -T api ./node_modules/.bin/prisma migrate status`.
+With the PIN overlay, use its separate migration service instead:
+
+```bash
+oc run --rm --no-deps -T migrate ./node_modules/.bin/prisma migrate status
+```
+
+The PIN runtime role deliberately has no access to `_prisma_migrations`; do not
+broaden its permissions to run this maintenance check from the API container.
+
+Confirm `2.1.0` through the public web/proxy health route as well as the
 container check. Sign in and verify the actual deployed mode, a known employee,
 an existing time entry, historic break totals, leave balances and configured
 attachment storage. A 1.4.0 upgrade must still be Team unless an administrator
 has explicitly switched it. Reopen old PWA/browser tabs if they show a cached
 bundle, and verify that exports/printing work in the browsers you operate.
+
+On a QR-only upgrade, confirm terminals remain QR-only and existing pairing
+works. If PIN was deliberately enabled, verify PIN identification makes no time
+entry, an explicit action books once, resets/revocations invalidate outstanding
+grants, and audit export verifies against the independently retained anchor.
 
 For an intentional Solo transition, verify the owner, inherited or deliberately
 disabled personal rules, customer/project eligibility, timer state and history.
@@ -407,6 +477,9 @@ Application containers can only be changed back to an earlier
 compatible with that version. Forward migrations are not automatically
 reversed. **2.0.0 does not declare its migrated database backward-compatible
 with 1.4.0 application binaries.** Do not simply point an older API at it.
+Likewise, 2.1.0 does not declare a downgrade to 2.0.1 safe after PIN migration
+and use. To stop using PIN, disable the terminal's PIN method in HR, explicitly
+enable QR and verify the kiosk while retaining the schema and audit history.
 
 For a full rollback:
 

@@ -20,15 +20,21 @@ export default defineConfig({
   use: {
     baseURL,
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'on-first-retry',
+    // Terminal tests handle synthetic PINs and device credentials. Never retain
+    // request bodies in traces, screenshots or videos by default.
+    trace: 'off',
+    screenshot: 'off',
+    video: 'off',
   },
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'pnpm exec nx run web:preview',
-    url: 'http://localhost:4200',
-    reuseExistingServer: true,
-    cwd: workspaceRoot,
-  },
+  webServer: process.env['BASE_URL']
+    ? undefined
+    : {
+        command: 'pnpm exec nx run web:preview',
+        url: 'http://localhost:4200',
+        reuseExistingServer: true,
+        cwd: workspaceRoot,
+      },
   projects: [
     {
       name: 'chromium',

@@ -25,6 +25,16 @@ public-contract impact. Use matching metadata in five places:
 5. Run `RELEASE_TAG=vMAJOR.MINOR.PATCH pnpm release:verify-tag` and the full CI
    suite.
 
+For 2.1.0, include the additive PIN migration and matching QR/PIN API contract,
+upgrade instructions, role-setup tools and audit verification tools. Retain the
+2.0.1 personnel-data access fixes. Verify QR defaults and existing records across
+the upgrade, PIN and credential-access tests, concurrent booking/revocation,
+audit integrity and the separate runtime-role Docker path. Record the accepted
+local user check without claiming an unperformed target-device or external
+archive test. Production PIN activation still requires the operator's protected
+archive and retention configuration; publishing the source and images does not
+provision or certify that deployment.
+
 ## Publish
 
 After the release pull request is merged and `main` is green, create an
@@ -33,8 +43,8 @@ annotated tag on the exact merge commit and push it:
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v2.0.1 -m "OpenClockwork v2.0.1"
-git push origin v2.0.1
+git tag -a v2.1.0 -m "OpenClockwork v2.1.0"
+git push origin v2.1.0
 ```
 
 The release workflow verifies the tag and notes, runs Nx and API end-to-end
@@ -50,8 +60,8 @@ pulled anonymously by self-hosted installations.
 ## Verify the published release
 
 ```bash
-docker pull ghcr.io/patrickschiller/openclockwork-api:2.0.1
-docker pull ghcr.io/patrickschiller/openclockwork-web:2.0.1
+docker pull ghcr.io/patrickschiller/openclockwork-api:2.1.0
+docker pull ghcr.io/patrickschiller/openclockwork-web:2.1.0
 ```
 
 Confirm that the GitHub Release is marked latest, contains the curated upgrade

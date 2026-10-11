@@ -113,7 +113,8 @@ export default defineConfig(() => ({
             handler: 'NetworkOnly',
           },
           {
-            urlPattern: /\/api\/terminals\/(?:pair|scan)(?:\?|$)/,
+            urlPattern:
+              /\/api\/terminals\/(?:pair|scan|kiosk\/(?:challenge|identify|book))(?:\?|$)/,
             handler: 'NetworkOnly',
             method: 'POST',
           },

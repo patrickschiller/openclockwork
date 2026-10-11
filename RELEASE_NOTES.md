@@ -1,3 +1,68 @@
+# OpenClockwork v2.1.0
+
+## PIN tablet terminals
+
+- Team installations can offer personal-number/PIN identification alongside
+  the existing smartphone QR flow. HR chooses QR, PIN or both per terminal.
+  Employees identify at the paired tablet and explicitly confirm clock-in or
+  clock-out; identifying alone never books time. No employee smartphone is
+  required for PIN.
+- HR can generate an independent eight-digit terminal PIN, see it once, reset
+  it, disable it or unlock a temporary lockout. PINs preserve leading zeros and
+  use salted Argon2id hashes with an independent versioned pepper. Account
+  passwords and employee sessions remain separate.
+- Device-bound challenges and short-lived booking grants, shared database rate
+  limits and lockouts protect the flow. Credential/device/method changes revoke
+  pending permissions. Atomic booking and bounded identical retries prevent
+  duplicate time entries after a lost network response.
+- German and English kiosk/HR screens clear identity and credentials after
+  completion, cancellation, backgrounding or timeout. There is no offline
+  booking queue. Existing QR, geofence and working-time rules remain supported;
+  shared terminals remain unavailable in Solo mode.
+
+## Audit and operations
+
+- HR has a filtered terminal audit view. Events record operations and outcomes
+  without PINs, personal numbers, access tokens or booking grants. An HMAC chain,
+  database mutation protection and a restricted runtime role support export and
+  integrity verification. Successful PIN bookings and their audit commit together.
+- The release includes runtime-role configuration, audit export/verification
+  tooling and a production PIN Compose overlay. Independently protected external
+  audit anchors, retention and key custody remain operator responsibilities;
+  local file permissions do not provide a WORM or compliance guarantee.
+- [README](https://github.com/patrickschiller/openclockwork/blob/v2.1.0/README.md),
+  [FEATURES](https://github.com/patrickschiller/openclockwork/blob/v2.1.0/FEATURES.md)
+  and [ROADMAP](https://github.com/patrickschiller/openclockwork/blob/v2.1.0/ROADMAP.md)
+  document shipped PIN support and the separate planned RFID extension.
+
+## Upgrade and compatibility
+
+- One additive migration, `20260930090000_terminal_pin_credentials`, extends
+  2.0.1. Existing terminals retain QR-only defaults; no employee PIN is invented
+  and PIN is not enabled automatically. Preserve existing database/attachment
+  volumes, configuration and working timezone. Back up before migration; do not
+  seed or reset an existing installation.
+- Enabling PIN requires independent `TERMINAL_PIN_PEPPER` and
+  `TERMINAL_AUDIT_KEY` values plus separate migration and restricted runtime
+  database roles. Existing QR-only installations do not require those new keys.
+  See [upgrade instructions](https://github.com/patrickschiller/openclockwork/blob/v2.1.0/UPGRADING.md)
+  and [PIN operations](https://github.com/patrickschiller/openclockwork/blob/v2.1.0/docs/TERMINAL_AUTH_OPERATIONS.de.md).
+- Deploy matching API and web images. If deployed separately, update the API
+  first, wait for `/api/health` to report `2.1.0`, then deploy the web image.
+  Reopen existing browser/PWA tabs to load the new interface. The personnel-data
+  access controls introduced in 2.0.1 are retained.
+- This delivers the PIN-first increment of
+  [Issue #33](https://github.com/patrickschiller/openclockwork/issues/33).
+  RFID/keyboard-wedge readers and RFID plus PIN remain future work.
+
+## Docker images
+
+- `ghcr.io/patrickschiller/openclockwork-api:2.1.0`
+- `ghcr.io/patrickschiller/openclockwork-web:2.1.0`
+
+The release workflow also updates each image's `latest` tag. Pin `2.1.0` or a
+verified digest for production and use the same release for both images.
+
 # OpenClockwork v2.0.1
 
 ## Security fix

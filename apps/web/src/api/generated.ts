@@ -852,6 +852,134 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/terminals/kiosk/challenge': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TerminalAuthController_challenge'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/terminals/kiosk/identify': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TerminalAuthController_identify'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/terminals/kiosk/book': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TerminalAuthController_book'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/terminals/audit-events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TerminalAuthController_events'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/employees/{id}/terminal-credentials': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TerminalCredentialsController_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/employees/{id}/terminal-credentials/pin/reset': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TerminalCredentialsController_reset'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/employees/{id}/terminal-credentials/pin': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations['TerminalCredentialsController_revoke'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/employees/{id}/terminal-credentials/pin/unlock': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TerminalCredentialsController_unlock'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/terminals/support-prompt': {
     parameters: {
       query?: never;
@@ -1710,7 +1838,7 @@ export interface components {
       status: string;
       /** @example openclockwork-api */
       service: string;
-      /** @example 2.0.1 */
+      /** @example 2.1.0 */
       version: string;
       /** Format: date-time */
       utcTimestamp: string;
@@ -2392,6 +2520,82 @@ export interface components {
       serviceOrderId?: string | null;
       activity?: string | null;
     };
+    IdentifyChallengeDto: {
+      payload: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    IdentifyTerminalDto: {
+      /** @enum {string} */
+      method: 'PIN';
+      challengePayload: string;
+      /** @description Exact personal number, preserving leading zeros. */
+      personalNo: string;
+      pin: string;
+    };
+    IdentifyTerminalResultDto: {
+      grant: string;
+      /** Format: date-time */
+      expiresAt: string;
+      displayName: string;
+      /** @enum {string} */
+      action: 'clock-in' | 'clock-out';
+      requiresLocation: boolean;
+    };
+    BookTerminalDto: {
+      grant: string;
+      /** @enum {string} */
+      action: 'clock-in' | 'clock-out';
+      latitude?: number;
+      longitude?: number;
+      accuracyMeters?: number;
+      /** Format: date-time */
+      positionTimestamp?: string;
+    };
+    BookTerminalResultDto: {
+      /** @enum {string} */
+      code: 'TERMINAL_BOOKED';
+      /** @enum {string} */
+      action: 'clock-in' | 'clock-out';
+      /** Format: date-time */
+      bookedAt: string;
+      /** Format: uuid */
+      receiptId: string;
+    };
+    TerminalAuditEventDto: {
+      id: string;
+      sequence: string;
+      /** Format: date-time */
+      occurredAt: string;
+      event: string;
+      result: string;
+      method: string | null;
+      action: string | null;
+      employeeId: string | null;
+      actorId: string | null;
+      terminalId: string | null;
+      deviceId: string | null;
+      terminalName: string | null;
+      locationLabel: string | null;
+      timeEntryId: string | null;
+    };
+    TerminalAuditPageDto: {
+      items: components['schemas']['TerminalAuditEventDto'][];
+      nextCursor: string | null;
+    };
+    TerminalCredentialStatusDto: {
+      /** @enum {string} */
+      method: 'PIN';
+      isConfigured: boolean;
+      enabled: boolean;
+      lockedUntil: string | null;
+      updatedAt: string | null;
+    };
+    ResetTerminalPinResultDto: {
+      /** @description One-time secret. Never cache or log this response. */
+      pin: string;
+      credential: components['schemas']['TerminalCredentialStatusDto'];
+    };
     SupportPromptDto: {
       /** Format: date-time */
       shownAt?: string | null;
@@ -2403,6 +2607,8 @@ export interface components {
       deviceName?: string;
     };
     KioskTerminalDto: {
+      allowedAuthMethods: ('QR' | 'PIN')[];
+      authConfigVersion: number;
       /** Format: uuid */
       id: string;
       name: string;
@@ -2425,7 +2631,10 @@ export interface components {
     };
     KioskStateDto: {
       terminal: components['schemas']['KioskTerminalDto'];
-      challenge: components['schemas']['TerminalChallengeDto'];
+      challenge: components['schemas']['TerminalChallengeDto'] | null;
+      configRefreshAfterSeconds: number;
+      requiresLocation: boolean;
+      pinAvailable: boolean;
       /** Format: date-time */
       serverTime: string;
     };
@@ -2461,6 +2670,8 @@ export interface components {
       revokedAt?: string | null;
     };
     TerminalDto: {
+      allowedAuthMethods: ('QR' | 'PIN')[];
+      authConfigVersion: number;
       /** Format: uuid */
       id: string;
       name: string;
@@ -2487,6 +2698,12 @@ export interface components {
       updatedAt: string;
     };
     CreateTerminalDto: {
+      /**
+       * @default [
+       *       "QR"
+       *     ]
+       */
+      allowedAuthMethods: ('QR' | 'PIN')[];
       /** @example Haupteingang */
       name: string;
       /** @example Zum Ein- oder Ausstempeln QR-Code scannen */
@@ -2520,6 +2737,12 @@ export interface components {
       isActive: boolean;
     };
     UpdateTerminalDto: {
+      /**
+       * @default [
+       *       "QR"
+       *     ]
+       */
+      allowedAuthMethods: ('QR' | 'PIN')[];
       /** @example Haupteingang */
       name?: string;
       /** @example Zum Ein- oder Ausstempeln QR-Code scannen */
@@ -4200,6 +4423,181 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['SplitTimeEntryResult'];
+        };
+      };
+    };
+  };
+  TerminalAuthController_challenge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IdentifyChallengeDto'];
+        };
+      };
+    };
+  };
+  TerminalAuthController_identify: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['IdentifyTerminalDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['IdentifyTerminalResultDto'];
+        };
+      };
+    };
+  };
+  TerminalAuthController_book: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BookTerminalDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BookTerminalResultDto'];
+        };
+      };
+    };
+  };
+  TerminalAuthController_events: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string;
+        terminalId?: string;
+        employeeId?: string;
+        method?: 'QR' | 'PIN';
+        result?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TerminalAuditPageDto'];
+        };
+      };
+    };
+  };
+  TerminalCredentialsController_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TerminalCredentialStatusDto'];
+        };
+      };
+    };
+  };
+  TerminalCredentialsController_reset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ResetTerminalPinResultDto'];
+        };
+      };
+    };
+  };
+  TerminalCredentialsController_revoke: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TerminalCredentialStatusDto'];
+        };
+      };
+    };
+  };
+  TerminalCredentialsController_unlock: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TerminalCredentialStatusDto'];
         };
       };
     };

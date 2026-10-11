@@ -29,6 +29,7 @@ import {
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
+import { TerminalPinDialog } from './TerminalPinDialog';
 
 const ROLES: EmployeeRole[] = ['Employee', 'Manager', 'HRAdmin'];
 const TIME_MODELS: TimeModel[] = [
@@ -64,6 +65,9 @@ export function AdminEmployeesPage() {
   const [includeInactive, setIncludeInactive] = useState(false);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [passwordFor, setPasswordFor] = useState<EmployeeDto | null>(null);
+  const [terminalPinFor, setTerminalPinFor] = useState<EmployeeDto | null>(
+    null,
+  );
 
   const employees = useQuery({
     queryKey: ['employees', { includeInactive }],
@@ -297,6 +301,13 @@ export function AdminEmployeesPage() {
                           >
                             <KeyRound className="h-4 w-4" />
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setTerminalPinFor(e)}
+                          >
+                            {t('terminalPin.manage')}
+                          </Button>
                           {e.isActive ? (
                             <Button
                               size="icon"
@@ -366,6 +377,12 @@ export function AdminEmployeesPage() {
         <PasswordDialog
           employee={passwordFor}
           onClose={() => setPasswordFor(null)}
+        />
+      )}
+      {terminalPinFor && (
+        <TerminalPinDialog
+          employee={terminalPinFor}
+          onClose={() => setTerminalPinFor(null)}
         />
       )}
     </div>

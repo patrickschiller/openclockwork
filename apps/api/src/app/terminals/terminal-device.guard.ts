@@ -29,7 +29,10 @@ export class TerminalDeviceGuard implements CanActivate {
       : authorization;
     const token = value?.startsWith('Bearer ') ? value.slice(7).trim() : '';
     if (!token || token.length > 256) {
-      throw new UnauthorizedException('Valid terminal device token required');
+      throw new UnauthorizedException({
+        code: 'TERMINAL_DEVICE_INVALID',
+        message: 'Valid terminal device token required',
+      });
     }
 
     const tokenHash = createHash('sha256').update(token).digest('hex');
@@ -44,7 +47,10 @@ export class TerminalDeviceGuard implements CanActivate {
       },
     });
     if (!device || device.revokedAt || !device.terminal.isActive) {
-      throw new UnauthorizedException('Terminal device is inactive or revoked');
+      throw new UnauthorizedException({
+        code: device ? 'TERMINAL_DEVICE_REVOKED' : 'TERMINAL_DEVICE_INVALID',
+        message: 'Terminal device is inactive or revoked',
+      });
     }
 
     const now = new Date();

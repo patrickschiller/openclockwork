@@ -88,6 +88,9 @@ jobs:
       - name: Apply release migrations to a fresh database
         run: pnpm prisma migrate deploy
 
+      - name: Verify generated API contract
+        run: pnpm verify:api
+
       - name: Run API end-to-end tests
         run: pnpm nx e2e api-e2e
 

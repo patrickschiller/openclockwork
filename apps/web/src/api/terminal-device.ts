@@ -1,4 +1,8 @@
-import { ApiError, type TerminalDto } from './client';
+import {
+  ApiError,
+  type TerminalDto,
+  type TerminalBookingAction,
+} from './client';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -7,7 +11,14 @@ export const TERMINAL_DEVICE_TOKEN_STORAGE_KEY =
 
 export type TerminalPublicDto = Pick<
   TerminalDto,
-  'id' | 'name' | 'displayText' | 'locationLabel' | 'logoUrl' | 'timeZone'
+  | 'id'
+  | 'name'
+  | 'displayText'
+  | 'locationLabel'
+  | 'logoUrl'
+  | 'timeZone'
+  | 'allowedAuthMethods'
+  | 'authConfigVersion'
 >;
 
 export interface TerminalChallengeDto {
@@ -19,8 +30,35 @@ export interface TerminalChallengeDto {
 
 export interface KioskStateDto {
   terminal: TerminalPublicDto;
-  challenge: TerminalChallengeDto;
+  challenge: TerminalChallengeDto | null;
   serverTime: string;
+  configRefreshAfterSeconds: number;
+  requiresLocation: boolean;
+  pinAvailable: boolean;
+}
+
+export interface TerminalIdentifyResult {
+  grant: string;
+  expiresAt: string;
+  displayName: string;
+  action: TerminalBookingAction;
+  requiresLocation: boolean;
+}
+
+export interface KioskBookingPayload {
+  grant: string;
+  action: TerminalBookingAction;
+  latitude?: number;
+  longitude?: number;
+  accuracyMeters?: number;
+  positionTimestamp?: string;
+}
+
+export interface KioskBookingResult {
+  code: 'TERMINAL_BOOKED';
+  action: TerminalBookingAction;
+  bookedAt: string;
+  receiptId: string;
 }
 
 export interface PairTerminalResultDto {
@@ -102,12 +140,64 @@ export async function loadKioskState(
   try {
     return await parseResponse<KioskStateDto>(response);
   } catch (error) {
-    if (
-      error instanceof ApiError &&
-      (error.status === 401 || error.status === 403)
-    ) {
+    if (error instanceof ApiError && error.code === 'TERMINAL_DEVICE_REVOKED') {
       storeTerminalDeviceToken(null);
     }
     throw error;
   }
 }
+
+/** Device-only transport: never attach employee tokens or refresh a login. */
+async function kioskPost<T>(
+  token: string,
+  path: string,
+  payload: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
+  try {
+    const response = await fetch(`${baseUrl}/api/terminals/kiosk/${path}`, {
+      method: 'POST',
+      credentials: 'omit',
+      cache: 'no-store',
+      signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    return await parseResponse<T>(response);
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'TERMINAL_DEVICE_REVOKED') {
+      storeTerminalDeviceToken(null);
+    }
+    throw error;
+  }
+}
+
+export const createKioskChallenge = (token: string, signal?: AbortSignal) =>
+  kioskPost<{ payload: string; expiresAt: string }>(
+    token,
+    'challenge',
+    {},
+    signal,
+  );
+
+export const identifyAtKiosk = (
+  token: string,
+  payload: {
+    method: 'PIN';
+    challengePayload: string;
+    personalNo: string;
+    pin: string;
+  },
+  signal?: AbortSignal,
+) => kioskPost<TerminalIdentifyResult>(token, 'identify', payload, signal);
+
+export const bookAtKiosk = (
+  token: string,
+  payload: KioskBookingPayload,
+  signal?: AbortSignal,
+) => kioskPost<KioskBookingResult>(token, 'book', payload, signal);

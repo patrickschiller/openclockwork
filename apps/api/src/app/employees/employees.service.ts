@@ -9,6 +9,7 @@ import type { Employee, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
+import { TerminalAuditService } from '../terminals/terminal-audit.service';
 import {
   toEmployeeDto,
   type CreateEmployeeDto,
@@ -21,7 +22,10 @@ const BCRYPT_ROUNDS = 10;
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly terminalAudit: TerminalAuditService,
+  ) {}
 
   async directory(): Promise<EmployeeDirectoryDto[]> {
     return this.prisma.employee.findMany({
@@ -139,7 +143,11 @@ export class EmployeesService {
     }
   }
 
-  async update(id: string, dto: UpdateEmployeeDto): Promise<EmployeeDto> {
+  async update(
+    id: string,
+    dto: UpdateEmployeeDto,
+    actorId?: string,
+  ): Promise<EmployeeDto> {
     const current = await this.getById(id);
     if (dto.managerId !== undefined && dto.managerId !== null) {
       if (dto.managerId === id)
@@ -218,11 +226,34 @@ export class EmployeesService {
               'Cannot remove the last active administrator',
             );
         }
-        return tx.employee.update({
+        const employee = await tx.employee.update({
           where: { id },
           data,
           include: { workSchedule: true },
         });
+        if (
+          dto.isActive !== undefined &&
+          dto.isActive !== lockedCurrent.isActive
+        ) {
+          // Credential versions ensure deactivation followed by reactivation cannot resurrect a grant.
+          await tx.terminalCredential.updateMany({
+            where: { employeeId: id },
+            data: { version: { increment: 1 } },
+          });
+          await this.terminalAudit.append(
+            tx,
+            {
+              event: dto.isActive
+                ? 'EmployeeReactivated'
+                : 'EmployeeDeactivated',
+              result: 'SUCCESS',
+              employeeId: id,
+              actorId,
+            },
+            false,
+          );
+        }
+        return employee;
       });
       return toEmployeeDto(updated);
     } catch (err) {
@@ -239,12 +270,12 @@ export class EmployeesService {
     });
   }
 
-  async deactivate(id: string): Promise<EmployeeDto> {
-    return this.update(id, { isActive: false });
+  async deactivate(id: string, actorId?: string): Promise<EmployeeDto> {
+    return this.update(id, { isActive: false }, actorId);
   }
 
-  async reactivate(id: string): Promise<EmployeeDto> {
-    return this.update(id, { isActive: true });
+  async reactivate(id: string, actorId?: string): Promise<EmployeeDto> {
+    return this.update(id, { isActive: true }, actorId);
   }
 
   private async assertManagerEligible(managerId: string): Promise<void> {

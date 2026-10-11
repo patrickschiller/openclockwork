@@ -1,0 +1,76 @@
+# Isolated Increment A pilot. Synthetic local-only secrets; bind only loopback.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: openclockwork
+      POSTGRES_PASSWORD: local-pin-test-migration-only
+      POSTGRES_DB: openclockwork_test_pin
+    volumes:
+      - pin-database:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ['CMD-SHELL', 'pg_isready -U openclockwork -d openclockwork_test_pin']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+  migrate:
+    image: openclockwork-api:2.1.0-pin-local
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://openclockwork:local-pin-test-migration-only@db:5432/openclockwork_test_pin?schema=public
+      TERMINAL_RUNTIME_DB_PASSWORD: local-pin-test-runtime-only-password
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && node /app/ops/configure-terminal-runtime.mjs',
+      ]
+  api:
+    image: openclockwork-api:2.1.0-pin-local
+    pull_policy: never
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      TZ: Europe/Berlin
+      DATABASE_URL: postgresql://openclockwork_runtime:local-pin-test-runtime-only-password@db:5432/openclockwork_test_pin?schema=public
+      JWT_SECRET: local-pin-test-jwt-only-synthetic-2026-openclockwork
+      TERMINAL_QR_SECRET: local-pin-test-qr-only-synthetic-2026-openclockwork
+      TERMINAL_PIN_PEPPER: local-pin-test-pepper-only-synthetic-2026-openclockwork
+      TERMINAL_PIN_PEPPER_VERSION: '1'
+      TERMINAL_AUDIT_KEY: local-pin-test-audit-only-synthetic-2026-openclockwork
+      TERMINAL_AUDIT_KEY_VERSION: '1'
+      ERP_API_KEY: local-pin-test-erp-only-synthetic-openclockwork
+      CRON_API_KEY: local-pin-test-cron-only-synthetic-openclockwork
+      API_CORS_ORIGINS: http://localhost:${PIN_TEST_WEB_PORT:-18082},http://127.0.0.1:${PIN_TEST_WEB_PORT:-18082}
+      STORAGE_BACKEND: local
+      ATTACHMENTS_DIR: /app/data/attachments
+    volumes:
+      - pin-attachments:/app/data/attachments
+      - pin-audit-export:/app/data/audit
+  web:
+    image: openclockwork-web:2.1.0-pin-local
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: http://api:3000
+      DEMO_MODE: 'false'
+      SUPPORT_URL: ''
+    ports:
+      - '127.0.0.1:${PIN_TEST_WEB_PORT:-18082}:8080'
+volumes:
+  pin-database:
+  pin-attachments:
+  pin-audit-export:

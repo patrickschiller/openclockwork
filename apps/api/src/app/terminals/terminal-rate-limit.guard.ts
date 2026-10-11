@@ -10,6 +10,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import type { JwtUser } from '../auth/jwt.strategy';
 import type { TerminalDevicePrincipal } from './terminal-device.guard';
+import { TerminalAuditService } from './terminal-audit.service';
 
 type TerminalRateLimitKind = 'pair' | 'kiosk' | 'scan';
 
@@ -52,9 +53,12 @@ export class TerminalRateLimitGuard implements CanActivate {
   private readonly buckets = new Map<string, RateLimitBucket>();
   private lastCleanupAt = 0;
 
-  constructor(private readonly reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly audit: TerminalAuditService,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const kind = this.reflector.getAllAndOverride<TerminalRateLimitKind>(
       TERMINAL_RATE_LIMIT,
       [context.getHandler(), context.getClass()],
@@ -79,6 +83,17 @@ export class TerminalRateLimitGuard implements CanActivate {
     const limit = LIMITS[kind];
     if (bucket.count <= limit) return true;
 
+    if (kind === 'scan' && bucket.count === limit + 1 && request.user?.id) {
+      await this.audit.failure(
+        {
+          event: 'AdmissionRejected',
+          result: 'RATE_LIMITED',
+          method: 'QR',
+          employeeId: request.user.id,
+        },
+        false,
+      );
+    }
     const retryAfterSeconds = Math.max(
       1,
       Math.ceil((bucket.windowStartedAt + WINDOW_MS - now) / 1000),

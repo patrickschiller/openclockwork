@@ -73,8 +73,9 @@ export class EmployeesController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateEmployeeDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<EmployeeDto> {
-    return this.employees.update(id, dto);
+    return this.employees.update(id, dto, user.id);
   }
 
   @Post(':id/password')
@@ -93,8 +94,9 @@ export class EmployeesController {
   @Roles('HRAdmin')
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<EmployeeDto> {
-    return this.employees.deactivate(id);
+    return this.employees.deactivate(id, user.id);
   }
 
   @Post(':id/reactivate')
@@ -102,7 +104,8 @@ export class EmployeesController {
   @Roles('HRAdmin')
   reactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<EmployeeDto> {
-    return this.employees.reactivate(id);
+    return this.employees.reactivate(id, user.id);
   }
 }

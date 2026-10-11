@@ -36,6 +36,7 @@ import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
 import { supportUrl } from '../app/runtime-config';
 import { getBrowserTimeZone, getTimeZoneOptions } from '../app/time-zones';
+import { TerminalAuditPanel } from './TerminalAuditPanel';
 
 type EditorState = { terminal: TerminalDto | null };
 const MAX_LOGO_BYTES = 60 * 1024;
@@ -204,6 +205,14 @@ export function AdminTerminalsPage() {
             <CardContent className="space-y-4">
               <p className="text-sm">{terminal.displayText}</p>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <dt className="text-muted-foreground">
+                  {t('terminalPin.methods')}
+                </dt>
+                <dd className="text-right">
+                  {(terminal.allowedAuthMethods ?? ['QR'])
+                    .map((method) => t(`terminalPin.method.${method}`))
+                    .join(', ')}
+                </dd>
                 <dt className="text-muted-foreground">
                   {t('terminals.geofence')}
                 </dt>
@@ -397,6 +406,7 @@ export function AdminTerminalsPage() {
       )}
 
       <SupportDialog open={supportOpen} onClose={() => setSupportOpen(false)} />
+      <TerminalAuditPanel />
     </div>
   );
 }
@@ -417,6 +427,7 @@ function TerminalEditor({
     locationLabel: terminal?.locationLabel ?? '',
     logoUrl: terminal?.logoUrl ?? null,
     timeZone: terminal?.timeZone ?? getBrowserTimeZone(),
+    allowedAuthMethods: terminal?.allowedAuthMethods ?? ['QR'],
     enforceGeofence: terminal?.enforceGeofence ?? true,
     latitude: terminal?.latitude ?? null,
     longitude: terminal?.longitude ?? null,
@@ -431,6 +442,8 @@ function TerminalEditor({
 
   const save = useMutation({
     mutationFn: () => {
+      if (!draft.allowedAuthMethods?.length)
+        throw new Error(t('terminalPin.chooseMethod'));
       const payload: UpsertTerminalPayload = draft.enforceGeofence
         ? draft
         : {
@@ -579,6 +592,37 @@ function TerminalEditor({
             )}
           </div>
           <div className="sm:col-span-2 rounded-lg border bg-muted/30 p-4">
+            <fieldset className="mb-4 space-y-2">
+              <legend className="font-medium">
+                {t('terminalPin.methods')}
+              </legend>
+              {(['QR', 'PIN'] as const).map((method) => (
+                <label key={method} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={
+                      draft.allowedAuthMethods?.includes(method) ?? false
+                    }
+                    onChange={(event) => {
+                      setDraft((current) => ({
+                        ...current,
+                        allowedAuthMethods: event.target.checked
+                          ? [...(current.allowedAuthMethods ?? []), method]
+                          : (current.allowedAuthMethods ?? []).filter(
+                              (value) => value !== method,
+                            ),
+                      }));
+                    }}
+                  />
+                  {t(`terminalPin.method.${method}`)}
+                </label>
+              ))}
+              {!draft.allowedAuthMethods?.length && (
+                <p role="alert" className="text-sm text-destructive">
+                  {t('terminalPin.chooseMethod')}
+                </p>
+              )}
+            </fieldset>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="font-medium">{t('terminals.geofence')}</p>
@@ -718,7 +762,7 @@ function TerminalEditor({
           <Button
             type="submit"
             form="terminal-editor"
-            disabled={save.isPending}
+            disabled={save.isPending || !draft.allowedAuthMethods?.length}
           >
             {save.isPending ? t('common.saving') : t('common.save')}
           </Button>

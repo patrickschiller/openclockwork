@@ -1,0 +1,66 @@
+# Two isolated local acceptance stacks; see docs/LOCAL_DOCKER_TEST.de.md.
+# All credentials are synthetic and only suitable for local tests.
+# The Compose project name isolates networks, databases and attachments.
+# No automatic seed or bootstrap runs on startup.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: openclockwork
+      POSTGRES_PASSWORD: local-test-database-only
+      POSTGRES_DB: openclockwork_test
+    volumes:
+      - test-database:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U openclockwork -d openclockwork_test']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    image: openclockwork-api:2.1.0-local
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 3000
+      TZ: Europe/Berlin
+      DATABASE_URL: postgresql://openclockwork:local-test-database-only@db:5432/openclockwork_test?schema=public
+      JWT_SECRET: local-test-jwt-only-synthetic-2026-openclockwork
+      TERMINAL_QR_SECRET: local-test-terminal-only-synthetic-2026-openclockwork
+      ERP_API_KEY: local-test-erp-only-synthetic-openclockwork
+      CRON_API_KEY: local-test-cron-only-synthetic-openclockwork
+      API_CORS_ORIGINS: http://localhost:${TEST_WEB_PORT:-18080},http://127.0.0.1:${TEST_WEB_PORT:-18080}
+      STORAGE_BACKEND: local
+      ATTACHMENTS_DIR: /app/data/attachments
+    volumes:
+      - test-attachments:/app/data/attachments
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && exec node dist/main.js',
+      ]
+
+  web:
+    image: openclockwork-web:2.1.0-local
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_UPSTREAM: http://api:3000
+      DEMO_MODE: 'false'
+      SUPPORT_URL: ''
+    ports:
+      - '127.0.0.1:${TEST_WEB_PORT:-18080}:8080'
+
+volumes:
+  test-database:
+  test-attachments:

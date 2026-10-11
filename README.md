@@ -14,11 +14,16 @@
   <a href="https://github.com/patrickschiller/openclockwork/releases/latest"><img src="https://img.shields.io/github/v/release/patrickschiller/openclockwork" alt="Latest GitHub release"></a>
 </p>
 
-OpenClockwork 2.0 brings two operating modes to one open-source application.
+OpenClockwork 2.1.0 provides two operating modes in one open-source application.
 **Solo** helps an independent professional track personal work, organise customer
 projects, and produce timesheets without inventing an HR department. **Team**
 supports employee attendance, work schedules, leave, approvals, and tablet
 terminals. Both use the same self-hosted PostgreSQL, API, and responsive PWA.
+
+**New in 2.1.0:** Team employees can identify themselves directly at a paired
+tablet with their personal number and a separate terminal PIN, then explicitly
+confirm clock-in or clock-out. HR manages PINs, terminal authentication methods,
+and the authentication audit. The access-control fixes from 2.0.1 are retained.
 
 The interface is available in German and English on phones, tablets, and
 desktops. Language is independent of working-time rules: targets, breaks,
@@ -28,7 +33,7 @@ country. No proprietary time-clock hardware or hosted subscription is required.
 **Existing installations remain in Team mode after an upgrade.** A mode change
 is a separate, authenticated administrator action with a preview and safety
 checks. Invoice creation, monetary billing, and CAUR coding-agent usage import
-are not included in 2.0.1; see the [roadmap](ROADMAP.md).
+are not included in 2.1.0; see the [roadmap](ROADMAP.md).
 
 ## Choose your mode
 
@@ -38,7 +43,7 @@ are not included in 2.0.1; see the [roadmap](ROADMAP.md).
 | Daily workflow  | Timer, manual entries, direct corrections, personal calendar             | Employee bookings, requests, manager/HR workflows                   |
 | Work rules      | Optional targets, leave account, breaks, and personal hints              | Employee contracts, schedules, leave allowances, and approvals      |
 | Customer work   | Customers, projects/orders, billable classification, personal timesheets | Assigned projects/orders, PLAN/IST reports, HR working-time reports |
-| Shared terminal | Not available in Solo                                                    | Paired tablet QR terminals with optional geofencing                 |
+| Shared terminal | Not available in Solo                                                    | Paired QR/PIN terminals with optional geofencing                    |
 | Start here      | [Solo guide](docs/SOLO_MODE.md)                                          | [Team guide](docs/TEAM_MODE.md)                                     |
 
 Read [Operating modes](docs/OPERATING_MODES.md) for boundaries and safe
@@ -69,9 +74,10 @@ Solo customer-management and billable-timesheet UI.
   timesheets. Private notes stay out of customer reports.
 - **Flexible time capture.** Clock actual start/end times, add an optional GPS
   position and project, or use an HR-enabled daily-target block.
-- **QR tablet terminal.** Pair an iPad or another tablet once, show a rotating
-  short-lived challenge, and let employees clock in or out from their own
-  authenticated phones—without badges, chips, or biometric readers.
+- **QR/PIN tablet terminal.** Pair a tablet once. Employees scan a rotating
+  challenge from their authenticated phone or enter their personal number and
+  separate terminal PIN, then explicitly confirm clock-in or clock-out. HR can
+  enable either method or both; existing terminals retain QR on upgrade.
 - **Optional geofencing.** A terminal can work entirely without GPS or require a
   fresh employee position inside a server-validated radius with a configured
   accuracy limit.
@@ -116,8 +122,20 @@ maintained regional calendars are covered in the [roadmap](ROADMAP.md).
 An HR administrator creates a terminal with an internal name, visible location,
 custom message, optional logo, IANA time zone, and optional GPS geofence. After
 activation, a one-time code pairs exactly one kiosk device. The kiosk then shows
-a continuously refreshed QR challenge while the employee PWA performs the
-authenticated booking.
+a continuously refreshed QR challenge and/or a PIN form according to HR's
+configuration. PIN identification issues a short-lived device-bound booking
+permission; it does not create an employee session or book time by itself.
+HR generates an eight-digit PIN shown once, and can replace, disable, or unlock
+it independently of the employee's web password. PIN entry preserves leading
+zeros in personal numbers. The shared screen clears personal data after the
+interaction, inactivity, or a switch to the background.
+
+The HR audit records authentication, credential changes, and booking outcomes.
+Its signed chain and export/verification tools support an independently managed
+archive; an immutable archive is not created automatically. Before enabling
+PIN in production, configure the separate secrets, restricted database role,
+and archive procedures in [PIN and audit operations](docs/TERMINAL_AUTH_OPERATIONS.de.md).
+RFID readers and badges remain [planned work](ROADMAP.md#4-optional-rfid-terminal-extension).
 
 <p align="center">
   <img src="assets/screenshots/admin/terminals.png" alt="HR terminal administration with pairing and device status" width="100%">
@@ -130,7 +148,8 @@ The security model is deliberately separate from an employee session:
   replay per employee;
 - daily signing material is derived from a dedicated `TERMINAL_QR_SECRET`, not
   from `JWT_SECRET`;
-- clock-in/out uses the authenticated employee identity from the bearer token;
+- QR uses the authenticated employee identity; PIN uses a separate Argon2id
+  credential with shared lockouts and mandatory explicit confirmation;
 - terminal location labels, geofence positions, accuracy, and radius snapshots
   remain in the historical booking audit record even if the terminal is later
   deleted permanently;
@@ -237,6 +256,12 @@ to an existing checkout; do not rerun initial setup or copy over its secrets.
 
 ### Full local Docker stack
 
+To try Solo and Team side by side with isolated local databases, follow the
+[local Docker test guide (German)](docs/LOCAL_DOCKER_TEST.de.md).
+The separate [QR/PIN terminal test stack](docs/LOCAL_PIN_DOCKER_TEST.de.md)
+uses port 18082. Read the [PIN and audit operations guide](docs/TERMINAL_AUTH_OPERATIONS.de.md)
+before enabling PIN in production. RFID remains a separate future increment.
+
 ```bash
 cp .env.dev.example .env.dev
 
@@ -310,7 +335,7 @@ repository and enter its directory:
 ```bash
 git clone https://github.com/patrickschiller/openclockwork.git
 cd openclockwork
-git switch --detach v2.0.1
+git switch --detach v2.1.0
 cp .env.prod.example .env.prod
 ```
 
@@ -341,7 +366,7 @@ openssl rand -hex 32
 
 Open `.env.prod` in an editor and replace every `change-me` value:
 
-- Set `OPENCLOCKWORK_VERSION=2.0.1` for this release. Use the same explicit
+- Set `OPENCLOCKWORK_VERSION=2.1.0` for this release. Use the same explicit
   version for the API and web images; never deploy `latest`.
 - Put the first command's output into `POSTGRES_PASSWORD` and replace
   `change-me-database-password` inside `DATABASE_URL` with that exact same
@@ -468,7 +493,9 @@ start interactive prompts: supply the required identity fields as well.
   work. Follow [the Solo walkthrough](docs/SOLO_MODE.md).
 - **Team:** review the administrator's employee data, then create schedules,
   employees, reporting relationships, projects, and assignments. Configure
-  terminal kiosks only if wanted. Follow [the Team walkthrough](docs/TEAM_MODE.md).
+  terminal kiosks only if wanted. PIN requires the additional secrets and
+  database-role setup in [PIN operations](docs/TERMINAL_AUTH_OPERATIONS.de.md);
+  QR remains available without enabling PIN. Follow [the Team walkthrough](docs/TEAM_MODE.md).
 
 Nothing from `prisma/seed.ts` belongs in a production database. Switching mode
 later is explicit and guarded; it is not a substitute for completing setup.
@@ -525,8 +552,9 @@ You can also support the project through
 - [Operating modes: choose and switch safely](docs/OPERATING_MODES.md)
 - [Solo: personal setup, customer work, reports, and recovery](docs/SOLO_MODE.md)
 - [Team: employees, schedules, approvals, terminals, and reports](docs/TEAM_MODE.md)
-- [Roadmap: billing, agent usage, and further internationalisation](ROADMAP.md)
+- [Roadmap: PIN delivery, planned RFID, billing, and agent usage](ROADMAP.md)
 - [iPad terminal setup and operations (German)](docs/IPAD_TERMINAL_SETUP.de.md)
+- [PIN and authentication audit operations (German)](docs/TERMINAL_AUTH_OPERATIONS.de.md)
 - [Upgrade procedure](UPGRADING.md)
 - [Release process](RELEASING.md)
 - [Azure reference deployment](infra/azure/README.md)

@@ -1,8 +1,9 @@
 # OpenClockwork Roadmap
 
 OpenClockwork is a public, Apache-2.0 self-hosted application for personal work
-and Team time and attendance. Version **2.0.0** makes Solo and Team first-class
-operating modes. Customer invoicing and coding-agent usage accounting remain
+and Team time and attendance. Version **2.1.0** adds PIN tablet terminals to
+Team, building on the Solo/Team workflows from 2.0 and the access-control fixes
+from 2.0.1. Customer invoicing and coding-agent usage accounting remain
 future work; a billable time flag does not mean those features already exist.
 
 This roadmap expresses priorities and intended scope, not release dates or
@@ -12,13 +13,15 @@ boundaries, and [README.md](README.md) for release installation.
 
 ## Delivery order
 
-| Stage | Scope                                          | Status / dependency                     |
-| ----- | ---------------------------------------------- | --------------------------------------- |
-| 1     | Country-neutral configuration and defaults     | Included in 1.4.0; retained in 2.0.0    |
-| 2     | Complete personal Solo workflow alongside Team | Included in 2.0.0                       |
-| 3     | Customer billing and invoice creation          | Planned; intended for Solo and Team     |
-| 4     | CAUR usage import, attribution, and review     | Planned; can progress alongside stage 3 |
-| 5     | Agent billing and combined customer invoices   | Planned; depends on stages 3 and 4      |
+| Stage | Scope                                               | Status / dependency                     |
+| ----- | --------------------------------------------------- | --------------------------------------- |
+| 1     | Country-neutral configuration and defaults          | Included in 1.4.0; retained in 2.1.0    |
+| 2     | Complete personal Solo workflow alongside Team      | Included in 2.0.0                       |
+| 3     | QR/PIN tablet terminals and HR authentication audit | Included in 2.1.0; Team only            |
+| 4     | Optional RFID terminal extension                    | Planned separately after PIN acceptance |
+| 5     | Customer billing and invoice creation               | Planned; intended for Solo and Team     |
+| 6     | CAUR usage import, attribution, and review          | Planned; can progress alongside stage 5 |
+| 7     | Agent billing and combined customer invoices        | Planned; depends on stages 5 and 6      |
 
 Version 2.0 deliberately marks a new product generation, not an invented
 breaking Team API or a required data reset. Existing installations migrate
@@ -91,7 +94,52 @@ Follow-up work, not part of this release:
 - [ ] Further device/PWA coverage and any additional export delivery formats.
       Online-first operation is the current contract, not an offline write queue.
 
-## 3. Customer billing and invoice creation
+## 3. QR/PIN tablet terminals in 2.1.0
+
+The PIN increment of [issue #33](https://github.com/patrickschiller/openclockwork/issues/33)
+is implemented and locally accepted on 11 October 2026. It is available in Team
+mode; Solo does not expose terminal authentication or booking.
+
+- [x] Per-terminal QR, PIN, or combined authentication, preserving QR-only
+      configuration for existing terminals after an upgrade.
+- [x] Personal number and a separate eight-digit terminal PIN; HR generation
+      with one-time display, replacement, disabling, and unlocking.
+- [x] Short-lived device-bound permission after identification, followed by an
+      explicit clock-in/out action without an employee session on the kiosk.
+- [x] Shared attempt limits, credential/configuration revocation, transactional
+      duplicate protection, and safe retries of an unconfirmed booking.
+- [x] German/English kiosk and HR interfaces, personal-data cleanup, online-only
+      booking, and optional server-validated geofencing.
+- [x] HR authentication audit, restricted runtime database rights, signed event
+      chain, and export/verification tools for independent archive anchors.
+- [x] Forward-only migration, QR/PIN and access-control regression tests, local
+      Docker verification, and operator documentation.
+
+See [release notes](RELEASE_NOTES.md) for validation and
+[PIN operations](docs/TERMINAL_AUTH_OPERATIONS.de.md) for deployment requirements.
+Local acceptance does not configure a production archive or certify every
+tablet/browser combination. Operators validate their devices, GPS requirements,
+sleep/resume behaviour, and independently managed archive and retention setup.
+
+## 4. Optional RFID terminal extension
+
+RFID remains the separate, unimplemented increment B of issue #33. No particular
+reader is required by the PIN release. Future reader support must be tested with
+the devices and badges chosen by the operator.
+
+- [ ] Keyboard-wedge reader support through an explicit scan dialog, with a
+      configurable manual submit or reader-Enter submit mode per terminal.
+- [ ] Card enrolment, replacement, revocation, and transfer with HR permissions,
+      protected card identifiers, and authentication audit coverage.
+- [ ] RFID identification using the same limited booking permission and separate
+      explicit clock-in/out confirmation; a scan never clocks time automatically.
+- [ ] Reader format/focus validation, real-device acceptance, operational guidance,
+      and QR/PIN regression coverage.
+
+RFID work can proceed independently of the billing roadmap. PIN acceptance does
+not mark the remaining RFID scope of issue #33 as completed.
+
+## 5. Customer billing and invoice creation
 
 Invoices should be available in both Solo and Team mode, using the same customer,
 project, permission, and audit model.
@@ -125,12 +173,12 @@ project, permission, and audit model.
 **Done when:** a Solo owner or authorised team member can create a reproducible
 customer invoice from tracked work and follow it through payment or correction.
 
-## 4. CAUR coding-agent usage accounting
+## 6. CAUR coding-agent usage accounting
 
 [CAUR — Coding Agent Usage Record](https://github.com/patrickschiller/caur)
 defines a vendor-neutral usage record for a completed or interrupted coding-agent
 run. It is a separate specification project, not an invoice format or pricing
-catalogue, and is not imported by OpenClockwork 2.0.0. A future integration should
+catalogue, and is not imported by OpenClockwork 2.1.0. A future integration should
 consume explicitly supported schema versions and provide attribution, review,
 and billing around them. Its design should follow the
 [CAUR specification](https://github.com/patrickschiller/caur/blob/main/SPEC.md)
@@ -169,7 +217,7 @@ and [JSON Schema](https://github.com/patrickschiller/caur/blob/main/schema/caur-
 **Done when:** records from independent agent harnesses can be imported, attributed,
 and reviewed with reproducible totals and no duplicated usage or sensitive payloads.
 
-## 5. Agent billing and combined invoices
+## 7. Agent billing and combined invoices
 
 - [ ] **Commercial rules:** explicitly configure whether to pass through verified
       costs, apply a markup, bill usage units or agent time, or use an agreed fixed

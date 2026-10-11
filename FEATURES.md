@@ -1,8 +1,12 @@
 # OpenClockwork Features
 
-OpenClockwork 2.0.1 provides **Solo** personal work tracking and **Team** time and
+OpenClockwork 2.1.0 provides **Solo** personal work tracking and **Team** time and
 attendance in one responsive, self-hosted application. Both keep deployment,
 data, and configuration under the operator's control, with German and English UI.
+
+Version 2.1.0 adds direct PIN identification and explicit time booking at Team
+tablets, HR PIN administration, and an authentication audit. It retains the
+personnel-data access restrictions introduced in 2.0.1. RFID is planned separately.
 
 This page describes implemented capabilities, not a guarantee that every rule,
 device, or external browser handoff has been certified. See
@@ -28,14 +32,14 @@ Invoices, rates, payments, and CAUR coding-agent usage import/accounting are
 
 ## At a glance
 
-| Audience          | Main capabilities                                                                                                                   |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Solo owner        | Personal timer, direct corrections, calendar, customers, billable projects/orders, timesheets, optional effective-dated accounts    |
-| Employees         | Clock in/out, scan tablet QR codes, book daily targets, manage requests and absences, view calendars and time accounts              |
-| Managers          | Review team requests, handle substitute workflows, approve or return corrections, use bulk actions, inspect project data            |
-| HR administrators | Manage employees, schedules, leave, projects, reports, terminal kiosks, geofences, devices, and production bootstrap                |
-| Kiosk devices     | Pair once, display a branded rotating challenge, refresh automatically, report health, and operate with least-privilege credentials |
-| Integrations      | Consume documented REST endpoints, generated types, realtime events, ERP exports, and health checks                                 |
+| Audience          | Main capabilities                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Solo owner        | Personal timer, direct corrections, calendar, customers, billable projects/orders, timesheets, optional effective-dated accounts     |
+| Employees         | Clock in/out, use tablet QR or PIN, book daily targets, manage requests and absences, view calendars and time accounts               |
+| Managers          | Review team requests, handle substitute workflows, approve or return corrections, use bulk actions, inspect project data             |
+| HR administrators | Manage employees, schedules, leave, projects, reports, terminal methods and PINs, authentication audits, devices, and bootstrap      |
+| Kiosk devices     | Pair once, offer configured QR/PIN methods, request explicit IN/OUT, clear personal data, and use least-privilege device credentials |
+| Integrations      | Consume documented REST endpoints, generated types, realtime events, ERP exports, and health checks                                  |
 
 Employee, manager, HR, kiosk, and ERP capabilities in the table refer to Team.
 Solo exposes only the owner's authorised personal endpoints; old Team routes
@@ -83,7 +87,7 @@ contains effective work or time off, the accounting mode starts on the next
 working-timezone calendar date. See [the mode guide](docs/OPERATING_MODES.md).
 
 Solo customer management and personal billable reports are not Team screens in
-2.0. Preserving records across a switch does not make every mode-specific
+2.1.0. Preserving records across a switch does not make every mode-specific
 workflow available in both modes.
 
 ## Mobile PWA
@@ -119,7 +123,7 @@ using an embedded browser surface.
 
 The screenshots on this page show the Team and kiosk workflows.
 
-## QR tablet terminals (Team)
+## QR/PIN tablet terminals (Team)
 
 OpenClockwork turns a standard tablet into a shared, branded time-clock display
 without requiring RFID badges, proprietary readers, or biometrics. The mounted
@@ -131,14 +135,28 @@ device never acts as an employee and cannot call normal HR or time-entry APIs.
 
 | Capability             | What it provides                                                                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Terminal configuration | Internal name, visible location, custom message, optional PNG/JPEG/WebP logo, IANA time zone, and active state                        |
+| Terminal configuration | Internal name, visible location, custom message, optional PNG/JPEG/WebP logo, IANA time zone, active state, and QR/PIN/both methods   |
 | Optional GPS           | Run without any geofence, or require a fresh position inside a configured radius and maximum accuracy                                 |
 | One-time pairing       | Short-lived code and kiosk URL; a new pairing revokes the previous active device                                                      |
 | Kiosk PWA              | Dedicated manifest and full-screen view with time, date, location, custom branding, connection state, and automatic challenge refresh |
 | Employee scanner       | Explicit clock-in or clock-out choice, camera preview, local QR decoding, and GPS only when the terminal requires it                  |
 | Device operations      | Last-seen monitoring, re-pairing, immediate device revocation, terminal deactivation, and permanent deletion                          |
 | Time-zone handling     | IANA selection with the browser timezone suggested, UTC fallback, and server-side validation                                          |
+| PIN identification     | Personal number plus separate eight-digit PIN; explicit IN/OUT, shared lockout, short-lived device-bound permission                   |
+| HR PIN management      | Generate a random PIN shown once, reset, disable, and unlock; no employee password reuse                                              |
+| Shared-screen privacy  | Minimal confirmation identity, no employee session, and cleanup after completion, cancellation, inactivity, or background changes     |
+| Booking confirmation   | Explicit clock-in/out after identification; an uncertain response can retry the same operation without creating a second booking      |
+| Authentication audit   | HR-filtered events, restricted runtime role, signed chain, and independent-anchor export/verification tooling                         |
 | Durable audit trail    | Historical bookings retain terminal/GPS evidence snapshots even when kiosk-only records are removed                                   |
+
+QR/PIN terminals are included in 2.1.0 and available only in Team mode. Existing
+terminals remain QR-only after upgrade until HR changes their configuration.
+PIN is optional and requires independent secrets and restricted runtime DB rights.
+[PIN operations](docs/TERMINAL_AUTH_OPERATIONS.de.md) documents setup, rotation,
+retention, and audit limits. Operators configure and administer the independent
+archive; the local file adapter does not provide a WORM guarantee. No PINs,
+personal numbers, or booking grants are included in authentication audit events.
+RFID readers and badge management remain [planned](ROADMAP.md#4-optional-rfid-terminal-extension).
 
 The local iPad pilot includes a trusted-HTTPS Compose overlay, generated test
 CA/server certificates, loopback-only raw service ports, an Nginx TLS gateway,
@@ -152,6 +170,7 @@ See [the German iPad setup guide](docs/IPAD_TERMINAL_SETUP.de.md).
 | Personal dashboard                | Leave balance, overtime account, current booking, open requests, and detected core-time violations              |
 | Clock in and out                  | PWA booking with optional GPS, project/service-order selection, and recent booking history                      |
 | QR terminal booking               | Scan a short-lived kiosk challenge and let the server validate identity, replay state, and optional geofence    |
+| PIN terminal booking              | Enter the exact personal number and separate PIN at the tablet, then explicitly confirm clock-in or clock-out   |
 | Direct daily-target block         | With per-employee HR permission, book the contractual daily target as one completed and directly approved block |
 | Core-time violation details       | Date, affected core window, violation type, boundary, and uncovered minutes                                     |
 | Project and service-order booking | Book only to assigned active projects; active service orders become the required booking level                  |
@@ -289,6 +308,8 @@ local rules and calendar coverage for each period in use.
 - JWT access/refresh authentication for interactive users
 - Employee identity taken from the authenticated token for live booking APIs
 - Role-based guards for employee, manager, and HR endpoints
+- Personnel/account access scoped to self, managed team, or HR; colleague
+  selectors use an authenticated names-only directory
 - Dedicated API-key protection for machine-to-machine ERP exports
 - Authenticated Socket.IO connections
 - Password hashing and refresh-token rotation
@@ -296,6 +317,12 @@ local rules and calendar coverage for each period in use.
 - Owner-only Solo access and stale-revision checks on personal mutations
 - Separate `TERMINAL_QR_SECRET` for kiosk pairing and QR signing material
 - Hash-only device credential storage and immediate revocation
+- Separate Argon2id terminal PINs, shared attempt limits and lockouts, and
+  device-bound booking permissions invalidated by credential/configuration changes
+- Explicit PIN booking actions and transactional duplicate protection; shared
+  tablets do not receive employee access or refresh tokens
+- Authentication audit with a signed chain, restricted database writes, and
+  export/verification tools; external archive and retention remain operator setup
 - Short-lived challenges, daily key rotation, rate limiting, expiry, and
   per-employee replay protection
 - Optional server-enforced geofences with maximum-accuracy validation
@@ -315,6 +342,8 @@ The generated and committed OpenAPI specification lives at
 
 - Authenticated employee clock-in/out and terminal scanning
 - HR terminal/device lifecycle endpoints and least-privilege kiosk endpoints
+- HR PIN reset/disable/unlock and paginated authentication audit; device-only
+  challenge, PIN identification, and explicit booking endpoints
 - Employee daily-target capability and direct-block creation
 - Paginated ERP time-entry exports with project, service-order, and activity
   references
@@ -341,6 +370,8 @@ in this release.
 - Azure Container Apps, ACR, PostgreSQL Flexible Server, Key Vault, Blob
   Storage, and Log Analytics reference infrastructure
 - Dedicated terminal QR secret in Compose and Azure Key Vault
+- Optional PIN Compose overlay separating database migration and runtime roles,
+  independent PIN/audit secrets, and a separate local QR/PIN test stack
 - Stable versioned images and documented backup/migration/rollback procedures
 - Nx targets for lint, type-check, build, unit, integration, E2E, and browser
   tests
@@ -359,8 +390,9 @@ installation identity is sent back to OpenClockwork.
 - [Choose an operating mode](docs/OPERATING_MODES.md)
 - [Use Solo mode](docs/SOLO_MODE.md)
 - [Use Team mode](docs/TEAM_MODE.md)
-- [Roadmap: billing, agent usage, and internationalisation](ROADMAP.md)
+- [Roadmap: delivered PIN, planned RFID, billing, and agent usage](ROADMAP.md)
 - [Set up and test an iPad terminal](docs/IPAD_TERMINAL_SETUP.de.md)
+- [Operate PIN terminals and verify their audit](docs/TERMINAL_AUTH_OPERATIONS.de.md)
 - [Upgrade an existing installation](UPGRADING.md)
 - [Review published releases](https://github.com/patrickschiller/openclockwork/releases)
 - [Contribute with DCO sign-off](CONTRIBUTING.md)

@@ -43,3 +43,16 @@ Out of scope:
 Good-faith security research conducted in line with this policy will not be pursued legally by the project authors. Do not access, modify, or destroy data that does not belong to you, do not pivot to systems outside this scope, and do not run automated scanners against systems you do not own.
 
 Thank you for helping keep OpenClockwork and its users safe.
+
+## Terminal PIN and audit deployment
+
+Terminal PINs are separate from employee login passwords, use Argon2id with a
+versioned independent pepper, and require a paired device and explicit booking
+action. All API instances must share the same secrets and PostgreSQL limits.
+Production PIN operation requires a separate runtime DB role without audit
+UPDATE/DELETE/TRUNCATE rights, and retained external integrity anchors. The
+local file adapter proves chain verification, not immutable production storage.
+See [terminal operations](docs/TERMINAL_AUTH_OPERATIONS.de.md) for key rotation,
+retention, privacy, backup and incident handling. Harden the kiosk and use TLS;
+a compromised kiosk can capture PIN inputs, and browser GPS is not strong
+proof of presence. No RFID capability is included in Increment A.

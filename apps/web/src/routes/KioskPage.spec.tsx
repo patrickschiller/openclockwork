@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { renderWithProviders } from '../test-utils';
 import { KioskPage } from './KioskPage';
@@ -63,6 +63,7 @@ describe('KioskPage', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     window.history.replaceState({}, '', '/');
   });
 
@@ -147,5 +148,33 @@ describe('KioskPage', () => {
       ).toBeNull(),
     );
     expect(screen.getByText('Keine Verbindung')).toBeDefined();
+  });
+
+  it('polls configuration and enables PIN without generating a QR challenge', async () => {
+    vi.useFakeTimers();
+    const state = kioskState();
+    loadKioskStateMock.mockResolvedValue({
+      ...state,
+      terminal: {
+        ...state.terminal,
+        allowedAuthMethods: ['PIN'],
+        authConfigVersion: 1,
+      },
+      challenge: null,
+      configRefreshAfterSeconds: 1,
+      requiresLocation: false,
+      pinAvailable: true,
+    });
+    await act(async () => {
+      renderWithProviders(<KioskPage />, { initialPath: '/kiosk' });
+    });
+    expect(
+      screen.getByRole('button', { name: 'Mit PIN anmelden' }),
+    ).toBeDefined();
+    expect(toDataUrlMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_100);
+    });
+    expect(loadKioskStateMock.mock.calls.length).toBeGreaterThan(1);
   });
 });

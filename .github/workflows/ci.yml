@@ -161,6 +161,9 @@ jobs:
       - name: Apply migrations to test DB
         run: pnpm prisma migrate deploy
 
+      - name: Verify generated API contract
+        run: pnpm verify:api
+
       - name: API end-to-end tests
         run: pnpm nx e2e api-e2e
 
@@ -240,3 +243,39 @@ jobs:
 
       - name: Verify existing data survived the update
         run: node ops/upgrade-smoke.mjs verify
+
+  terminal-pin-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_URL: http://localhost:18082
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma generate
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build and start isolated PIN stack
+        run: docker compose -p openclockwork-pin-test -f docker-compose.pin-test.yml up -d --build --wait
+      - name: Seed synthetic Team pilot
+        run: >-
+          docker compose -p openclockwork-pin-test -f docker-compose.pin-test.yml run --rm
+          -e NODE_ENV=development
+          -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test_pin
+          migrate node --import tsx prisma/seed.ts
+      - name: Verify real device/PIN/browser contract
+        run: pnpm nx e2e web-e2e --args="--project=chromium --grep='Terminal PIN'"
+      - name: Start three actual API processes
+        run: docker compose -p openclockwork-pin-test -f docker-compose.pin-test.yml up -d --no-build --scale api=3 --wait
+      - name: Verify shared lockout, restart and parallel grant booking
+        run: pnpm nx run api-e2e:test-terminal-runtime
+      - name: Stop pilot
+        if: always()
+        run: docker compose -p openclockwork-pin-test -f docker-compose.pin-test.yml down

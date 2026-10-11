@@ -260,6 +260,29 @@ try {
        WHERE "finished_at" IS NULL AND "rolled_back_at" IS NULL`,
     );
 
+    const pinSchema = await client.query(
+      `SELECT to_regclass('"TerminalCredential"') AS table_name`,
+    );
+    if (pinSchema.rows[0].table_name) {
+      const terminal = await client.query(
+        'SELECT "allowedAuthMethods", "authConfigVersion" FROM "Terminal" WHERE "id"=$1',
+        [terminalId],
+      );
+      assert.deepEqual(
+        terminal.rows,
+        [{ allowedAuthMethods: ['QR'], authConfigVersion: 0 }],
+        'PIN upgrade must preserve QR-only terminals',
+      );
+      const credentials = await client.query(
+        'SELECT COUNT(*)::int AS count FROM "TerminalCredential"',
+      );
+      assert.equal(
+        credentials.rows[0].count,
+        0,
+        'Upgrade must not invent employee PINs',
+      );
+    }
+
     if (failedMigrations.rows[0].count !== 0) {
       throw new Error(
         'The upgraded database contains an unfinished Prisma migration.',

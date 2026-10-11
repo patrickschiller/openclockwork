@@ -90,6 +90,7 @@
     "@nestjs/swagger": "^11.4.5",
     "@nestjs/websockets": "^11.1.27",
     "@prisma/client": "^6.19.3",
+    "argon2": "0.44.0",
     "bcrypt": "*",
     "class-transformer": "*",
     "class-validator": "*",

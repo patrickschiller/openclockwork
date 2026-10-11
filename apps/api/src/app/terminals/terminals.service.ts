@@ -11,7 +11,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type Terminal, type TimeEntry } from '@prisma/client';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
-import { requiresSpecialApproval } from 'shared';
+import { bookTerminalTime } from './terminal-booking.service';
+import { TerminalAuditService } from './terminal-audit.service';
+import { TerminalPinService } from './terminal-pin.service';
+import {
+  lockTerminalSecurity,
+  assertTerminalAdmin,
+} from './terminal-security-locks';
 import { EventsGateway } from '../events/events.gateway';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
@@ -36,10 +42,6 @@ const MAX_LOGO_BYTES = 60 * 1024;
 const TERMINAL_INCLUDE = {
   devices: { orderBy: { createdAt: 'desc' as const } },
 } as const;
-const ENTRY_INCLUDE = {
-  project: { select: { code: true, name: true } },
-  serviceOrder: { select: { orderNo: true, title: true } },
-} as const;
 
 type BookingAction = 'clock-in' | 'clock-out';
 type AcceptedTerminalPosition = {
@@ -61,6 +63,8 @@ export class TerminalsService {
     private readonly config: ConfigService,
     private readonly schedules: WorkSchedulesService,
     private readonly events: EventsGateway,
+    private readonly audit: TerminalAuditService,
+    private readonly pins: TerminalPinService,
   ) {
     const terminalSecret = this.config
       .get<string>('TERMINAL_QR_SECRET')
@@ -111,10 +115,12 @@ export class TerminalsService {
     return toTerminalDto(await this.findTerminal(id));
   }
 
-  async create(dto: CreateTerminalDto): Promise<TerminalDto> {
+  async create(dto: CreateTerminalDto, actorId?: string): Promise<TerminalDto> {
     const data = this.createData(dto);
     const now = new Date();
     const terminal = await this.prisma.$transaction(async (tx) => {
+      await lockTerminalSecurity(tx);
+      if (actorId) await assertTerminalAdmin(tx, actorId);
       const created = await tx.terminal.create({
         data: {
           ...data,
@@ -124,14 +130,32 @@ export class TerminalsService {
         include: TERMINAL_INCLUDE,
       });
       if (created.isActive) await this.recordFirstActivation(tx, now);
+      await this.audit.append(
+        tx,
+        {
+          event: 'TerminalCreated',
+          result: 'SUCCESS',
+          actorId,
+          terminalId: created.id,
+          terminalName: created.name,
+          locationLabel: created.locationLabel,
+        },
+        false,
+      );
       return created;
     });
     return toTerminalDto(terminal);
   }
 
-  async update(id: string, dto: UpdateTerminalDto): Promise<TerminalDto> {
+  async update(
+    id: string,
+    dto: UpdateTerminalDto,
+    actorId?: string,
+  ): Promise<TerminalDto> {
     const now = new Date();
     const terminal = await this.prisma.$transaction(async (tx) => {
+      await lockTerminalSecurity(tx);
+      if (actorId) await assertTerminalAdmin(tx, actorId);
       const current = await tx.terminal.findUnique({ where: { id } });
       if (!current) throw new NotFoundException(`Terminal ${id} not found`);
       const data = this.updateData(dto, current);
@@ -151,20 +175,34 @@ export class TerminalsService {
         include: TERMINAL_INCLUDE,
       });
       if (activates) await this.recordFirstActivation(tx, now);
+      await this.audit.append(
+        tx,
+        {
+          event: 'TerminalUpdated',
+          result: 'SUCCESS',
+          actorId,
+          terminalId: updated.id,
+          terminalName: updated.name,
+          locationLabel: updated.locationLabel,
+        },
+        false,
+      );
       return updated;
     });
     return toTerminalDto(terminal);
   }
 
-  deactivate(id: string): Promise<TerminalDto> {
-    return this.update(id, { isActive: false });
+  deactivate(id: string, actorId?: string): Promise<TerminalDto> {
+    return this.update(id, { isActive: false }, actorId);
   }
 
-  async deletePermanently(id: string): Promise<void> {
+  async deletePermanently(id: string, actorId?: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      await lockTerminalSecurity(tx);
+      if (actorId) await assertTerminalAdmin(tx, actorId);
       const terminal = await tx.terminal.findUnique({
         where: { id },
-        select: { id: true },
+        select: { id: true, name: true, locationLabel: true },
       });
       if (!terminal) throw new NotFoundException(`Terminal ${id} not found`);
 
@@ -187,11 +225,24 @@ export class TerminalsService {
         data: { clockOutChallengeId: null },
       });
 
+      await this.audit.append(
+        tx,
+        {
+          event: 'TerminalDeleted',
+          result: 'SUCCESS',
+          actorId,
+          terminalId: id,
+          terminalName: terminal.name,
+          locationLabel: terminal.locationLabel,
+        },
+        false,
+      );
+      await tx.terminalBookingGrant.deleteMany({ where: { terminalId: id } });
       await tx.terminal.delete({ where: { id } });
     });
   }
 
-  async createPairing(id: string): Promise<PairingCodeDto> {
+  async createPairing(id: string, actorId?: string): Promise<PairingCodeDto> {
     const terminal = await this.findTerminal(id);
     if (!terminal.isActive) {
       throw new ConflictException(
@@ -203,12 +254,30 @@ export class TerminalsService {
       const rawCode = this.randomPairingCode();
       const pairingCode = `${rawCode.slice(0, 5)}-${rawCode.slice(5)}`;
       try {
-        const updated = await this.prisma.terminal.updateMany({
-          where: { id, isActive: true },
-          data: {
-            pairingCodeHash: this.hashPairingCode(rawCode),
-            pairingExpiresAt: expiresAt,
-          },
+        const updated = await this.prisma.$transaction(async (tx) => {
+          await lockTerminalSecurity(tx);
+          if (actorId) await assertTerminalAdmin(tx, actorId);
+          const updated = await tx.terminal.updateMany({
+            where: { id, isActive: true },
+            data: {
+              pairingCodeHash: this.hashPairingCode(rawCode),
+              pairingExpiresAt: expiresAt,
+            },
+          });
+          if (updated.count === 1)
+            await this.audit.append(
+              tx,
+              {
+                event: 'PairingIssued',
+                result: 'SUCCESS',
+                actorId,
+                terminalId: id,
+                terminalName: terminal.name,
+                locationLabel: terminal.locationLabel,
+              },
+              false,
+            );
+          return updated;
         });
         if (updated.count !== 1) {
           throw new ConflictException(
@@ -240,6 +309,7 @@ export class TerminalsService {
     const deviceToken = `octd_${randomBytes(32).toString('base64url')}`;
     const tokenHash = this.hashOpaqueToken(deviceToken);
     const terminal = await this.prisma.$transaction(async (tx) => {
+      await lockTerminalSecurity(tx);
       const claimed = await tx.terminal.updateMany({
         where: {
           id: candidate.id,
@@ -256,7 +326,7 @@ export class TerminalsService {
         where: { terminalId: candidate.id, revokedAt: null },
         data: { revokedAt: now },
       });
-      await tx.terminalDevice.create({
+      const pairedDevice = await tx.terminalDevice.create({
         data: {
           terminalId: candidate.id,
           name: dto.deviceName?.trim() || null,
@@ -269,12 +339,26 @@ export class TerminalsService {
         include: TERMINAL_INCLUDE,
       });
       if (!row) throw new NotFoundException('Terminal no longer exists');
+      await this.audit.append(
+        tx,
+        {
+          event: 'DevicePaired',
+          result: 'SUCCESS',
+          terminalId: row.id,
+          deviceId: pairedDevice.id,
+          terminalName: row.name,
+          locationLabel: row.locationLabel,
+        },
+        false,
+      );
       return row;
     });
     return {
       deviceToken,
       terminal: {
         id: terminal.id,
+        allowedAuthMethods: terminal.allowedAuthMethods,
+        authConfigVersion: terminal.authConfigVersion,
         name: terminal.name,
         displayText: terminal.displayText,
         locationLabel: terminal.locationLabel,
@@ -287,15 +371,35 @@ export class TerminalsService {
   async revokeDevice(
     terminalId: string,
     deviceId: string,
+    actorId?: string,
   ): Promise<TerminalDto> {
-    await this.findTerminal(terminalId);
-    const result = await this.prisma.terminalDevice.updateMany({
-      where: { id: deviceId, terminalId, revokedAt: null },
-      data: { revokedAt: new Date() },
+    await this.prisma.$transaction(async (tx) => {
+      await lockTerminalSecurity(tx);
+      if (actorId) await assertTerminalAdmin(tx, actorId);
+      const terminal = await tx.terminal.findUnique({
+        where: { id: terminalId },
+      });
+      if (!terminal) throw new NotFoundException('Terminal not found');
+      const result = await tx.terminalDevice.updateMany({
+        where: { id: deviceId, terminalId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      if (result.count !== 1)
+        throw new NotFoundException('Active terminal device not found');
+      await this.audit.append(
+        tx,
+        {
+          event: 'DeviceRevoked',
+          result: 'SUCCESS',
+          actorId,
+          terminalId,
+          deviceId,
+          terminalName: terminal.name,
+          locationLabel: terminal.locationLabel,
+        },
+        false,
+      );
     });
-    if (result.count !== 1) {
-      throw new NotFoundException('Active terminal device not found');
-    }
     return this.get(terminalId);
   }
 
@@ -335,90 +439,165 @@ export class TerminalsService {
   }
 
   async kioskState(device: TerminalDevicePrincipal): Promise<KioskStateDto> {
-    const terminal = await this.prisma.terminal.findFirst({
-      where: { id: device.terminalId, isActive: true },
-    });
-    if (!terminal) throw new UnauthorizedException('Terminal is inactive');
+    return this.prisma.$transaction(async (tx) => {
+      await lockTerminalSecurity(tx);
+      const freshDevice = await tx.terminalDevice.findUnique({
+        where: { id: device.id },
+      });
+      if (
+        !freshDevice ||
+        freshDevice.revokedAt ||
+        freshDevice.terminalId !== device.terminalId
+      )
+        throw new UnauthorizedException({
+          code: 'TERMINAL_DEVICE_REVOKED',
+          message: 'Terminal device revoked',
+        });
+      const terminal = await tx.terminal.findFirst({
+        where: { id: device.terminalId, isActive: true },
+      });
+      if (!terminal) throw new UnauthorizedException('Terminal is inactive');
 
-    const now = new Date();
-    const recentChallenges = await this.prisma.terminalChallenge.count({
-      where: {
-        deviceId: device.id,
-        createdAt: { gt: new Date(now.getTime() - 60_000) },
-      },
-    });
-    if (recentChallenges >= 12) {
-      throw this.rateLimitException('TERMINAL_KIOSK_RATE_LIMITED');
-    }
-    const cleanupBefore = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    await this.prisma.terminalChallenge.deleteMany({
-      where: {
-        terminalId: device.terminalId,
-        expiresAt: { lt: cleanupBefore },
-        redemptions: { none: {} },
-        clockInTimeEntries: { none: {} },
-        clockOutTimeEntries: { none: {} },
-      },
-    });
-
-    const rootDateKey = this.dateKey(now, terminal.timeZone);
-    const dailyRoot = createHmac('sha256', this.qrMasterSecret)
-      .update(`openclockwork-terminal-root:v1:${terminal.id}:${rootDateKey}`)
-      .digest();
-    const opaquePayload = createHmac('sha256', dailyRoot)
-      .update(randomBytes(32))
-      .digest('base64url');
-    // The marker lets the PWA avoid requesting GPS for non-geofenced
-    // terminals. It is only a UX hint: the complete token is hashed below and
-    // scan() always enforces the terminal's current server-side setting.
-    const payload = `ocw1.${terminal.enforceGeofence ? 'g' : 'n'}.${opaquePayload}`;
-    const configuredExpiry = new Date(
-      now.getTime() + this.challengeTtlSeconds * 1000,
-    );
-    const expiresAt = new Date(
-      Math.min(
-        configuredExpiry.getTime(),
-        this.nextLocalMidnight(now, terminal.timeZone).getTime(),
-      ),
-    );
-    const challengeLifetimeSeconds = Math.max(
-      1,
-      Math.floor((expiresAt.getTime() - now.getTime()) / 1000),
-    );
-    await this.prisma.terminalChallenge.create({
-      data: {
-        terminalId: terminal.id,
-        deviceId: device.id,
-        tokenHash: this.hashOpaqueToken(payload),
-        rootDate: new Date(`${rootDateKey}T00:00:00.000Z`),
-        expiresAt,
-      },
-    });
-    return {
-      terminal: {
+      const publicTerminal = {
         id: terminal.id,
         name: terminal.name,
         displayText: terminal.displayText,
         locationLabel: terminal.locationLabel,
         logoUrl: terminal.logoUrl,
         timeZone: terminal.timeZone,
-      },
-      challenge: {
-        payload,
-        expiresAt: expiresAt.toISOString(),
-        refreshAfterSeconds: Math.max(
-          1,
-          Math.min(
-            Math.max(10, this.challengeTtlSeconds - 15),
-            challengeLifetimeSeconds - 5,
-          ),
+        allowedAuthMethods: terminal.allowedAuthMethods,
+        authConfigVersion: terminal.authConfigVersion,
+      };
+      if (!terminal.allowedAuthMethods.includes('QR'))
+        return {
+          terminal: publicTerminal,
+          challenge: null,
+          serverTime: new Date().toISOString(),
+          configRefreshAfterSeconds: 30,
+          requiresLocation: terminal.enforceGeofence,
+          pinAvailable: this.pins.available,
+        };
+      const now = new Date();
+      const recentChallenges = await tx.terminalChallenge.count({
+        where: {
+          deviceId: device.id,
+          purpose: 'DisplayQr',
+          createdAt: { gt: new Date(now.getTime() - 60_000) },
+        },
+      });
+      if (recentChallenges >= 12) {
+        throw this.rateLimitException('TERMINAL_KIOSK_RATE_LIMITED');
+      }
+      const cleanupBefore = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      await tx.terminalChallenge.deleteMany({
+        where: {
+          terminalId: device.terminalId,
+          expiresAt: { lt: cleanupBefore },
+          redemptions: { none: {} },
+          clockInTimeEntries: { none: {} },
+          clockOutTimeEntries: { none: {} },
+        },
+      });
+
+      const rootDateKey = this.dateKey(now, terminal.timeZone);
+      const dailyRoot = createHmac('sha256', this.qrMasterSecret)
+        .update(`openclockwork-terminal-root:v1:${terminal.id}:${rootDateKey}`)
+        .digest();
+      const opaquePayload = createHmac('sha256', dailyRoot)
+        .update(randomBytes(32))
+        .digest('base64url');
+      // The marker lets the PWA avoid requesting GPS for non-geofenced
+      // terminals. It is only a UX hint: the complete token is hashed below and
+      // scan() always enforces the terminal's current server-side setting.
+      const payload = `ocw1.${terminal.enforceGeofence ? 'g' : 'n'}.${opaquePayload}`;
+      const configuredExpiry = new Date(
+        now.getTime() + this.challengeTtlSeconds * 1000,
+      );
+      const expiresAt = new Date(
+        Math.min(
+          configuredExpiry.getTime(),
+          this.nextLocalMidnight(now, terminal.timeZone).getTime(),
         ),
-      },
-      serverTime: now.toISOString(),
-    };
+      );
+      const challengeLifetimeSeconds = Math.max(
+        1,
+        Math.floor((expiresAt.getTime() - now.getTime()) / 1000),
+      );
+      await tx.terminalChallenge.create({
+        data: {
+          terminalId: terminal.id,
+          deviceId: device.id,
+          tokenHash: this.hashOpaqueToken(payload),
+          purpose: 'DisplayQr',
+          authConfigVersion: terminal.authConfigVersion,
+          rootDate: new Date(`${rootDateKey}T00:00:00.000Z`),
+          expiresAt,
+        },
+      });
+      return {
+        terminal: {
+          id: terminal.id,
+          allowedAuthMethods: terminal.allowedAuthMethods,
+          authConfigVersion: terminal.authConfigVersion,
+          name: terminal.name,
+          displayText: terminal.displayText,
+          locationLabel: terminal.locationLabel,
+          logoUrl: terminal.logoUrl,
+          timeZone: terminal.timeZone,
+        },
+        challenge: {
+          payload,
+          expiresAt: expiresAt.toISOString(),
+          refreshAfterSeconds: Math.max(
+            1,
+            Math.min(
+              Math.max(10, this.challengeTtlSeconds - 15),
+              challengeLifetimeSeconds - 5,
+            ),
+          ),
+        },
+        serverTime: now.toISOString(),
+        configRefreshAfterSeconds: 30,
+        requiresLocation: terminal.enforceGeofence,
+        pinAvailable: this.pins.available,
+      };
+    });
   }
 
   async scan(
+    dto: ScanTerminalDto,
+    employeeId: string,
+  ): Promise<ScanTerminalResultDto> {
+    try {
+      return await this.scanValidated(dto, employeeId);
+    } catch (error) {
+      // The existing authenticated scan guard bounds this path to twelve
+      // requests/minute per employee per process. Never record the QR token.
+      if (this.audit.configured) {
+        const challenge = await this.prisma.terminalChallenge.findUnique({
+          where: { tokenHash: this.hashOpaqueToken(dto.qrPayload) },
+          include: { terminal: true },
+        });
+        await this.audit.failure(
+          {
+            event: 'BookingRejected',
+            result: 'REQUEST_REJECTED',
+            method: 'QR',
+            action: dto.action,
+            employeeId,
+            terminalId: challenge?.terminalId,
+            deviceId: challenge?.deviceId,
+            terminalName: challenge?.terminal.name,
+            locationLabel: challenge?.terminal.locationLabel,
+          },
+          false,
+        );
+      }
+      throw error;
+    }
+  }
+
+  private async scanValidated(
     dto: ScanTerminalDto,
     employeeId: string,
   ): Promise<ScanTerminalResultDto> {
@@ -438,7 +617,7 @@ export class TerminalsService {
       where: { tokenHash },
       include: { terminal: true, device: true },
     });
-    if (!challenge) {
+    if (!challenge || challenge.purpose !== 'DisplayQr') {
       throw new BadRequestException({
         code: 'TERMINAL_QR_INVALID',
         message: 'QR challenge is invalid',
@@ -454,6 +633,11 @@ export class TerminalsService {
         message: 'QR challenge has expired',
       });
     }
+    if (!challenge.terminal.allowedAuthMethods.includes('QR'))
+      throw new ForbiddenException({
+        code: 'TERMINAL_METHOD_DISABLED',
+        message: 'QR is disabled',
+      });
     if (!challenge.terminal.isActive || challenge.device.revokedAt !== null) {
       throw new ForbiddenException({
         code: 'TERMINAL_INACTIVE',
@@ -498,6 +682,8 @@ export class TerminalsService {
           });
           if (
             !fresh ||
+            fresh.purpose !== 'DisplayQr' ||
+            !fresh.terminal.allowedAuthMethods.includes('QR') ||
             fresh.expiresAt <= bookingNow ||
             !fresh.terminal.isActive ||
             fresh.device.revokedAt !== null ||
@@ -531,118 +717,33 @@ export class TerminalsService {
             });
           }
 
-          const open = await tx.timeEntry.findFirst({
-            where: { employeeId, clockOut: null },
-            orderBy: { clockIn: 'desc' },
-          });
-          action = open ? 'clock-out' : 'clock-in';
-          if (dto.action && dto.action !== action) {
-            throw new ConflictException({
-              code: 'TERMINAL_ACTION_MISMATCH',
-              message: `Current employee state requires ${action}`,
+          const booked = await bookTerminalTime(
+            tx,
+            employeeId,
+            fresh,
+            bookingNow,
+            schedule,
+            freshPosition,
+            dto.action,
+          );
+          action = booked.action;
+          await this.audit.append(
+            tx,
+            {
+              event: 'BookingAccepted',
+              result: 'SUCCESS',
+              method: 'QR',
               action,
-            });
-          }
-
-          let booked: TimeEntry & {
-            project: { code: string; name: string } | null;
-            serviceOrder: { orderNo: string; title: string } | null;
-          };
-          if (action === 'clock-in') {
-            const today = localTodayAsUtcDate(bookingNow);
-            const dailyBlock = await tx.timeEntry.findUnique({
-              where: {
-                employeeId_bookingDate: { employeeId, bookingDate: today },
-              },
-              select: { id: true },
-            });
-            if (dailyBlock) {
-              throw new ConflictException(
-                'Today already has a daily-block booking',
-              );
-            }
-            booked = await tx.timeEntry.create({
-              data: {
-                employeeId,
-                clockIn: bookingNow,
-                source: 'Terminal',
-                breakRules: schedule.breakRules,
-                status: 'Open',
-                requiresApproval: requiresSpecialApproval(
-                  bookingNow,
-                  null,
-                  schedule.frame,
-                ),
-                latitude: freshPosition?.latitude ?? null,
-                longitude: freshPosition?.longitude ?? null,
-                accuracyMeters: freshPosition?.accuracyMeters ?? null,
-                terminalDistanceMeters: freshPosition?.distanceMeters ?? null,
-                terminalRadiusMeters: freshPosition
-                  ? fresh.terminal.radiusMeters
-                  : null,
-                terminalMaxAccuracyMeters: freshPosition
-                  ? fresh.terminal.maxAccuracyMeters
-                  : null,
-                positionTimestamp: freshPosition?.positionTimestamp ?? null,
-                terminalLocationLabel: fresh.terminal.locationLabel,
-                terminalId: fresh.terminalId,
-                clockInChallengeId: fresh.id,
-              },
-              include: ENTRY_INCLUDE,
-            });
-          } else {
-            if (!open) throw new ConflictException('No open entry to close');
-            if (bookingNow <= open.clockIn) {
-              throw new BadRequestException('Clock-out must be after clock-in');
-            }
-            const requires = requiresSpecialApproval(
-              open.clockIn,
-              bookingNow,
-              schedule.frame,
-            );
-            const updated = await tx.timeEntry.updateMany({
-              where: { id: open.id, clockOut: null },
-              data: {
-                clockOut: bookingNow,
-                status: requires ? 'Pending' : 'Approved',
-                requiresApproval: requires,
-                clockOutLatitude: freshPosition?.latitude ?? null,
-                clockOutLongitude: freshPosition?.longitude ?? null,
-                clockOutAccuracyMeters: freshPosition?.accuracyMeters ?? null,
-                clockOutTerminalDistanceMeters:
-                  freshPosition?.distanceMeters ?? null,
-                clockOutTerminalRadiusMeters: freshPosition
-                  ? fresh.terminal.radiusMeters
-                  : null,
-                clockOutTerminalMaxAccuracyMeters: freshPosition
-                  ? fresh.terminal.maxAccuracyMeters
-                  : null,
-                clockOutPositionTimestamp:
-                  freshPosition?.positionTimestamp ?? null,
-                clockOutTerminalLocationLabel: fresh.terminal.locationLabel,
-                clockOutTerminalId: fresh.terminalId,
-                clockOutChallengeId: fresh.id,
-              },
-            });
-            if (updated.count !== 1) {
-              throw new ConflictException('Time entry was already closed');
-            }
-            const row = await tx.timeEntry.findUnique({
-              where: { id: open.id },
-              include: ENTRY_INCLUDE,
-            });
-            if (!row) throw new NotFoundException('Time entry not found');
-            booked = row;
-          }
-          await tx.terminalChallengeRedemption.create({
-            data: {
-              challengeId: fresh.id,
               employeeId,
-              timeEntryId: booked.id,
-              action,
+              terminalId: fresh.terminalId,
+              deviceId: fresh.deviceId,
+              terminalName: fresh.terminal.name,
+              locationLabel: fresh.terminal.locationLabel,
+              timeEntryId: booked.entry.id,
             },
-          });
-          return booked;
+            false,
+          );
+          return booked.entry;
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
       );
@@ -689,6 +790,18 @@ export class TerminalsService {
     return terminal;
   }
 
+  private validateMethods(methods: string[], active: boolean): string[] {
+    if (
+      !Array.isArray(methods) ||
+      methods.some((m) => m !== 'QR' && m !== 'PIN') ||
+      new Set(methods).size !== methods.length ||
+      (active && methods.length === 0)
+    )
+      throw new BadRequestException('Select valid unique terminal methods');
+    if (methods.includes('PIN')) this.pins.assertAvailable();
+    return methods;
+  }
+
   private createData(dto: CreateTerminalDto) {
     const timeZone = (dto.timeZone ?? 'UTC').trim();
     this.assertTimeZone(timeZone);
@@ -699,6 +812,10 @@ export class TerminalsService {
       displayText: this.requiredTrimmed(dto.displayText, 'displayText'),
       locationLabel: this.requiredTrimmed(dto.locationLabel, 'locationLabel'),
       logoUrl: this.normalizeLogoUrl(dto.logoUrl),
+      allowedAuthMethods: this.validateMethods(
+        dto.allowedAuthMethods ?? ['QR'],
+        dto.isActive ?? false,
+      ),
       enforceGeofence,
       ...geofence,
       timeZone,
@@ -710,6 +827,25 @@ export class TerminalsService {
     current: Terminal,
   ): Prisma.TerminalUpdateInput {
     const data: Prisma.TerminalUpdateInput = {};
+    if (dto.allowedAuthMethods !== undefined || dto.isActive === true) {
+      const methods = this.validateMethods(
+        dto.allowedAuthMethods ?? current.allowedAuthMethods,
+        dto.isActive ?? current.isActive,
+      );
+      if (dto.allowedAuthMethods !== undefined)
+        data.allowedAuthMethods = methods;
+    }
+    if (
+      dto.allowedAuthMethods !== undefined ||
+      dto.enforceGeofence !== undefined ||
+      dto.latitude !== undefined ||
+      dto.longitude !== undefined ||
+      dto.radiusMeters !== undefined ||
+      dto.maxAccuracyMeters !== undefined ||
+      dto.timeZone !== undefined ||
+      dto.isActive !== undefined
+    )
+      data.authConfigVersion = { increment: 1 };
     if (dto.name !== undefined)
       data.name = this.requiredTrimmed(dto.name, 'name');
     if (dto.displayText !== undefined) {
@@ -850,7 +986,7 @@ export class TerminalsService {
     }
   }
 
-  private dateKey(date: Date, timeZone: string): string {
+  dateKey(date: Date, timeZone: string): string {
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone,
       year: 'numeric',
@@ -867,7 +1003,7 @@ export class TerminalsService {
    * calendar day. Comparing formatted local date keys keeps this correct for
    * 23/25-hour DST days without maintaining a separate time-zone offset table.
    */
-  private nextLocalMidnight(date: Date, timeZone: string): Date {
+  nextLocalMidnight(date: Date, timeZone: string): Date {
     const currentDateKey = this.dateKey(date, timeZone);
     let beforeBoundary = date.getTime();
     let afterBoundary = beforeBoundary + 30 * 60 * 60 * 1000;
@@ -925,11 +1061,14 @@ export class TerminalsService {
     tx: Prisma.TransactionClient,
     employeeId: string,
   ): Promise<void> {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${employeeId}, 0))`;
+    await lockTerminalSecurity(tx, employeeId);
   }
 
-  private evaluateTerminalPosition(
-    dto: ScanTerminalDto,
+  evaluateTerminalPosition(
+    dto: Pick<
+      ScanTerminalDto,
+      'latitude' | 'longitude' | 'accuracyMeters' | 'positionTimestamp'
+    >,
     terminal: Pick<
       Terminal,
       | 'enforceGeofence'
@@ -1051,8 +1190,4 @@ export class TerminalsService {
       HttpStatus.TOO_MANY_REQUESTS,
     );
   }
-}
-
-function localTodayAsUtcDate(now = new Date()): Date {
-  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 }

@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import { soloDe, soloEn } from './solo-i18n';
+import { terminalPinDe, terminalPinEn } from './terminal-pin-i18n';
 
 export type Locale = 'de' | 'en';
 type Variables = Record<string, string | number>;
@@ -16,6 +17,7 @@ const STORAGE_KEY = 'openclockwork.locale';
 
 const de: Catalog = {
   ...soloDe,
+  ...terminalPinDe,
   'projects.deleteFailed': 'Projekt konnte nicht gelöscht werden',
   'projects.deleteHint':
     'Löschen ist nur möglich, solange keine Zeiten gebucht sind',
@@ -679,6 +681,7 @@ const de: Catalog = {
 
 const en: Catalog = {
   ...soloEn,
+  ...terminalPinEn,
   'projects.deleteFailed': 'Could not delete project',
   'projects.deleteHint':
     'Deletion is available only while no time has been recorded',

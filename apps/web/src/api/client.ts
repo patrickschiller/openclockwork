@@ -571,6 +571,8 @@ export interface TerminalDto {
   locationLabel: string;
   logoUrl: string | null;
   timeZone: string;
+  allowedAuthMethods?: TerminalAuthMethod[];
+  authConfigVersion?: number;
   enforceGeofence: boolean;
   latitude: number | null;
   longitude: number | null;
@@ -598,6 +600,7 @@ export interface UpsertTerminalPayload {
   locationLabel: string;
   logoUrl: string | null;
   timeZone: string;
+  allowedAuthMethods?: TerminalAuthMethod[];
   enforceGeofence: boolean;
   latitude: number | null;
   longitude: number | null;
@@ -617,6 +620,37 @@ export interface TerminalSupportPromptDto {
 }
 
 export type TerminalBookingAction = 'clock-in' | 'clock-out';
+export type TerminalAuthMethod = 'QR' | 'PIN';
+
+export interface TerminalPinStatus {
+  method: 'PIN';
+  isConfigured: boolean;
+  enabled: boolean;
+  lockedUntil: string | null;
+  updatedAt: string | null;
+}
+
+export interface TerminalAuditEvent {
+  id: string;
+  sequence: string;
+  occurredAt: string;
+  event: string;
+  result: string;
+  method: TerminalAuthMethod | null;
+  action: TerminalBookingAction | null;
+  employeeId: string | null;
+  actorId: string | null;
+  terminalId: string | null;
+  deviceId: string | null;
+  terminalName: string | null;
+  locationLabel: string | null;
+  timeEntryId: string | null;
+}
+
+export interface TerminalAuditPage {
+  items: TerminalAuditEvent[];
+  nextCursor: string | null;
+}
 
 export interface TerminalBookingPayload {
   qrPayload: string;
@@ -1180,6 +1214,42 @@ export const api = {
     ),
 
   terminals: () => request<TerminalDto[]>('/api/terminals'),
+  terminalCredentials: (employeeId: string, signal?: AbortSignal) =>
+    request<TerminalPinStatus>(
+      `/api/employees/${employeeId}/terminal-credentials`,
+      { cache: 'no-store', signal },
+    ),
+  resetTerminalPin: (employeeId: string, signal?: AbortSignal) =>
+    request<{ pin: string; credential: TerminalPinStatus }>(
+      `/api/employees/${employeeId}/terminal-credentials/pin/reset`,
+      { method: 'POST', cache: 'no-store', signal, body: '{}' },
+    ),
+  disableTerminalPin: (employeeId: string, signal?: AbortSignal) =>
+    request<TerminalPinStatus>(
+      `/api/employees/${employeeId}/terminal-credentials/pin`,
+      { method: 'DELETE', cache: 'no-store', signal },
+    ),
+  unlockTerminalPin: (employeeId: string, signal?: AbortSignal) =>
+    request<TerminalPinStatus>(
+      `/api/employees/${employeeId}/terminal-credentials/pin/unlock`,
+      { method: 'POST', cache: 'no-store', signal, body: '{}' },
+    ),
+  terminalAuditEvents: (
+    filters: {
+      terminalId?: string;
+      method?: TerminalAuthMethod;
+      cursor?: string;
+    },
+    signal?: AbortSignal,
+  ) => {
+    const params = new URLSearchParams({ limit: '25' });
+    for (const [key, value] of Object.entries(filters))
+      if (value) params.set(key, value);
+    return request<TerminalAuditPage>(`/api/terminals/audit-events?${params}`, {
+      cache: 'no-store',
+      signal,
+    });
+  },
   createTerminal: (payload: UpsertTerminalPayload) =>
     request<TerminalDto>('/api/terminals', {
       method: 'POST',

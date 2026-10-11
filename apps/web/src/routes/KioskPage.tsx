@@ -24,6 +24,7 @@ import { LanguageToggle } from '../app/LanguageToggle';
 import { useAuth } from '../app/auth';
 import { useI18n } from '../app/i18n';
 import { useOnline } from '../app/use-online';
+import { KioskPinPanel } from './KioskPinPanel';
 import {
   loadKioskState,
   pairTerminal,
@@ -112,13 +113,15 @@ export function KioskPage() {
       setError(null);
     } catch (refreshError) {
       setQrDataUrl(null);
-      setState(null);
       setError(
         refreshError instanceof Error
           ? refreshError.message
           : t('kiosk.refreshFailed'),
       );
-      if (!readTerminalDeviceToken()) setDeviceToken(null);
+      if (!readTerminalDeviceToken()) {
+        setDeviceToken(null);
+        setState(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -169,7 +172,12 @@ export function KioskPage() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const expiresAt = state ? new Date(state.challenge.expiresAt).getTime() : 0;
+  const methods = state?.terminal.allowedAuthMethods ?? ['QR'];
+  const qrEnabled = methods.includes('QR');
+  const pinEnabled = methods.includes('PIN') && state?.pinAvailable === true;
+  const expiresAt = state?.challenge
+    ? new Date(state.challenge.expiresAt).getTime()
+    : 0;
   const serverNowMs = now.getTime() + serverOffsetMs;
   const expired = !expiresAt || serverNowMs >= expiresAt;
 
@@ -178,12 +186,21 @@ export function KioskPage() {
       setQrDataUrl(null);
       return;
     }
-    const untilSafetyMargin =
-      new Date(state.challenge.expiresAt).getTime() -
-      (Date.now() + serverOffsetMs) -
-      REFRESH_SAFETY_MARGIN_MS;
-    const requestedRefresh = state.challenge.refreshAfterSeconds * 1_000;
-    const delay = Math.max(250, Math.min(requestedRefresh, untilSafetyMargin));
+    const configDelay =
+      Math.max(1, state.configRefreshAfterSeconds || 30) * 1_000;
+    const challenge = state.challenge;
+    const untilSafetyMargin = challenge
+      ? new Date(challenge.expiresAt).getTime() -
+        (Date.now() + serverOffsetMs) -
+        REFRESH_SAFETY_MARGIN_MS
+      : configDelay;
+    const requestedRefresh = challenge
+      ? challenge.refreshAfterSeconds * 1_000
+      : configDelay;
+    const delay = Math.max(
+      250,
+      Math.min(configDelay, requestedRefresh, untilSafetyMargin),
+    );
     const timer = window.setTimeout(() => void refresh(), delay);
     return () => window.clearTimeout(timer);
   }, [online, refresh, serverOffsetMs, state]);
@@ -196,7 +213,7 @@ export function KioskPage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!state || !online || expired) {
+    if (!state?.challenge || !qrEnabled || !online || expired) {
       setQrDataUrl(null);
       return;
     }
@@ -218,7 +235,7 @@ export function KioskPage() {
     return () => {
       cancelled = true;
     };
-  }, [expired, online, state, t]);
+  }, [expired, online, qrEnabled, state, t]);
 
   const clock = useMemo(
     () =>
@@ -347,39 +364,70 @@ export function KioskPage() {
         </section>
 
         <section className="flex min-w-0 flex-col items-center justify-center gap-6 bg-slate-50 px-8 py-10 text-slate-950">
-          <div className="text-center">
-            <h2 className="text-3xl font-semibold">{t('kiosk.scanTitle')}</h2>
-            <p className="mt-2 max-w-md text-slate-600">
-              {t('kiosk.scanDescription')}
-            </p>
-          </div>
-
-          {!online ? (
-            <KioskUnavailable
-              icon={<CloudOff className="h-14 w-14" />}
-              title={t('kiosk.offlineTitle')}
-              description={t('kiosk.offlineDescription')}
+          {pinEnabled && deviceToken && (
+            <KioskPinPanel
+              key={deviceToken}
+              deviceToken={deviceToken}
+              online={online}
+              serverOffsetMs={serverOffsetMs}
+              authConfigVersion={state.terminal.authConfigVersion}
+              onDeviceRevoked={() => {
+                setDeviceToken(null);
+                setState(null);
+              }}
             />
-          ) : expired || !qrDataUrl ? (
-            <KioskUnavailable
-              icon={<RefreshCw className="h-14 w-14 animate-spin" />}
-              title={t('kiosk.refreshingTitle')}
-              description={t('kiosk.refreshingDescription')}
-            />
-          ) : (
-            <div className="w-full max-w-[430px] rounded-3xl bg-white p-5 shadow-2xl ring-1 ring-slate-200">
-              <img
-                src={qrDataUrl}
-                alt={t('kiosk.qrAlt')}
-                className="aspect-square h-auto w-full"
-              />
-            </div>
           )}
+          {methods.includes('PIN') && !pinEnabled && (
+            <Alert>
+              <AlertDescription>
+                {t('terminalPin.unavailable')}
+              </AlertDescription>
+            </Alert>
+          )}
+          {qrEnabled && (
+            <>
+              <div className="text-center">
+                <h2 className="text-3xl font-semibold">
+                  {t('kiosk.scanTitle')}
+                </h2>
+                <p className="mt-2 max-w-md text-slate-600">
+                  {t('kiosk.scanDescription')}
+                </p>
+              </div>
 
-          <div className="flex items-center gap-2 text-sm text-slate-600">
-            <ShieldCheck className="h-4 w-4" />
-            {t('kiosk.securityHint')}
-          </div>
+              {!online ? (
+                <KioskUnavailable
+                  icon={<CloudOff className="h-14 w-14" />}
+                  title={t('kiosk.offlineTitle')}
+                  description={t('kiosk.offlineDescription')}
+                />
+              ) : expired || !qrDataUrl ? (
+                <KioskUnavailable
+                  icon={<RefreshCw className="h-14 w-14 animate-spin" />}
+                  title={t('kiosk.refreshingTitle')}
+                  description={t('kiosk.refreshingDescription')}
+                />
+              ) : (
+                <div className="w-full max-w-[430px] rounded-3xl bg-white p-5 shadow-2xl ring-1 ring-slate-200">
+                  <img
+                    src={qrDataUrl}
+                    alt={t('kiosk.qrAlt')}
+                    className="aspect-square h-auto w-full"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <ShieldCheck className="h-4 w-4" />
+                {t('kiosk.securityHint')}
+              </div>
+            </>
+          )}
+          {!qrEnabled && !online && (
+            <Alert variant="destructive">
+              <AlertDescription>{t('terminalPin.offline')}</AlertDescription>
+            </Alert>
+          )}
           {error && online && (
             <Button variant="outline" onClick={() => void refresh()}>
               <RefreshCw className="mr-2 h-4 w-4" />

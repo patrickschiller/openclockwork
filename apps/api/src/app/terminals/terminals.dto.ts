@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsArray,
+  ArrayUnique,
+  ArrayMaxSize,
   IsDateString,
   IsIn,
   IsInt,
@@ -19,6 +22,14 @@ import { TimeEntryDto } from '../time-entries/time-entries.dto';
 const MAX_LOGO_DATA_URL_LENGTH = 85_000;
 
 export class CreateTerminalDto {
+  @ApiPropertyOptional({ enum: ['QR', 'PIN'], isArray: true, default: ['QR'] })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @ArrayMaxSize(2)
+  @IsIn(['QR', 'PIN'], { each: true })
+  allowedAuthMethods?: Array<'QR' | 'PIN'>;
+
   @ApiProperty({ example: 'Haupteingang' })
   @IsString()
   @MinLength(1)
@@ -147,6 +158,10 @@ export class TerminalDeviceDto {
 }
 
 export class TerminalDto {
+  @ApiProperty({ enum: ['QR', 'PIN'], isArray: true })
+  allowedAuthMethods!: string[];
+  @ApiProperty() authConfigVersion!: number;
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
@@ -231,6 +246,10 @@ export class PairTerminalDto {
 }
 
 export class KioskTerminalDto {
+  @ApiProperty({ enum: ['QR', 'PIN'], isArray: true })
+  allowedAuthMethods!: string[];
+  @ApiProperty() authConfigVersion!: number;
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
@@ -277,8 +296,12 @@ export class KioskStateDto {
   @ApiProperty({ type: KioskTerminalDto })
   terminal!: KioskTerminalDto;
 
-  @ApiProperty({ type: TerminalChallengeDto })
-  challenge!: TerminalChallengeDto;
+  @ApiProperty({ type: TerminalChallengeDto, nullable: true })
+  challenge!: TerminalChallengeDto | null;
+
+  @ApiProperty() configRefreshAfterSeconds!: number;
+  @ApiProperty() requiresLocation!: boolean;
+  @ApiProperty() pinAvailable!: boolean;
 
   @ApiProperty({ format: 'date-time' })
   serverTime!: string;
@@ -351,6 +374,8 @@ export function toTerminalDto(terminal: TerminalWithDevices): TerminalDto {
   }, null);
   return {
     id: terminal.id,
+    allowedAuthMethods: terminal.allowedAuthMethods,
+    authConfigVersion: terminal.authConfigVersion,
     name: terminal.name,
     displayText: terminal.displayText,
     locationLabel: terminal.locationLabel,

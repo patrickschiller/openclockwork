@@ -125,8 +125,11 @@ export class TerminalsController {
   @Header('Cache-Control', 'no-store, no-cache, must-revalidate')
   @Header('Pragma', 'no-cache')
   @ApiCreatedResponse({ type: TerminalDto })
-  create(@Body() dto: CreateTerminalDto): Promise<TerminalDto> {
-    return this.terminals.create(dto);
+  create(
+    @Body() dto: CreateTerminalDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TerminalDto> {
+    return this.terminals.create(dto, user.id);
   }
 
   @Get(':id')
@@ -146,8 +149,9 @@ export class TerminalsController {
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateTerminalDto,
+    @CurrentUser() user: JwtUser,
   ): Promise<TerminalDto> {
-    return this.terminals.update(id, dto);
+    return this.terminals.update(id, dto, user.id);
   }
 
   @Delete(':id')
@@ -157,8 +161,9 @@ export class TerminalsController {
   @ApiOkResponse({ type: TerminalDto })
   deactivate(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<TerminalDto> {
-    return this.terminals.deactivate(id);
+    return this.terminals.deactivate(id, user.id);
   }
 
   @Delete(':id/permanent')
@@ -172,8 +177,9 @@ export class TerminalsController {
   })
   async deletePermanently(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<void> {
-    await this.terminals.deletePermanently(id);
+    await this.terminals.deletePermanently(id, user.id);
   }
 
   @Post(':id/pairing')
@@ -185,8 +191,9 @@ export class TerminalsController {
   @ApiCreatedResponse({ type: PairingCodeDto })
   createPairing(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<PairingCodeDto> {
-    return this.terminals.createPairing(id);
+    return this.terminals.createPairing(id, user.id);
   }
 
   @Delete(':id/devices/:deviceId')
@@ -197,7 +204,8 @@ export class TerminalsController {
   revokeDevice(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('deviceId', new ParseUUIDPipe()) deviceId: string,
+    @CurrentUser() user: JwtUser,
   ): Promise<TerminalDto> {
-    return this.terminals.revokeDevice(id, deviceId);
+    return this.terminals.revokeDevice(id, deviceId, user.id);
   }
 }

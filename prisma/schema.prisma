@@ -147,6 +147,7 @@ model Employee {
   absences                      Absence[]
   projectAssignments            ProjectAssignment[]
   terminalChallengeRedemptions  TerminalChallengeRedemption[]
+  terminalCredential            TerminalCredential?
   ownedInstallation             InstallationSettings?
   soloPolicies                  SoloPolicy[]
   personalDays                  PersonalDay[]
@@ -274,6 +275,8 @@ model Terminal {
   displayText       String              @db.VarChar(500)
   locationLabel     String              @db.VarChar(200)
   logoUrl           String?
+  allowedAuthMethods String[]            @default(["QR"])
+  authConfigVersion Int                 @default(0)
   enforceGeofence   Boolean             @default(true)
   latitude          Decimal?            @db.Decimal(9, 6)
   longitude         Decimal?            @db.Decimal(9, 6)
@@ -320,6 +323,8 @@ model TerminalChallenge {
   deviceId            String                        @db.Uuid
   device              TerminalDevice                @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   tokenHash           String                        @unique @db.Char(64)
+  purpose             String                        @default("DisplayQr") @db.VarChar(20)
+  authConfigVersion   Int                           @default(0)
   rootDate            DateTime                      @db.Date
   expiresAt           DateTime
   redemptions         TerminalChallengeRedemption[]
@@ -617,5 +622,77 @@ model InstallationEvent {
   after      Json?
   occurredAt DateTime  @default(now())
 
+  @@index([occurredAt])
+}
+
+/// Terminal PIN credentials are independent from employee account passwords.
+model TerminalCredential {
+  id            String   @id @default(uuid()) @db.Uuid
+  employeeId    String   @unique @db.Uuid
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  method        String   @default("PIN") @db.VarChar(8)
+  pinHash       String
+  pepperVersion String   @db.VarChar(40)
+  version       Int      @default(1)
+  revokedAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// Shared fixed windows and PIN lock state. Keys never contain personal numbers.
+model TerminalAuthAttemptState {
+  key             String   @id @db.VarChar(160)
+  counter         Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  lockedUntil     DateTime?
+  expiresAt       DateTime
+  @@index([expiresAt])
+}
+
+/// References are immutable snapshots, deliberately independent of entity deletion.
+/// Every use revalidates the referenced employee/device/credential/challenge.
+model TerminalBookingGrant {
+  id                String   @id @default(uuid()) @db.Uuid
+  tokenHash         String   @unique @db.Char(64)
+  employeeId        String   @db.Uuid
+  credentialId      String   @db.Uuid
+  credentialVersion Int
+  terminalId        String   @db.Uuid
+  deviceId          String   @db.Uuid
+  challengeId       String   @db.Uuid
+  authConfigVersion Int
+  expiresAt         DateTime
+  consumedAt        DateTime?
+  action            String?  @db.VarChar(9)
+  timeEntryId       String?  @db.Uuid
+  bookedAt          DateTime?
+  createdAt         DateTime @default(now())
+  @@index([expiresAt])
+  @@index([deviceId, createdAt])
+}
+
+/// Append-only authenticated chain. All IDs and labels are historical snapshots.
+/// No cascading relations; runtime role receives no UPDATE/DELETE/TRUNCATE.
+model TerminalAuditEvent {
+  sequence         BigInt   @id
+  id               String   @unique @db.Uuid
+  occurredAt       DateTime
+  event            String   @db.VarChar(60)
+  result           String   @db.VarChar(60)
+  method           String?  @db.VarChar(8)
+  action           String?  @db.VarChar(9)
+  employeeId       String?  @db.Uuid
+  actorId          String?  @db.Uuid
+  terminalId       String?  @db.Uuid
+  deviceId         String?  @db.Uuid
+  terminalName     String?  @db.VarChar(120)
+  locationLabel    String?  @db.VarChar(200)
+  timeEntryId      String?  @db.Uuid
+  canonicalPayload String
+  previousHash     String   @db.Char(64)
+  hash             String   @db.Char(64)
+  keyVersion       String   @db.VarChar(40)
+  @@index([terminalId, occurredAt])
+  @@index([employeeId, occurredAt])
   @@index([occurredAt])
 }

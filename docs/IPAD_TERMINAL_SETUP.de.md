@@ -2,10 +2,14 @@
 
 Diese Anleitung beschreibt die Einrichtung eines OpenClockwork-Terminals im
 **Team-Modus** mit einem fest montierten iPad. Im Solo-Modus sind Terminals
-deaktiviert. Das iPad zeigt ausschließlich den rotierenden
-QR-Code. Mitarbeitende scannen ihn mit der angemeldeten OpenClockwork-PWA auf
+deaktiviert. Das iPad zeigt je nach HR-Konfiguration einen rotierenden
+QR-Code und/oder einen PIN-Eingabedialog. Mitarbeitende scannen ihn mit der angemeldeten OpenClockwork-PWA auf
 ihrem eigenen Smartphone. Die Kamera wird dort immer benötigt; ein aktueller
-GPS-Standort wird nur bei aktivierter Standortprüfung angefordert.
+GPS-Standort wird nur bei aktivierter Standortprüfung angefordert. Für PIN
+identifiziert sich der Mitarbeiter direkt am gekoppelten Kiosk und bestätigt
+Ein-/Aus anschließend ausdrücklich. [PIN-Betrieb und Audit](TERMINAL_AUTH_OPERATIONS.de.md)
+und die [isolierte Docker-PIN-Testversion](LOCAL_PIN_DOCKER_TEST.de.md) ergänzen
+diese bestehende QR-/HTTPS-Anleitung.
 
 Das Terminal-Feature ist vollständig kostenlos. Der einmalige Hinweis auf eine
 freiwillige Unterstützung von ungefähr 125 € schaltet keine Funktion frei
@@ -18,9 +22,9 @@ und verändert die Aktivierung nicht.
 - Ein neuer Kiosk wird über einen einmalig verwendbaren Pairing-Code bzw.
   Pairing-Link gekoppelt. Danach entfernt die Anwendung das Geheimnis aus der
   sichtbaren URL und speichert nur das widerrufbare Geräte-Credential lokal.
-- Das Kiosk-Credential kann keine Arbeitszeiten buchen und keine Admin- oder
-  Personaldaten lesen. Es darf ausschließlich den aktuellen Terminalzustand
-  und die kurzlebige QR-Challenge abrufen.
+- Das Kiosk-Credential kann keine normalen Zeit-/Admin-/Personal-APIs aufrufen.
+  PIN-Buchungen benötigen zusätzlich einen geprüften Mitarbeiter-PIN, eine
+  gerätegebundene Challenge und eine kurzlebige einmalige Buchungsfreigabe.
 - Die QR-Signatur wird täglich ausgetauscht; die sichtbare Challenge rotiert
   zusätzlich in kurzen Abständen. Kopien und Screenshots laufen daher ab.
 - Die Buchung wird ausschließlich vom Server akzeptiert, wenn Challenge,

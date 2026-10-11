@@ -1,0 +1,30 @@
+# Optional overlay for a production PIN pilot, after archive/retention acceptance.
+# DATABASE_URL must use runtime; MIGRATION_DATABASE_URL must use a separate owner.
+# Combine with docker-compose.prod.yml and OpenClockwork 2.1.0 or newer.
+services:
+  migrate:
+    image: ghcr.io/patrickschiller/openclockwork-api:${OPENCLOCKWORK_VERSION}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:?Set the separate migration owner URL}
+      TERMINAL_RUNTIME_DB_ROLE: ${TERMINAL_RUNTIME_DB_ROLE:-openclockwork_runtime}
+      TERMINAL_RUNTIME_DB_PASSWORD: ${TERMINAL_RUNTIME_DB_PASSWORD:?Set runtime role password}
+    command:
+      [
+        'sh',
+        '-c',
+        './node_modules/.bin/prisma migrate deploy && node /app/ops/configure-terminal-runtime.mjs',
+      ]
+  api:
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ['node', 'dist/main.js']
+    environment:
+      TERMINAL_PIN_PEPPER: ${TERMINAL_PIN_PEPPER:?Set independent PIN pepper}
+      TERMINAL_PIN_PEPPER_VERSION: ${TERMINAL_PIN_PEPPER_VERSION:-1}
+      TERMINAL_PIN_PREVIOUS_PEPPERS: ${TERMINAL_PIN_PREVIOUS_PEPPERS:-}
+      TERMINAL_AUDIT_KEY: ${TERMINAL_AUDIT_KEY:?Set independent audit key}
+      TERMINAL_AUDIT_KEY_VERSION: ${TERMINAL_AUDIT_KEY_VERSION:-1}

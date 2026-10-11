@@ -10,6 +10,12 @@ process.env.DATABASE_URL = assertE2eTarget().databaseUrl;
 // Core-time and off-hours assertions use these explicit wall-clock times.
 process.env.TZ = 'Europe/Berlin';
 process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'e2e-test-secret-change-me';
+process.env.TERMINAL_PIN_PEPPER =
+  process.env.TERMINAL_PIN_PEPPER ??
+  'synthetic-e2e-pin-pepper-at-least-32-characters';
+process.env.TERMINAL_AUDIT_KEY =
+  process.env.TERMINAL_AUDIT_KEY ??
+  'synthetic-e2e-audit-key-at-least-32-characters';
 process.env.ERP_API_KEY = 'e2e-erp-key'; // force — the e2e suite hard-codes this
 process.env.CRON_API_KEY = 'e2e-cron-key'; // force — the e2e suite hard-codes this
 process.env.API_CORS_ORIGINS =

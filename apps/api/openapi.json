@@ -2392,6 +2392,306 @@
         "tags": ["time-entries"]
       }
     },
+    "/api/terminals/kiosk/challenge": {
+      "post": {
+        "operationId": "TerminalAuthController_challenge",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifyChallengeDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-auth"]
+      }
+    },
+    "/api/terminals/kiosk/identify": {
+      "post": {
+        "operationId": "TerminalAuthController_identify",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentifyTerminalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentifyTerminalResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-auth"]
+      }
+    },
+    "/api/terminals/kiosk/book": {
+      "post": {
+        "operationId": "TerminalAuthController_book",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BookTerminalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookTerminalResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-auth"]
+      }
+    },
+    "/api/terminals/audit-events": {
+      "get": {
+        "operationId": "TerminalAuthController_events",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "terminalId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "method",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["QR", "PIN"]
+            }
+          },
+          {
+            "name": "result",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalAuditPageDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-auth"]
+      }
+    },
+    "/api/employees/{id}/terminal-credentials": {
+      "get": {
+        "operationId": "TerminalCredentialsController_get",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalCredentialStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-credentials"]
+      }
+    },
+    "/api/employees/{id}/terminal-credentials/pin/reset": {
+      "post": {
+        "operationId": "TerminalCredentialsController_reset",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetTerminalPinResultDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-credentials"]
+      }
+    },
+    "/api/employees/{id}/terminal-credentials/pin": {
+      "delete": {
+        "operationId": "TerminalCredentialsController_revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalCredentialStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-credentials"]
+      }
+    },
+    "/api/employees/{id}/terminal-credentials/pin/unlock": {
+      "post": {
+        "operationId": "TerminalCredentialsController_unlock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalCredentialStatusDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["terminal-credentials"]
+      }
+    },
     "/api/terminals/support-prompt": {
       "get": {
         "operationId": "TerminalsController_supportPrompt",
@@ -3869,7 +4169,7 @@
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "2.0.1",
+    "version": "2.1.0",
     "contact": {}
   },
   "tags": [],
@@ -4690,7 +4990,7 @@
           },
           "version": {
             "type": "string",
-            "example": "2.0.1"
+            "example": "2.1.0"
           },
           "utcTimestamp": {
             "type": "string",
@@ -6501,6 +6801,256 @@
         },
         "required": ["at"]
       },
+      "IdentifyChallengeDto": {
+        "type": "object",
+        "properties": {
+          "payload": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["payload", "expiresAt"]
+      },
+      "IdentifyTerminalDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["PIN"]
+          },
+          "challengePayload": {
+            "type": "string"
+          },
+          "personalNo": {
+            "type": "string",
+            "description": "Exact personal number, preserving leading zeros."
+          },
+          "pin": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 8,
+            "writeOnly": true
+          }
+        },
+        "required": ["method", "challengePayload", "personalNo", "pin"]
+      },
+      "IdentifyTerminalResultDto": {
+        "type": "object",
+        "properties": {
+          "grant": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["clock-in", "clock-out"]
+          },
+          "requiresLocation": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "grant",
+          "expiresAt",
+          "displayName",
+          "action",
+          "requiresLocation"
+        ]
+      },
+      "BookTerminalDto": {
+        "type": "object",
+        "properties": {
+          "grant": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["clock-in", "clock-out"]
+          },
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "accuracyMeters": {
+            "type": "number",
+            "minimum": 0
+          },
+          "positionTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["grant", "action"]
+      },
+      "BookTerminalResultDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": ["TERMINAL_BOOKED"]
+          },
+          "action": {
+            "type": "string",
+            "enum": ["clock-in", "clock-out"]
+          },
+          "bookedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receiptId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["code", "action", "bookedAt", "receiptId"]
+      },
+      "TerminalAuditEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sequence": {
+            "type": "string"
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "event": {
+            "type": "string"
+          },
+          "result": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string",
+            "nullable": true
+          },
+          "action": {
+            "type": "string",
+            "nullable": true
+          },
+          "employeeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "actorId": {
+            "type": "string",
+            "nullable": true
+          },
+          "terminalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "deviceId": {
+            "type": "string",
+            "nullable": true
+          },
+          "terminalName": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "timeEntryId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "sequence",
+          "occurredAt",
+          "event",
+          "result",
+          "method",
+          "action",
+          "employeeId",
+          "actorId",
+          "terminalId",
+          "deviceId",
+          "terminalName",
+          "locationLabel",
+          "timeEntryId"
+        ]
+      },
+      "TerminalAuditPageDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerminalAuditEventDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["items", "nextCursor"]
+      },
+      "TerminalCredentialStatusDto": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["PIN"]
+          },
+          "isConfigured": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "lockedUntil": {
+            "type": "string",
+            "nullable": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "method",
+          "isConfigured",
+          "enabled",
+          "lockedUntil",
+          "updatedAt"
+        ]
+      },
+      "ResetTerminalPinResultDto": {
+        "type": "object",
+        "properties": {
+          "pin": {
+            "type": "string",
+            "description": "One-time secret. Never cache or log this response."
+          },
+          "credential": {
+            "$ref": "#/components/schemas/TerminalCredentialStatusDto"
+          }
+        },
+        "required": ["pin", "credential"]
+      },
       "SupportPromptDto": {
         "type": "object",
         "properties": {
@@ -6528,6 +7078,16 @@
       "KioskTerminalDto": {
         "type": "object",
         "properties": {
+          "allowedAuthMethods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["QR", "PIN"]
+            }
+          },
+          "authConfigVersion": {
+            "type": "number"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -6549,7 +7109,15 @@
             "type": "string"
           }
         },
-        "required": ["id", "name", "displayText", "locationLabel", "timeZone"]
+        "required": [
+          "allowedAuthMethods",
+          "authConfigVersion",
+          "id",
+          "name",
+          "displayText",
+          "locationLabel",
+          "timeZone"
+        ]
       },
       "PairedTerminalDto": {
         "type": "object",
@@ -6590,14 +7158,36 @@
             "$ref": "#/components/schemas/KioskTerminalDto"
           },
           "challenge": {
-            "$ref": "#/components/schemas/TerminalChallengeDto"
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TerminalChallengeDto"
+              }
+            ]
+          },
+          "configRefreshAfterSeconds": {
+            "type": "number"
+          },
+          "requiresLocation": {
+            "type": "boolean"
+          },
+          "pinAvailable": {
+            "type": "boolean"
           },
           "serverTime": {
             "type": "string",
             "format": "date-time"
           }
         },
-        "required": ["terminal", "challenge", "serverTime"]
+        "required": [
+          "terminal",
+          "challenge",
+          "configRefreshAfterSeconds",
+          "requiresLocation",
+          "pinAvailable",
+          "serverTime"
+        ]
       },
       "ScanTerminalDto": {
         "type": "object",
@@ -6680,6 +7270,16 @@
       "TerminalDto": {
         "type": "object",
         "properties": {
+          "allowedAuthMethods": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["QR", "PIN"]
+            }
+          },
+          "authConfigVersion": {
+            "type": "number"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -6754,6 +7354,8 @@
           }
         },
         "required": [
+          "allowedAuthMethods",
+          "authConfigVersion",
           "id",
           "name",
           "displayText",
@@ -6771,6 +7373,14 @@
       "CreateTerminalDto": {
         "type": "object",
         "properties": {
+          "allowedAuthMethods": {
+            "type": "array",
+            "default": ["QR"],
+            "items": {
+              "type": "string",
+              "enum": ["QR", "PIN"]
+            }
+          },
           "name": {
             "type": "string",
             "example": "Haupteingang"
@@ -6838,6 +7448,14 @@
       "UpdateTerminalDto": {
         "type": "object",
         "properties": {
+          "allowedAuthMethods": {
+            "type": "array",
+            "default": ["QR"],
+            "items": {
+              "type": "string",
+              "enum": ["QR", "PIN"]
+            }
+          },
           "name": {
             "type": "string",
             "example": "Haupteingang"
