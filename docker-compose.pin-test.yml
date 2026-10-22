@@ -15,7 +15,7 @@ services:
       timeout: 5s
       retries: 12
   migrate:
-    image: openclockwork-api:2.1.0-pin-local
+    image: openclockwork-api:2.2.0-pin-local
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -32,7 +32,7 @@ services:
         './node_modules/.bin/prisma migrate deploy && node /app/ops/configure-terminal-runtime.mjs',
       ]
   api:
-    image: openclockwork-api:2.1.0-pin-local
+    image: openclockwork-api:2.2.0-pin-local
     pull_policy: never
     depends_on:
       migrate:
@@ -57,7 +57,7 @@ services:
       - pin-attachments:/app/data/attachments
       - pin-audit-export:/app/data/audit
   web:
-    image: openclockwork-web:2.1.0-pin-local
+    image: openclockwork-web:2.2.0-pin-local
     build:
       context: .
       dockerfile: Dockerfile.web

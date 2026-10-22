@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   api,
+  downloadAuthenticated,
   type WorkingTimeReportDto,
   type WorkingTimeReportLocationDto,
 } from '../api/client';
@@ -35,11 +36,21 @@ interface CsvLabels {
 }
 
 function csvEscape(value: string): string {
-  return /[";\n\r]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  // Spreadsheet applications may evaluate a formula after leading whitespace.
+  const safeValue = /^\s*[=+\-@]/u.test(value) ? `'${value}` : value;
+  return /[";\n\r]/.test(safeValue)
+    ? `"${safeValue.replace(/"/g, '""')}"`
+    : safeValue;
 }
 
 function formatMinutes(minutes: number): string {
-  return `${Math.floor(minutes / 60)}:${(minutes % 60).toString().padStart(2, '0')}`;
+  const totalSeconds = Math.round(minutes * 60);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutePart = Math.floor((totalSeconds % 3600) / 60)
+    .toString()
+    .padStart(2, '0');
+  const secondPart = totalSeconds % 60;
+  return `${hours}:${minutePart}${secondPart ? `:${secondPart.toString().padStart(2, '0')}` : ''}`;
 }
 
 function formatTime(value: string, languageTag: string): string {
@@ -133,16 +144,29 @@ function defaultRange(): { from: string; to: string } {
   };
 }
 
+const MULTIPLE_EMPLOYEES = '__multiple__';
+
 export function AdminWorkingTimesPage() {
   const user = useCurrentUser();
-  const { t, enumLabel, languageTag } = useI18n();
+  const { t, enumLabel, languageTag, locale } = useI18n();
   const initialRange = useMemo(defaultRange, []);
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
   const [employeeId, setEmployeeId] = useState('');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [includeLocations, setIncludeLocations] = useState(false);
+  const [pdfPending, setPdfPending] = useState(false);
+  const [pdfFailed, setPdfFailed] = useState(false);
   const isAuthorized = user.role === 'HRAdmin';
-  const validRange = from !== '' && to !== '' && from <= to;
+  const orderedRange = from !== '' && to !== '' && from <= to;
+  const validRange =
+    orderedRange && (Date.parse(to) - Date.parse(from)) / 86_400_000 < 366;
+  const multipleEmployees = employeeId === MULTIPLE_EMPLOYEES;
+  const employeeIds = multipleEmployees ? selectedEmployeeIds : undefined;
+  const singleEmployeeId = multipleEmployees
+    ? undefined
+    : employeeId || undefined;
+  const validSelection = !multipleEmployees || selectedEmployeeIds.length > 0;
 
   const employees = useQuery({
     queryKey: ['employees', 'working-time-report'],
@@ -155,18 +179,27 @@ export function AdminWorkingTimesPage() {
       'working-time-report',
       from,
       to,
-      employeeId || null,
+      singleEmployeeId ?? null,
+      employeeIds ?? null,
       includeLocations,
     ],
     queryFn: () =>
       api.workingTimeReport(
         from,
         to,
-        employeeId || undefined,
+        singleEmployeeId,
         includeLocations,
+        employeeIds,
       ),
-    enabled: isAuthorized && validRange,
+    enabled: isAuthorized && validRange && validSelection,
   });
+  const canDownload =
+    validRange &&
+    validSelection &&
+    !report.isFetching &&
+    !report.isError &&
+    !pdfPending &&
+    Boolean(report.data?.rows.length);
 
   if (!isAuthorized) {
     return (
@@ -174,7 +207,7 @@ export function AdminWorkingTimesPage() {
     );
   }
   const downloadCsv = () => {
-    if (!report.data) return;
+    if (!canDownload || !report.data) return;
     const csv = workingTimeReportToCsv(
       report.data,
       {
@@ -202,6 +235,24 @@ export function AdminWorkingTimesPage() {
     link.click();
     URL.revokeObjectURL(url);
   };
+  const downloadPdf = async () => {
+    if (!canDownload) return;
+    const params = new URLSearchParams({ from, to, locale });
+    if (singleEmployeeId) params.set('employeeId', singleEmployeeId);
+    employeeIds?.forEach((id) => params.append('employeeIds', id));
+    setPdfFailed(false);
+    setPdfPending(true);
+    try {
+      await downloadAuthenticated(
+        `/api/reports/working-times.pdf?${params.toString()}`,
+        `arbeitszeiten-${from}-${to}.pdf`,
+      );
+    } catch {
+      setPdfFailed(true);
+    } finally {
+      setPdfPending(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -228,6 +279,7 @@ export function AdminWorkingTimesPage() {
                 type="date"
                 value={from}
                 max={to || undefined}
+                disabled={pdfPending}
                 onChange={(event) => setFrom(event.target.value)}
               />
             </div>
@@ -238,6 +290,7 @@ export function AdminWorkingTimesPage() {
                 type="date"
                 value={to}
                 min={from || undefined}
+                disabled={pdfPending}
                 onChange={(event) => setTo(event.target.value)}
               />
             </div>
@@ -248,10 +301,16 @@ export function AdminWorkingTimesPage() {
               <select
                 id="working-time-employee"
                 value={employeeId}
+                disabled={
+                  pdfPending || employees.isPending || employees.isError
+                }
                 onChange={(event) => setEmployeeId(event.target.value)}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">{t('common.all')}</option>
+                <option value={MULTIPLE_EMPLOYEES}>
+                  {t('reports.selectMultiple')}
+                </option>
                 {availableEmployees.map((employee) => (
                   <option key={employee.id} value={employee.id}>
                     {employee.firstName} {employee.lastName}
@@ -265,6 +324,7 @@ export function AdminWorkingTimesPage() {
                 type="checkbox"
                 className="h-4 w-4"
                 checked={includeLocations}
+                disabled={pdfPending}
                 onChange={(event) => setIncludeLocations(event.target.checked)}
               />
               <Label htmlFor="working-time-include-locations">
@@ -273,20 +333,79 @@ export function AdminWorkingTimesPage() {
             </div>
             <Button
               variant="outline"
-              disabled={!report.data || report.data.rows.length === 0}
+              disabled={!canDownload}
               onClick={downloadCsv}
             >
               <Download className="mr-2 h-4 w-4" aria-hidden="true" />
               {t('reports.downloadCsv')}
             </Button>
+            <Button
+              variant="outline"
+              disabled={!canDownload}
+              aria-busy={pdfPending}
+              onClick={downloadPdf}
+            >
+              <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t(pdfPending ? 'reports.preparingPdf' : 'reports.downloadPdf')}
+            </Button>
           </div>
+          {multipleEmployees && (
+            <fieldset
+              className="mt-4 rounded-md border p-3"
+              disabled={pdfPending}
+            >
+              <legend className="px-1 text-sm font-medium">
+                {t('reports.selectEmployees')}
+              </legend>
+              <div className="grid max-h-52 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+                {availableEmployees.map((employee) => (
+                  <label
+                    key={employee.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={selectedEmployeeIds.includes(employee.id)}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setSelectedEmployeeIds((selected) =>
+                          checked
+                            ? [...selected, employee.id].sort()
+                            : selected.filter((id) => id !== employee.id),
+                        );
+                      }}
+                    />
+                    {employee.firstName} {employee.lastName}
+                  </label>
+                ))}
+              </div>
+              {!validSelection && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {t('reports.selectionRequired')}
+                </p>
+              )}
+            </fieldset>
+          )}
+          <p className="mt-3 text-sm text-muted-foreground">
+            {t('reports.pdfHint')}
+          </p>
           {!validRange && (
             <p className="mt-3 text-sm text-destructive">
-              {t('reports.invalidRange')}
+              {t(
+                orderedRange ? 'reports.rangeTooLong' : 'reports.invalidRange',
+              )}
             </p>
           )}
         </CardContent>
       </Card>
+
+      {pdfFailed && (
+        <Alert variant="destructive">
+          <AlertTitle>{t('reports.pdfFailed')}</AlertTitle>
+          <AlertDescription>{t('reports.pdfRetry')}</AlertDescription>
+        </Alert>
+      )}
 
       {report.isError && (
         <Alert variant="destructive">

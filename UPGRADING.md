@@ -25,6 +25,32 @@ Compose from managing their deletion, but this does not protect against manual
 volume removal, pruning unused volumes, Docker data loss or host failure. Do
 not replace a populated installation's volume with a new name during an upgrade.
 
+## Required for 2.2.0
+
+Version 2.2.0 adds HR working-time PDF exports for one, selected, or all
+employees alongside CSV. Upgrading from 2.1.0 adds **no database migrations** and
+requires no seed, reset, new secret or timezone change. Preserve the existing
+database, attachment volumes, configuration and all applied migration files.
+Take a consistent backup and deploy matching 2.2.0 API/web images. If upgrading
+from an older version, also follow every intervening requirement below,
+including the 2.1.0 PIN migration where not yet applied.
+
+Deploy the API first when components are updated separately; wait for
+`/api/health` to report `2.2.0`, then deploy the web image. Reopen browser/PWA
+tabs to load the new PDF controls. Custom clients can use the updated
+[OpenAPI contract](apps/api/openapi.json); the PDF endpoint requires HR access.
+Verify exports for an individual and a selection of employees, employee page
+boundaries, totals and the configured working timezone before sharing reports.
+
+Review the [German export guide](docs/WORKING_TIME_EXPORTS.de.md) before using
+the PDF as a working-time record. Automatic break deductions do not prove
+actual breaks, pending bookings remain provisional, and overnight bookings are
+assigned to their start day. A downloaded PDF alone does not establish legal
+compliance or fulfill an installation's retention obligations. Combined PDFs
+contain personal data from several employees and need appropriate access and
+sharing controls. Existing CSV exports, working-time policies, approvals,
+accounts, QR/PIN support and personnel-data access restrictions are retained.
+
 ## Required for 2.1.0
 
 Version 2.1.0 adds personal-number/PIN identification to paired Team terminals.
@@ -83,7 +109,7 @@ existing installations is recommended. From 2.0.0,
 this update adds no database migrations and requires no seed or reset.
 Keep the existing data, volumes, configuration and working timezone, take a
 consistent backup, and deploy matching API/web versions. These access changes
-also apply when upgrading directly to 2.1.0; follow its additional requirements
+also apply when upgrading directly to 2.2.0; follow the additional requirements
 above and the deployment procedure below.
 
 Custom API clients must handle `401` and `403` responses and the scoped
@@ -387,7 +413,7 @@ runs in a non-production runtime; the API retains its production runtime.
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, **`2.1.0` for this upgrade**, only after preserving the old configuration
+Release, **`2.2.0` for this upgrade**, only after preserving the old configuration
 in the backup set. Pin matching API/web versions or verified digests. Do not use
 `latest`, a mutable `:local` image, or a source-build override for an unattended
 production upgrade. Keep the same PostgreSQL major version; a PostgreSQL major
@@ -414,7 +440,7 @@ migrations and runtime grants; the API waits for its successful completion.
 Prisma records applied migrations in `_prisma_migrations` and skips them on
 subsequent starts. Production startup never seeds or resets the database.
 If API/web are deployed independently, deploy the API first, wait for its
-health endpoint to report `2.1.0`, then deploy the matching web image. The web
+health endpoint to report `2.2.0`, then deploy the matching web image. The web
 startup version check is not a promise of zero-downtime mixed-version operation;
 keep additional writers paused until verification completes.
 
@@ -451,7 +477,7 @@ oc run --rm --no-deps -T migrate ./node_modules/.bin/prisma migrate status
 The PIN runtime role deliberately has no access to `_prisma_migrations`; do not
 broaden its permissions to run this maintenance check from the API container.
 
-Confirm `2.1.0` through the public web/proxy health route as well as the
+Confirm `2.2.0` through the public web/proxy health route as well as the
 container check. Sign in and verify the actual deployed mode, a known employee,
 an existing time entry, historic break totals, leave balances and configured
 attachment storage. A 1.4.0 upgrade must still be Team unless an administrator

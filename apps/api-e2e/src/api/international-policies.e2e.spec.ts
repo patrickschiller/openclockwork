@@ -221,7 +221,15 @@ describe('International calendars and configurable break policies', () => {
       )
       .set('Authorization', `Bearer ${hrToken}`)
       .expect(200);
-    expect(report.body.totals).toEqual(closed.body.summary);
+    // The report preserves timestamp precision; account/ERP summaries keep
+    // their historical whole-minute policy. Both use the captured deduction.
+    const reportGrossMinutes =
+      ((persisted.clockOut as Date).getTime() - clockIn.getTime()) / 60_000;
+    expect(report.body.totals).toEqual({
+      grossMinutes: reportGrossMinutes,
+      breakMinutes: 20,
+      netMinutes: reportGrossMinutes - 20,
+    });
     const exported = await ctx.http
       .get('/api/erp/timeentries')
       .set('X-API-Key', process.env.ERP_API_KEY ?? 'e2e-erp-key')

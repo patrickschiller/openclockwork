@@ -1,6 +1,6 @@
 # Operating modes: Solo and Team
 
-OpenClockwork 2.1.0 offers two workflows on the same self-hosted installation.
+OpenClockwork 2.2.0 offers two workflows on the same self-hosted installation.
 The mode is installation-wide, not a per-browser preference, billing plan, or
 separate database. Pick the workflow that matches who uses the application and
 who needs to make decisions about the recorded work.

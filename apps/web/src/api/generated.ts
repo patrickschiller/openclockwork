@@ -644,6 +644,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/reports/working-times.pdf': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ReportsController_workingTimesPdf'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/timeentries': {
     parameters: {
       query?: never;
@@ -1838,7 +1854,7 @@ export interface components {
       status: string;
       /** @example openclockwork-api */
       service: string;
-      /** @example 2.1.0 */
+      /** @example 2.2.0 */
       version: string;
       /** Format: date-time */
       utcTimestamp: string;
@@ -4104,6 +4120,8 @@ export interface operations {
         from: string;
         to: string;
         employeeId?: string;
+        /** @description Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId. */
+        employeeIds?: string[];
         includeLocations?: boolean;
       };
       header?: never;
@@ -4118,6 +4136,33 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['WorkingTimeReportDto'];
+        };
+      };
+    };
+  };
+  ReportsController_workingTimesPdf: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+        employeeId?: string;
+        /** @description Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId. */
+        employeeIds?: string[];
+        locale?: 'de' | 'en';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Working-time PDF for one, selected or all employees, with separate employee sections, booking-day totals, timezone and policy-based break deductions. Excludes locations and private notes. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/pdf': string;
         };
       };
     };

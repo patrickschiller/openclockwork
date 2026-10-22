@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 12
   api:
-    image: openclockwork-api:2.1.0-local
+    image: openclockwork-api:2.2.0-local
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -48,7 +48,7 @@ services:
         './node_modules/.bin/prisma migrate deploy && exec node dist/main.js',
       ]
   web:
-    image: openclockwork-web:2.1.0-local
+    image: openclockwork-web:2.2.0-local
     build:
       context: .
       dockerfile: Dockerfile.web

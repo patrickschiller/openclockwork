@@ -25,15 +25,18 @@ public-contract impact. Use matching metadata in five places:
 5. Run `RELEASE_TAG=vMAJOR.MINOR.PATCH pnpm release:verify-tag` and the full CI
    suite.
 
-For 2.1.0, include the additive PIN migration and matching QR/PIN API contract,
-upgrade instructions, role-setup tools and audit verification tools. Retain the
-2.0.1 personnel-data access fixes. Verify QR defaults and existing records across
-the upgrade, PIN and credential-access tests, concurrent booking/revocation,
-audit integrity and the separate runtime-role Docker path. Record the accepted
-local user check without claiming an unperformed target-device or external
-archive test. Production PIN activation still requires the operator's protected
-archive and retention configuration; publishing the source and images does not
-provision or certify that deployment.
+For 2.2.0, include the individual and bulk HR working-time PDF export, matching
+OpenAPI contract and client, legal context and upgrade instructions. Verify HR
+authorization and organization scope, selected/all employees including inactive
+employees with historical records, pending/open bookings, historical break-rule
+snapshots, second precision, overnight work and daylight-saving transitions.
+Render representative PDFs and inspect pagination, employee boundaries, totals
+and German/English text. Use synthetic data for public examples and attachments.
+There are no new migrations relative to 2.1.0; retain the PIN migration and all
+earlier security fixes. State the scoped German retention and recording rules
+without presenting the PDF as a legal certification. Production PIN activation
+still requires the operator's protected archive and retention configuration;
+publishing the source and images does not provision or certify that deployment.
 
 ## Publish
 
@@ -43,8 +46,8 @@ annotated tag on the exact merge commit and push it:
 ```bash
 git switch main
 git pull --ff-only
-git tag -a v2.1.0 -m "OpenClockwork v2.1.0"
-git push origin v2.1.0
+git tag -a v2.2.0 -m "OpenClockwork v2.2.0"
+git push origin v2.2.0
 ```
 
 The release workflow verifies the tag and notes, runs Nx and API end-to-end
@@ -60,8 +63,8 @@ pulled anonymously by self-hosted installations.
 ## Verify the published release
 
 ```bash
-docker pull ghcr.io/patrickschiller/openclockwork-api:2.1.0
-docker pull ghcr.io/patrickschiller/openclockwork-web:2.1.0
+docker pull ghcr.io/patrickschiller/openclockwork-api:2.2.0
+docker pull ghcr.io/patrickschiller/openclockwork-web:2.2.0
 ```
 
 Confirm that the GitHub Release is marked latest, contains the curated upgrade

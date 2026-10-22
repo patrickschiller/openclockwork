@@ -959,9 +959,13 @@ export const api = {
     to: string,
     employeeId?: string,
     includeLocations = false,
+    employeeIds?: string[],
   ) => {
     const params = new URLSearchParams({ from, to });
     if (employeeId) params.set('employeeId', employeeId);
+    if (!employeeId) {
+      employeeIds?.forEach((id) => params.append('employeeIds', id));
+    }
     if (includeLocations) params.set('includeLocations', 'true');
     return request<WorkingTimeReportDto>(
       `/api/reports/working-times?${params.toString()}`,
