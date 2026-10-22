@@ -46,3 +46,8 @@ superseded by this NOTICE. A consolidated list of runtime and build-time
 dependencies is generated from the package manifests of each application
 in the workspace; consult the lockfiles and the upstream projects for the
 authoritative license terms.
+
+Working-time PDF reports embed Noto Sans Regular and Bold, distributed under
+the SIL Open Font License, Version 1.1. Copyright 2022 The Noto Project Authors
+(https://github.com/notofonts/latin-greek-cyrillic). The font files and full
+license are included in apps/api/src/assets/fonts/.

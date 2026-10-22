@@ -158,10 +158,11 @@ it('requires a new explicit confirmation if location becomes mandatory', async (
       timestamp: Date.now(),
     } as GeolocationPosition),
   );
-  vi.stubGlobal('navigator', {
-    ...navigator,
-    geolocation: { getCurrentPosition: position },
+  const locationNavigator = Object.create(navigator);
+  Object.defineProperty(locationNavigator, 'geolocation', {
+    value: { getCurrentPosition: position },
   });
+  vi.stubGlobal('navigator', locationNavigator);
   book.mockRejectedValueOnce(
     new ApiError(400, 'location required', 'TERMINAL_GPS_REQUIRED'),
   );

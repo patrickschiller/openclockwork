@@ -96,6 +96,7 @@
     "class-validator": "*",
     "passport": "*",
     "passport-jwt": "*",
+    "pdfkit": "^0.17.2",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.0",
     "shared": "workspace:*",

@@ -444,6 +444,16 @@ const de: Catalog = {
   'reports.projectIndependent':
     'Abgeschlossene, nicht abgelehnte Buchungen – unabhängig von Projekten.',
   'reports.downloadCsv': 'CSV herunterladen',
+  'reports.downloadPdf': 'PDF herunterladen',
+  'reports.preparingPdf': 'PDF wird erstellt …',
+  'reports.selectMultiple': 'Mehrere Mitarbeiter:innen auswählen',
+  'reports.selectEmployees': 'Mitarbeiter:innen für die Auswertung auswählen',
+  'reports.selectionRequired': 'Wähle mindestens eine Person aus.',
+  'reports.pdfHint':
+    'Ein gemeinsames PDF, in dem jede Person auf einer neuen Seite beginnt. Stempelorte werden im PDF nicht ausgegeben.',
+  'reports.pdfFailed': 'PDF konnte nicht heruntergeladen werden',
+  'reports.pdfRetry': 'Bitte versuche den Download erneut.',
+  'reports.rangeTooLong': 'Der Zeitraum darf höchstens 366 Tage umfassen.',
   'reports.empty': 'Keine Buchungen im gewählten Zeitraum.',
   'reports.invalidRange': 'Das Von-Datum muss vor oder am Bis-Datum liegen.',
   'reports.loadFailed': 'Arbeitszeiten konnten nicht geladen werden',
@@ -1104,6 +1114,16 @@ const en: Catalog = {
   'reports.projectIndependent':
     'Closed, non-rejected entries, independent of projects.',
   'reports.downloadCsv': 'Download CSV',
+  'reports.downloadPdf': 'Download PDF',
+  'reports.preparingPdf': 'Preparing PDF …',
+  'reports.selectMultiple': 'Select multiple employees',
+  'reports.selectEmployees': 'Select employees for the report',
+  'reports.selectionRequired': 'Select at least one person.',
+  'reports.pdfHint':
+    'One combined PDF with each person starting on a new page. Clocking locations are excluded from the PDF.',
+  'reports.pdfFailed': 'PDF could not be downloaded',
+  'reports.pdfRetry': 'Please try the download again.',
+  'reports.rangeTooLong': 'The date range may contain at most 366 days.',
   'reports.empty': 'No entries in the selected date range.',
   'reports.invalidRange':
     'The from date must be before or equal to the to date.',

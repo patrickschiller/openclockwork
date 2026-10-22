@@ -1857,6 +1857,18 @@
             }
           },
           {
+            "name": "employeeIds",
+            "required": false,
+            "in": "query",
+            "description": "Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
             "name": "includeLocations",
             "required": false,
             "in": "query",
@@ -1873,6 +1885,83 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkingTimeReportDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["reports"]
+      }
+    },
+    "/api/reports/working-times.pdf": {
+      "get": {
+        "operationId": "ReportsController_workingTimesPdf",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-01",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "example": "2026-08-31",
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "employeeIds",
+            "required": false,
+            "in": "query",
+            "description": "Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "locale",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "default": "de",
+              "type": "string",
+              "enum": ["de", "en"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Working-time PDF for one, selected or all employees, with separate employee sections, booking-day totals, timezone and policy-based break deductions. Excludes locations and private notes.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
                 }
               }
             }
@@ -4169,7 +4258,7 @@
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "contact": {}
   },
   "tags": [],
@@ -4990,7 +5079,7 @@
           },
           "version": {
             "type": "string",
-            "example": "2.1.0"
+            "example": "2.2.0"
           },
           "utcTimestamp": {
             "type": "string",

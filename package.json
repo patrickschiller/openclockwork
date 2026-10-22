@@ -1,6 +1,6 @@
 {
   "name": "openclockwork",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "license": "Apache-2.0",
   "private": true,
   "description": "OpenClockwork — self-hosted time and attendance with configurable work rules for organisations worldwide",
@@ -64,6 +64,7 @@
     "@types/multer": "^2.1.0",
     "@types/node": "20.19.9",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pdfkit": "^0.17.3",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -135,6 +136,7 @@
     "lucide-react": "^1.14.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdfkit": "^0.17.2",
     "prisma": "^6.19.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

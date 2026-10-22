@@ -1,12 +1,14 @@
 # OpenClockwork Features
 
-OpenClockwork 2.1.0 provides **Solo** personal work tracking and **Team** time and
+OpenClockwork 2.2.0 provides **Solo** personal work tracking and **Team** time and
 attendance in one responsive, self-hosted application. Both keep deployment,
 data, and configuration under the operator's control, with German and English UI.
 
-Version 2.1.0 adds direct PIN identification and explicit time booking at Team
-tablets, HR PIN administration, and an authentication audit. It retains the
-personnel-data access restrictions introduced in 2.0.1. RFID is planned separately.
+Version 2.2.0 adds HR working-time PDF exports for one, selected, or all employees,
+including inactive employees with historical bookings. It retains the PIN tablet
+terminals and audit introduced in 2.1.0 and personnel-data access restrictions
+introduced in 2.0.1. RFID is planned separately. See the
+[German legal context and export limitations](docs/WORKING_TIME_EXPORTS.de.md).
 
 This page describes implemented capabilities, not a guarantee that every rule,
 device, or external browser handoff has been certified. See
@@ -87,7 +89,7 @@ contains effective work or time off, the accounting mode starts on the next
 working-timezone calendar date. See [the mode guide](docs/OPERATING_MODES.md).
 
 Solo customer management and personal billable reports are not Team screens in
-2.1.0. Preserving records across a switch does not make every mode-specific
+2.2.0. Preserving records across a switch does not make every mode-specific
 workflow available in both modes.
 
 ## Mobile PWA
@@ -227,7 +229,7 @@ Employee submits
 | Absence administration  | Record and review sickness, training, and flextime entries                                             |
 | Approval operations     | Manager/HR inboxes, bulk actions, correction loops, and workflow history                               |
 | Terminal administration | Configure, activate, pair, monitor, revoke, re-pair, deactivate, or permanently delete tablet kiosks   |
-| Working-time reports    | HR-only start, end, break, gross, net, approval, and CSV reporting, with optional clocking locations   |
+| Working-time reports    | HR-only CSV/PDF reporting for one, selected, or all employees; optional locations in table/CSV only    |
 
 Production starts with an empty database. The interactive
 `prisma/create-admin.ts` bootstrap offers Solo or Team and creates exactly one
@@ -252,8 +254,16 @@ bookings, and customer-facing activity reports in one administrative workflow.
 - Detailed evaluations filtered by period, employee, project, and order
 - Customer-facing activity report and CSV export
 - Project-independent HR working-time report for all closed, non-rejected entries
+- Direct PDF download for individual employees or a bulk selection, with separate
+  employee sections, personnel numbers, explicit timezone, full timestamps,
+  booking-day/period totals, approval state, and warnings for open timers
+- Historical inactive employees remain selectable for working-time exports
 - Opt-in clock-in and clock-out locations in the report table and CSV export,
   combining durable terminal labels with available GPS coordinates and accuracy
+
+PDFs exclude locations, project details, and private notes. Break deductions use
+the stored policy and do not establish when actual rest breaks were taken.
+See [German export requirements and limitations](docs/WORKING_TIME_EXPORTS.de.md).
 
 Exports contain employee names and working-time data and must be handled as
 personal data under the organisation's access and retention policies. Exact

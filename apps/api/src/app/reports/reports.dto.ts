@@ -1,5 +1,15 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsUUID, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsIn,
+  IsOptional,
+  IsUUID,
+  Matches,
+} from 'class-validator';
 
 const DATE_ONLY_PATTERN = '^\\d{4}-\\d{2}-\\d{2}$';
 
@@ -17,10 +27,34 @@ export class WorkingTimeReportQueryDto {
   @IsUUID()
   employeeId?: string;
 
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  employeeIds?: string[];
+
   @ApiPropertyOptional({ type: Boolean, default: false })
   @IsOptional()
   @IsIn(['true', 'false'])
   includeLocations?: string;
+}
+
+export class WorkingTimePdfQueryDto extends OmitType(
+  WorkingTimeReportQueryDto,
+  ['includeLocations'] as const,
+) {
+  @ApiPropertyOptional({ enum: ['de', 'en'], default: 'de' })
+  @IsOptional()
+  @IsIn(['de', 'en'])
+  locale?: 'de' | 'en';
 }
 
 export class WorkingTimeReportEmployeeDto {

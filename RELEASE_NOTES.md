@@ -1,3 +1,83 @@
+# OpenClockwork v2.2.0
+
+## Working-time PDFs for HR
+
+- HR can download a working-time PDF alongside the existing CSV export for one
+  employee, several selected employees, or all employees in the chosen period.
+  Historical records of inactive employees remain selectable. Each employee
+  starts on a new page in a combined document.
+- Reports include the employee's name and personnel number, reporting period,
+  export timestamp, installation timezone, full start/end dates and UTC offsets,
+  gross time, rule-based break deductions, net time, booking status and totals.
+  Elapsed time retains second precision in the report. Stored break-rule
+  snapshots determine deductions; changing a schedule does not rewrite history.
+- Pending completed bookings are labelled provisional. Open bookings are
+  flagged and excluded from totals; rejected and cancelled entries are omitted.
+  Overnight work belongs to its booking's start day, so daily subtotals are
+  booking-day totals rather than calendar-day compliance checks. Full dates and
+  UTC offsets make overnight work and daylight-saving transitions traceable.
+- PDF downloads enforce HR authorization and organization scope. Location data,
+  free-text notes and project details are excluded. Combined PDFs contain
+  personal data for several employees: restrict access and share them only with
+  the intended recipients.
+- Requested in [Discussion #37](https://github.com/patrickschiller/openclockwork/discussions/37).
+  A [two-page example PDF](https://github.com/user-attachments/files/33845433/openclockwork-arbeitszeitnachweis-beispiel.pdf)
+  uses synthetic data only. Read the
+  [German working-time export guide](https://github.com/patrickschiller/openclockwork/blob/v2.2.0/docs/WORKING_TIME_EXPORTS.de.md)
+  for selection, calculations and limitations.
+
+## Legal context in Germany
+
+- Employers must generally record the beginning, end and duration of daily
+  working time. German law does not prescribe a universal PDF layout or a
+  general PDF-export requirement for these records. See the
+  [BMAS working-time recording FAQ](https://www.bmas.de/DE/Arbeit/Arbeitsrecht/Arbeitnehmerrechte/Regelungen-zur-Arbeitszeit/Fragen-und-Antworten/faq-arbeitszeiterfassung.html)
+  and the [BAG decision of 13 September 2022, 1 ABR 22/21](https://www.bundesarbeitsgericht.de/entscheidung/1-abr-22-21/).
+- [Section 16(2) ArbZG](https://www.gesetze-im-internet.de/arbzg/__16.html)
+  requires the records specified there, including work beyond the working-day
+  limit under section 3 sentence 1, to be retained for at least two years.
+  [Section 17(1) MiLoG](https://www.gesetze-im-internet.de/milog/__17.html)
+  separately requires covered employers, notably for specified marginal
+  employment and sectors, to record beginning, end and duration by the end of
+  the seventh following calendar day and retain the records for at least two
+  years. Its scope and exemptions matter: this seven-day deadline is not a
+  general deadline for every employment relationship.
+- Automatic break deductions do not prove that breaks were actually taken.
+  The PDF states this limitation; it does not record actual break intervals.
+  Employers remain responsible for accurate, complete records, actual breaks,
+  lawful processing, access and retention. The export is a documentation aid,
+  not a certification of legal compliance or a complete payroll statement.
+  For minimum-wage documentation,
+  [BMAS confirms that signatures are not required](https://www.bmas.de/DE/Arbeit/Arbeitsrecht/Mindestlohn/Dokumentationspflicht/dokumentationspflicht.html).
+  The cited rules prescribe neither PDF/A nor export certification;
+  sector-specific rules and agreements may apply.
+  Legal sources were reviewed on 22 October 2026.
+
+## Upgrade and compatibility
+
+- Upgrading from 2.1.0 adds no database migrations and requires no seed, reset,
+  new secret or change to the working timezone. Preserve existing data,
+  attachment volumes, configuration and historical migrations. When skipping
+  older releases, follow their intervening requirements, including the 2.1.0
+  PIN migration. See the
+  [upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v2.2.0/UPGRADING.md).
+- Deploy matching API and web images. If deployed separately, update the API
+  first, wait for `/api/health` to report `2.2.0`, then deploy the web image.
+  Reopen existing browser/PWA tabs to load the new export controls. The API
+  contract and generated web client include the PDF endpoint; existing CSV
+  exports, working-time accounts, approvals and break policies remain supported.
+- The PIN/QR functionality introduced in 2.1.0 and personnel-data access controls
+  introduced in 2.0.1 are retained. PIN deployment still requires its independent
+  secrets, restricted runtime role and operator-managed audit retention.
+
+## Docker images
+
+- `ghcr.io/patrickschiller/openclockwork-api:2.2.0`
+- `ghcr.io/patrickschiller/openclockwork-web:2.2.0`
+
+The release workflow also updates each image's `latest` tag. Pin `2.2.0` or a
+verified digest for production and use the same release for both images.
+
 # OpenClockwork v2.1.0
 
 ## PIN tablet terminals

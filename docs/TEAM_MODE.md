@@ -13,8 +13,8 @@ employee, manager, kiosk, or approval setup has to be replaced by Solo. Choose
 ## Install and bootstrap
 
 Follow the [production installation guide](../README.md#production-installation-step-by-step).
-For this release, use the `v2.1.0` source tag and set
-`OPENCLOCKWORK_VERSION=2.1.0` in the private `.env.prod` file. Configure all
+For this release, use the `v2.2.0` source tag and set
+`OPENCLOCKWORK_VERSION=2.2.0` in the private `.env.prod` file. Configure all
 required independent secrets, browser origins, the installation's IANA working
 timezone (`TZ`), stable volume names, and TLS before using real personal data.
 
@@ -82,7 +82,7 @@ switch succeeds.
 3. **Create employees and reporting relationships.** Enter start dates, weekly
    hours, roles, managers, holiday calendars, and actual leave entitlements.
    Employee creation is administrator-managed; email invitation/onboarding is
-   not part of 2.1.0.
+   not part of 2.2.0.
 4. **Review accounts.** Configure opening time balances, annual leave,
    carry-over, expiry, and reasoned adjustments as applicable. Check calculations
    against representative contractual cases before operational use.
@@ -184,10 +184,20 @@ planned versus actual hours. Referenced projects/orders must be retained or
 deactivated rather than deleted. Project activity reports and CSV exports can
 be filtered by the supported period, employee, project, and order fields.
 
-HR working-time reports show start/end, gross duration, breaks, net work, and
-approval information independently of project assignment. Exact clock-in/out
-locations are excluded by default; HR must explicitly include them in the table
-and CSV export.
+HR working-time reports show start/end, gross duration, break deductions, net work,
+and approval information independently of project assignment. Select all, one,
+or several employees, including inactive historical employees, and download CSV
+or PDF. The bulk PDF starts a separate section for each employee and includes
+personnel numbers, the deployment timezone, full start/end timestamps, totals
+by booking day and period, and approval state. Open timers are excluded from
+totals and called out in the PDF. Bookings belong to their start date, including
+overnight bookings; these totals are not split at calendar midnight.
+
+Exact clock-in/out locations are excluded by default; HR must explicitly include
+them in the table and CSV export. PDF exports always omit locations and private
+notes. Automatic policy-based deductions are not evidence of actual rest breaks.
+Read the [German legal context and export limitations](WORKING_TIME_EXPORTS.de.md)
+before using the report for payroll or statutory recordkeeping.
 
 Solo customer CRUD, personal billable-timesheet filters, and personal policy
 screens are not exposed as Team features in 2.0. Customer/project references and
@@ -195,7 +205,7 @@ booking billability survive a mode switch, but a shared Team customer/billing
 workspace is future work. Neither mode generates invoices or imports coding-agent
 usage records yet.
 
-CSV exports contain personal working-time data. Review content, recipients, and
+CSV and PDF exports contain personal working-time data. Review content, recipients, and
 retention before sharing. Browser downloads and print/PDF handoffs must be
 verified in the actual desktop browser or installed PWA; an HTTP response alone
 does not prove a local file was saved.

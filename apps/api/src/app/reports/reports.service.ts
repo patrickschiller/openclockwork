@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { summarize, parseBreakRules } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { InstallationService } from '../installation/installation.service';
@@ -8,10 +7,12 @@ import {
   type WorkingTimeReportEmployeeDto,
   type WorkingTimeReportDto,
   type WorkingTimeReportQueryDto,
+  type WorkingTimePdfQueryDto,
   type SoloReportQueryDto,
   type SoloReportDto,
   type SoloReportRowDto,
 } from './reports.dto';
+import { renderWorkingTimePdf } from './working-time-pdf';
 
 const DAY_MS = 86_400_000;
 const MAX_REPORT_DAYS = 366;
@@ -272,9 +273,6 @@ export class ReportsService {
 
   async workingTimeEmployees(): Promise<WorkingTimeReportEmployeeDto[]> {
     return this.prisma.employee.findMany({
-      where: {
-        isActive: true,
-      },
       select: { id: true, firstName: true, lastName: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
@@ -283,6 +281,78 @@ export class ReportsService {
   async workingTimes(
     query: WorkingTimeReportQueryDto,
   ): Promise<WorkingTimeReportDto> {
+    return this.prisma.$transaction((tx) => this.buildWorkingTimes(query, tx), {
+      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+    });
+  }
+
+  async workingTimesPdf(query: WorkingTimePdfQueryDto): Promise<Buffer> {
+    const input = await this.prisma.$transaction(
+      async (tx) => {
+        const report = await this.buildWorkingTimes(
+          { ...query, includeLocations: 'false' },
+          tx,
+        );
+        const from = parseLocalDay(query.from).date;
+        const to = parseLocalDay(query.to).date;
+        to.setDate(to.getDate() + 1);
+        const selectedIds = query.employeeId
+          ? [query.employeeId]
+          : query.employeeIds;
+        const periodEntries: Prisma.TimeEntryWhereInput = {
+          clockIn: { gte: from, lt: to },
+          voidedAt: null,
+          status: { not: 'Rejected' },
+        };
+        const employees = await tx.employee.findMany({
+          where: selectedIds
+            ? { id: { in: selectedIds } }
+            : { timeEntries: { some: periodEntries } },
+          select: {
+            id: true,
+            personalNo: true,
+            firstName: true,
+            lastName: true,
+            _count: {
+              select: {
+                timeEntries: {
+                  where: { ...periodEntries, clockOut: null },
+                },
+              },
+            },
+          },
+          orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }, { id: 'asc' }],
+        });
+        if (selectedIds && employees.length !== selectedIds.length) {
+          throw new BadRequestException('One or more employees do not exist');
+        }
+        return {
+          from: report.from,
+          to: report.to,
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          generatedAt: new Date(),
+          locale: query.locale ?? 'de',
+          employees: employees.map(({ _count, ...employee }) => ({
+            ...employee,
+            openEntryCount: _count.timeEntries,
+            rows: report.rows.filter((row) => row.employeeId === employee.id),
+          })),
+        };
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
+    return renderWorkingTimePdf(input);
+  }
+
+  private async buildWorkingTimes(
+    query: WorkingTimeReportQueryDto,
+    tx: Prisma.TransactionClient,
+  ): Promise<WorkingTimeReportDto> {
+    if (query.employeeId && query.employeeIds) {
+      throw new BadRequestException(
+        'employeeId and employeeIds cannot be combined',
+      );
+    }
     const includeLocations = query.includeLocations === 'true';
     const from = parseLocalDay(query.from);
     const to = parseLocalDay(query.to);
@@ -303,9 +373,11 @@ export class ReportsService {
       to.date.getDate() + 1,
     );
 
-    const entries = await this.prisma.timeEntry.findMany({
+    const entries = await tx.timeEntry.findMany({
       where: {
-        employeeId: query.employeeId,
+        employeeId:
+          query.employeeId ??
+          (query.employeeIds ? { in: query.employeeIds } : undefined),
         clockIn: { gte: from.date, lt: toExclusive },
         clockOut: { not: null },
         status: { not: 'Rejected' },
@@ -315,38 +387,68 @@ export class ReportsService {
       include: { employee: { select: { firstName: true, lastName: true } } },
     });
 
-    const rows = entries.map((entry) => {
-      const summary = summarize(
-        entry.clockIn,
-        entry.clockOut as Date,
-        parseBreakRules(entry.breakRules),
-      );
-      return {
-        id: entry.id,
-        employeeId: entry.employeeId,
-        employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
-        date: localDate(entry.clockIn),
-        clockIn: entry.clockIn.toISOString(),
-        clockOut: (entry.clockOut as Date).toISOString(),
-        status: entry.status,
-        ...(includeLocations
-          ? {
-              clockInLocation: reportLocation(
-                entry.terminalLocationLabel,
-                entry.latitude,
-                entry.longitude,
-                entry.accuracyMeters,
-              ),
-              clockOutLocation: reportLocation(
-                entry.clockOutTerminalLocationLabel,
-                entry.clockOutLatitude,
-                entry.clockOutLongitude,
-                entry.clockOutAccuracyMeters,
-              ),
-            }
-          : {}),
-        ...summary,
-      };
+    const groupIds = [
+      ...new Set(
+        entries.flatMap((entry) =>
+          entry.captureGroupId ? [entry.captureGroupId] : [],
+        ),
+      ),
+    ];
+    const siblings = groupIds.length
+      ? await tx.timeEntry.findMany({
+          where: {
+            captureGroupId: { in: groupIds },
+            employeeId: {
+              in: [...new Set(entries.map((entry) => entry.employeeId))],
+            },
+            voidedAt: null,
+            status: { not: 'Rejected' },
+            clockOut: { not: null },
+          },
+        })
+      : [];
+    const summaries = calculateCaptureSummaries([
+      ...new Map(
+        [...entries, ...siblings].map((entry) => [entry.id, entry]),
+      ).values(),
+    ]);
+    const rows = entries.flatMap((entry) => {
+      const summary = summaries.get(entry.id);
+      if (!summary) return [];
+      // Reports retain the precision of their timestamps while keeping the
+      // captured break rules and capture-group allocation used by accounts.
+      const grossMinutes =
+        ((entry.clockOut as Date).getTime() - entry.clockIn.getTime()) / 60_000;
+      return [
+        {
+          id: entry.id,
+          employeeId: entry.employeeId,
+          employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
+          date: localDate(entry.clockIn),
+          clockIn: entry.clockIn.toISOString(),
+          clockOut: (entry.clockOut as Date).toISOString(),
+          status: entry.status,
+          ...(includeLocations
+            ? {
+                clockInLocation: reportLocation(
+                  entry.terminalLocationLabel,
+                  entry.latitude,
+                  entry.longitude,
+                  entry.accuracyMeters,
+                ),
+                clockOutLocation: reportLocation(
+                  entry.clockOutTerminalLocationLabel,
+                  entry.clockOutLatitude,
+                  entry.clockOutLongitude,
+                  entry.clockOutAccuracyMeters,
+                ),
+              }
+            : {}),
+          ...summary,
+          grossMinutes,
+          netMinutes: grossMinutes - summary.breakMinutes,
+        },
+      ];
     });
 
     return {

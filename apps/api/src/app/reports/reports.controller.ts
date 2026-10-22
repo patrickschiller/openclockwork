@@ -8,6 +8,7 @@ import {
   WorkingTimeReportDto,
   WorkingTimeReportEmployeeDto,
   WorkingTimeReportQueryDto,
+  WorkingTimePdfQueryDto,
 } from './reports.dto';
 import { ReportsService } from './reports.service';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -64,5 +65,28 @@ export class ReportsController {
     @Query() query: WorkingTimeReportQueryDto,
   ): Promise<WorkingTimeReportDto> {
     return this.reports.workingTimes(query);
+  }
+
+  @Get('working-times.pdf')
+  @ApiOkResponse({
+    description:
+      'Working-time PDF for one, selected or all employees, with separate employee sections, booking-day totals, timezone and policy-based break deductions. Excludes locations and private notes.',
+    content: {
+      'application/pdf': { schema: { type: 'string', format: 'binary' } },
+    },
+  })
+  async workingTimesPdf(
+    @Query() query: WorkingTimePdfQueryDto,
+    @Res() response: Response,
+  ): Promise<void> {
+    const pdf = await this.reports.workingTimesPdf(query);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="openclockwork-working-times-${query.from}-${query.to}.pdf"`,
+    );
+    response.setHeader('Cache-Control', 'private, no-store');
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.send(pdf);
   }
 }

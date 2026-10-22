@@ -1,12 +1,13 @@
-# OpenClockwork 2.1.0 mit PIN lokal im Docker testen
+# OpenClockwork 2.2.0 mit PIN lokal im Docker testen
 
-Version 2.1.0 enthält die QR/PIN-Implementierung von Inkrement A. API und Web
-verwenden die zusammen gebauten Images `openclockwork-api:2.1.0-pin-local` und
-`openclockwork-web:2.1.0-pin-local`. Nach dem Neubau muss die API unter
-`/api/health` Version `2.1.0` melden.
+Version 2.2.0 enthält weiterhin die in 2.1.0 eingeführte QR/PIN-Implementierung
+von Inkrement A. API und Web
+verwenden die zusammen gebauten Images `openclockwork-api:2.2.0-pin-local` und
+`openclockwork-web:2.2.0-pin-local`. Nach dem Neubau muss die API unter
+`/api/health` Version `2.2.0` melden.
 
-Die lokale PIN-Abnahme und die Release-Freigabe wurden am 11.10.2026 vom Nutzer
-bestätigt. Damit ist keine zusätzliche Zielgeräte-/OS-
+Die lokale PIN-Abnahme und die Release-Freigabe für 2.1.0 wurden am 11.10.2026
+vom Nutzer bestätigt. Damit ist keine zusätzliche Zielgeräte-/OS-
 oder externe Archivabnahme behauptet; diese bleibt installationsbezogen.
 
 Die separate Testversion bindet auf `http://localhost:18082`. Projektname,
