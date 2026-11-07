@@ -14,6 +14,9 @@ if (!databaseUrl || !['seed', 'verify'].includes(mode)) {
 
 const employeeId = '00000000-0000-4000-8000-000000000014';
 const timeEntryId = '00000000-0000-4000-8000-000000000114';
+const correctionRequestId = '00000000-0000-4000-8000-000000000143';
+const legacyAuditId = '00000000-0000-4000-8000-000000000243';
+const pendingEntryId = '00000000-0000-4000-8000-000000000115';
 const scheduleId = '00000000-0000-4000-8000-000000000214';
 const terminalId = '00000000-0000-4000-8000-000000000314';
 const fallbackEmployeeId = '00000000-0000-4000-8000-000000000414';
@@ -109,12 +112,126 @@ try {
         [JSON.stringify(legacyBreakRules), timeEntryId],
       );
     }
+    // This row exists before the new approval columns and must remain pending,
+    // with no fabricated manager sign-off after migration.
+    await client.query(
+      `INSERT INTO "TimeEntry" (
+        "id", "employeeId", "clockIn", "clockOut", "source", "status",
+        "requiresApproval", "revision", "approvalMode", "updatedAt"
+      ) VALUES ($1, $2, TIMESTAMP '2026-01-05 06:00:00',
+        TIMESTAMP '2026-01-05 08:00:00', 'Pwa', 'Pending', true, 7, NULL, CURRENT_TIMESTAMP)`,
+      [pendingEntryId, fallbackEmployeeId],
+    );
+    // Missing-booking requests and existing audit payloads predate target
+    // binding and must not acquire invented target/revision/request links.
+    await client.query(
+      `INSERT INTO "Request" (
+        "id", "employeeId", "type", "status", "workflowState", "from", "to", "updatedAt"
+       ) VALUES ($1, $2, 'TimeAdjustment', 'Submitted', 'PendingManager',
+         TIMESTAMP '2026-01-06 08:00:00', TIMESTAMP '2026-01-06 16:00:00', CURRENT_TIMESTAMP)`,
+      [correctionRequestId, fallbackEmployeeId],
+    );
+    await client.query(
+      `INSERT INTO "TimeEntryAudit" ("id", "timeEntryId", "actorId", "action", "before", "after", "reason")
+       VALUES ($1, $2, $3, 'UpgradeSentinel', '{"revision":0}'::jsonb, '{"revision":1}'::jsonb, 'Synthetic retained audit')`,
+      [legacyAuditId, timeEntryId, employeeId],
+    );
     await client.query('COMMIT');
 
     console.log(
       'Inserted upgrade sentinels for employees, policies, time entry, and terminal.',
     );
   } else {
+    const unknownProxyHistory = await client.query(
+      `SELECT COUNT(*)::int AS count FROM "TeamProxyAudit"`,
+    );
+    assert.equal(
+      unknownProxyHistory.rows[0].count,
+      0,
+      'Migration must not invent proxy actors or operations for existing records.',
+    );
+    const unknownContractHistory = await client.query(
+      `SELECT COUNT(*)::int AS count FROM "EmployeeContractPeriod"
+       WHERE "employeeId" IN ($1, $2)`,
+      [employeeId, fallbackEmployeeId],
+    );
+    assert.equal(
+      unknownContractHistory.rows[0].count,
+      0,
+      'Legacy employees must have unknown contract history, not fabricated retrospective snapshots.',
+    );
+    const unknownContractAudit = await client.query(
+      `SELECT COUNT(*)::int AS count FROM "EmployeeContractPeriodAudit"`,
+    );
+    assert.equal(
+      unknownContractAudit.rows[0].count,
+      0,
+      'Migration must not invent HR confirmations or actors.',
+    );
+    const legacyCorrection = await client.query(
+      `SELECT "targetTimeEntryId", "expectedTargetRevision", "targetTimeEntryBefore",
+        "workflowState"::text, "type"::text,
+        "from" = TIMESTAMP '2026-01-06 08:00:00' AS "fromPreserved"
+       FROM "Request" WHERE "id" = $1`,
+      [correctionRequestId],
+    );
+    assert.deepEqual(
+      legacyCorrection.rows,
+      [
+        {
+          targetTimeEntryId: null,
+          expectedTargetRevision: null,
+          targetTimeEntryBefore: null,
+          workflowState: 'PendingManager',
+          type: 'TimeAdjustment',
+          fromPreserved: true,
+        },
+      ],
+      'Legacy missing-booking requests must remain targetless.',
+    );
+    const legacyAudit = await client.query(
+      `SELECT "requestId", "action", "before", "after", "reason", "actorId"
+       FROM "TimeEntryAudit" WHERE "id" = $1`,
+      [legacyAuditId],
+    );
+    assert.deepEqual(
+      legacyAudit.rows,
+      [
+        {
+          requestId: null,
+          action: 'UpgradeSentinel',
+          before: { revision: 0 },
+          after: { revision: 1 },
+          reason: 'Synthetic retained audit',
+          actorId: employeeId,
+        },
+      ],
+      'Existing audits must retain values and actor without inventing a request link.',
+    );
+    const pending = await client.query(
+      `SELECT "status"::text, "requiresApproval", "revision", "approvalMode",
+        "frameApproverId", "frameApprovedRevision",
+        "clockIn" = TIMESTAMP '2026-01-05 06:00:00' AS "clockInPreserved",
+        "clockOut" = TIMESTAMP '2026-01-05 08:00:00' AS "clockOutPreserved"
+       FROM "TimeEntry" WHERE "id" = $1`,
+      [pendingEntryId],
+    );
+    assert.deepEqual(
+      pending.rows,
+      [
+        {
+          status: 'Pending',
+          requiresApproval: true,
+          revision: 7,
+          approvalMode: null,
+          frameApproverId: null,
+          frameApprovedRevision: null,
+          clockInPreserved: true,
+          clockOutPreserved: true,
+        },
+      ],
+      'Legacy pending entries must start at manager review without altering working time.',
+    );
     const sentinel = await client.query(
       `SELECT
         e."personalNo",

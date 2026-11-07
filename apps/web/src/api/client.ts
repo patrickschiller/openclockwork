@@ -35,6 +35,132 @@ export type RequestEventKind =
   | 'Cancelled'
   | 'Resubmitted';
 
+/** Handwritten Team Cockpit contract; kept aligned with team-cockpit.dto.ts. */
+export type AttendanceStatus =
+  | 'Booked'
+  | 'Missing'
+  | 'NoCoreNow'
+  | 'Flexible'
+  | 'Holiday'
+  | 'NonWorkingDay'
+  | 'ApprovedAbsence'
+  | 'PartialAbsenceUnknown'
+  | 'UnknownContract'
+  | 'UnknownSchedule'
+  | 'OutsideEmployment';
+export interface CockpitEmployeeDto {
+  id: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+}
+export interface CockpitAttendanceDto extends CockpitEmployeeDto {
+  status: AttendanceStatus;
+  obligation: 'RequiredNow' | 'Excused' | 'NotRequiredNow' | 'Unknown';
+  obligationReason?:
+    | 'CoreWindow'
+    | 'OutsideCore'
+    | 'Flexible'
+    | 'Holiday'
+    | 'NonWorkingDay'
+    | 'ApprovedAbsence'
+    | 'PartialDayTimingUnknown'
+    | 'UnknownContract'
+    | 'UnknownSchedule'
+    | 'OutsideEmployment';
+  contractKnown: boolean;
+  scheduleName: string | null;
+  openEntry: {
+    id: string;
+    clockIn: string;
+    requiresApproval: boolean;
+    projectName: string | null;
+    serviceOrderTitle: string | null;
+  } | null;
+  coreWindows: { start: string; end: string; label: string | null }[];
+  absences: {
+    id: string;
+    source: 'Request' | 'Absence';
+    classification: string;
+    status: 'Approved' | 'Recorded';
+    coverage: number;
+  }[];
+}
+export interface TeamCockpitDto {
+  generatedAt: string;
+  today: string;
+  timeZone: string;
+  nextRefreshAt: string;
+  scope: 'Team' | 'Organisation';
+  employees: CockpitAttendanceDto[];
+}
+export interface CockpitHistoryItemDto {
+  kind: 'TimeEntry' | 'Request' | 'Absence';
+  id: string;
+  employeeId: string;
+  from: string;
+  to: string | null;
+  allDay: boolean;
+  classification: string;
+  status: string;
+  workflowState: string | null;
+  halfDayStart: boolean;
+  halfDayEnd: boolean;
+  projectName: string | null;
+  serviceOrderTitle: string | null;
+  grossMinutes: number | null;
+  breakMinutes: number | null;
+  netMinutes: number | null;
+  requiresApproval: boolean;
+  reason: string | null;
+  request: RequestDto | null;
+  proxyActions: {
+    id: string;
+    action: string;
+    actorId: string | null;
+    actorName: string | null;
+    at: string;
+    reason: string;
+  }[];
+}
+export interface CockpitHistoryDto {
+  employee: CockpitEmployeeDto;
+  from: string;
+  to: string;
+  timeZone: string;
+  generatedAt: string;
+  items: CockpitHistoryItemDto[];
+  nextCursor: string | null;
+}
+export interface ProxyClockInPayload {
+  reason: string;
+  projectId?: string | null;
+  serviceOrderId?: string | null;
+  activity?: string | null;
+  billable?: boolean;
+  note?: string | null;
+}
+export interface ProxyManualTimeEntryPayload extends ProxyClockInPayload {
+  clockIn: string;
+  clockOut: string;
+}
+export interface ProxyAbsencePayload {
+  kind: 'Sickness' | 'Training' | 'Flextime';
+  from: string;
+  to: string;
+  proxyReason: string;
+}
+export interface ProxyRequestPayload {
+  type: 'Vacation' | 'HomeOffice' | 'SpecialLeave';
+  from: string;
+  to: string;
+  halfDayStart?: boolean;
+  halfDayEnd?: boolean;
+  substituteId?: string | null;
+  reason?: string | null;
+  proxyReason: string;
+}
+
 export interface HealthResponse {
   status: string;
   service: string;
@@ -108,6 +234,45 @@ export interface EmployeeDto {
   workScheduleName: string | null;
   isActive: boolean;
 }
+
+/** Confirmed, self-contained historical facts; never a live schedule reference. */
+export interface ContractPeriodDto {
+  id: string;
+  employeeId: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  employmentStart: string;
+  employmentEnd: string | null;
+  weeklyHours: number;
+  timeModel: TimeModel;
+  workingDays: number;
+  holidayCalendar: HolidayCalendar;
+  holidayDates: string[];
+  scheduleLabel: string | null;
+  confirmationNote: string;
+  confirmedById: string | null;
+  revision: number;
+  createdAt: string;
+}
+
+type ContractPeriodSupersession =
+  | { supersedesPeriodId: string; expectedRevision: number }
+  | { supersedesPeriodId?: never; expectedRevision?: never };
+
+export type CreateContractPeriodPayload = Pick<
+  ContractPeriodDto,
+  | 'effectiveFrom'
+  | 'effectiveTo'
+  | 'employmentStart'
+  | 'employmentEnd'
+  | 'weeklyHours'
+  | 'timeModel'
+  | 'workingDays'
+  | 'holidayCalendar'
+  | 'holidayDates'
+  | 'scheduleLabel'
+  | 'confirmationNote'
+> & { confirmed: true } & ContractPeriodSupersession;
 
 export interface CreateEmployeePayload {
   personalNo: string;
@@ -189,6 +354,74 @@ export interface TimeEntryDto {
   serviceOrderTitle: string | null;
   activity: string | null;
   summary: TimeSummaryDto | null;
+}
+
+/** Eligibility and revision are server-authoritative; this endpoint is own-only. */
+export interface TimeAdjustmentTargetDto extends TimeEntryDto {
+  revision: number;
+}
+
+export interface TimeEntryBeforeSnapshot {
+  id: string;
+  revision: number;
+  clockIn: string;
+  clockOut: string;
+  status: string;
+  projectId: string | null;
+  serviceOrderId: string | null;
+  activity: string | null;
+  breakRules: unknown;
+  captureGroupId: string | null;
+  approvalMode: string | null;
+}
+
+export interface TimeEntryAuditDto {
+  actorName?: string | null;
+  id: string;
+  timeEntryId: string;
+  actorId: string | null;
+  action: string;
+  before: unknown;
+  after: unknown;
+  reason: string | null;
+  occurredAt: string;
+  requestId: string | null;
+}
+
+export type TimeEntryApprovalState =
+  | 'Open'
+  | 'BlockedManager'
+  | 'PendingManager'
+  | 'PendingHr'
+  | 'Approved'
+  | 'Rejected'
+  | 'Voided';
+
+export interface TimeEntryApprovalDto {
+  entry: TimeEntryDto;
+  revision: number;
+  employeeName: string;
+  managerId: string | null;
+  managerName: string | null;
+  state: TimeEntryApprovalState;
+  canDecide: boolean;
+}
+
+export interface TimeEntryApprovalDecision {
+  revision: number;
+  stage: 'Manager' | 'HR';
+  outcome: 'Approve' | 'Reject';
+  note?: string;
+}
+
+export interface TimeEntryApprovalEventDto {
+  requestId?: string | null;
+  id: string;
+  actorId: string | null;
+  actorName: string | null;
+  action: string;
+  reason: string | null;
+  occurredAt: string;
 }
 
 export interface SplitTimeEntryResult {
@@ -333,11 +566,28 @@ export interface WorkingTimeReportTotalsDto {
   netMinutes: number;
 }
 
+export interface WorkingTimeComparisonDto {
+  employeeId: string;
+  employeeName: string;
+  targetMinutes: number | null;
+  actualMinutes: number;
+  differenceMinutes: number | null;
+  targetStatus: 'Known' | 'Unknown';
+  unknownDates: string[];
+  reason: 'CONTRACT_HISTORY_GAP' | null;
+  indicator: 'Unknown' | 'Negative' | 'Balanced' | 'Positive' | 'Excess';
+  openEntryCount: number;
+}
+
 export interface WorkingTimeReportDto {
   from: string;
   to: string;
   rows: WorkingTimeReportRowDto[];
   totals: WorkingTimeReportTotalsDto;
+  comparisons: WorkingTimeComparisonDto[];
+  timeZone: string;
+  timeDefinition: 'net_working_time';
+  excessThresholdMinutes: 600;
 }
 
 export interface UpsertProjectPayload {
@@ -365,8 +615,13 @@ export interface AccountDto {
 }
 
 export interface RequestDto {
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
+  targetTimeEntryBefore?: TimeEntryBeforeSnapshot | null;
   id: string;
   employeeId: string;
+  employeeName: string;
+  updatedAt: string;
   type: RequestType;
   status: RequestStatus;
   workflowState: WorkflowState;
@@ -529,6 +784,8 @@ export interface UpsertWorkSchedulePayload {
 }
 
 export interface CreateRequestPayload {
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
   employeeId: string;
   type: RequestType;
   from: string;
@@ -544,6 +801,15 @@ export interface CreateVacationPayload {
   reason: string | null;
   halfDayStart?: boolean;
   halfDayEnd?: boolean;
+}
+
+export interface UpdateDraftRequestPayload extends Omit<
+  CreateVacationPayload,
+  'employeeId'
+> {
+  expectedUpdatedAt: string;
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
 }
 
 export interface UpsertLeaveAllowancePayload {
@@ -868,6 +1134,57 @@ export async function downloadAuthenticated(
 }
 
 export const api = {
+  teamCockpit: () => request<TeamCockpitDto>('/api/team-cockpit'),
+  teamCockpitApprovalRequests: () =>
+    request<RequestDto[]>('/api/team-cockpit/approval-requests'),
+  teamCockpitHistory: (
+    employeeId: string,
+    params: { from: string; to: string; limit?: number; cursor?: string },
+  ) => {
+    const query = new URLSearchParams({
+      from: params.from,
+      to: params.to,
+      limit: String(params.limit ?? 200),
+    });
+    if (params.cursor) query.set('cursor', params.cursor);
+    return request<CockpitHistoryDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/history?${query}`,
+    );
+  },
+  teamCockpitBookingTargets: (employeeId: string) =>
+    request<BookableProjectDto[]>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/booking-targets`,
+    ),
+  teamCockpitClockIn: (employeeId: string, payload: ProxyClockInPayload) =>
+    request<TimeEntryDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/clock-in`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  teamCockpitManual: (
+    employeeId: string,
+    payload: ProxyManualTimeEntryPayload,
+  ) =>
+    request<TimeEntryDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/manual`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  teamCockpitRecordAbsence: (
+    employeeId: string,
+    payload: ProxyAbsencePayload,
+  ) =>
+    request<AbsenceDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/absences`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  teamCockpitRequestAbsence: (
+    employeeId: string,
+    payload: ProxyRequestPayload,
+  ) =>
+    request<RequestDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/requests`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+
   health: () => request<HealthResponse>('/api/health'),
   login: (payload: LoginPayload) =>
     request<LoginResponse>('/api/auth/login', {
@@ -896,6 +1213,21 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  contractPeriods: (employeeId: string) =>
+    request<ContractPeriodDto[]>(
+      `/api/employees/${employeeId}/contract-periods`,
+    ),
+  createContractPeriod: (
+    employeeId: string,
+    payload: CreateContractPeriodPayload,
+  ) =>
+    request<ContractPeriodDto>(
+      `/api/employees/${employeeId}/contract-periods`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
   setEmployeePassword: (id: string, password: string) =>
     request<void>(`/api/employees/${id}/password`, {
       method: 'POST',
@@ -913,6 +1245,19 @@ export const api = {
     if (to) params.set('to', to);
     return request<TimeEntryDto[]>(`/api/timeentries?${params.toString()}`);
   },
+  timeEntryApprovals: (scope: 'own' | 'review' = 'review') =>
+    request<TimeEntryApprovalDto[]>(
+      `/api/timeentries/approvals?scope=${scope}`,
+    ),
+  decideTimeEntryApproval: (id: string, payload: TimeEntryApprovalDecision) =>
+    request<TimeEntryApprovalDto>(`/api/timeentries/${id}/approval`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  timeEntryApprovalHistory: (id: string) =>
+    request<TimeEntryApprovalEventDto[]>(
+      `/api/timeentries/${id}/approval-history`,
+    ),
   clockIn: (payload: ClockInPayload) =>
     request<TimeEntryDto>('/api/timeentries/clock-in', {
       method: 'POST',
@@ -1042,6 +1387,10 @@ export const api = {
     const qs = params.toString();
     return request<RequestDto[]>(`/api/requests${qs ? `?${qs}` : ''}`);
   },
+  timeAdjustmentTargets: () =>
+    request<TimeAdjustmentTargetDto[]>('/api/requests/time-adjustment-targets'),
+  requestTimeEntryAudit: (id: string) =>
+    request<TimeEntryAuditDto[]>(`/api/requests/${id}/time-entry-audit`),
   getRequest: (id: string) => request<RequestDto>(`/api/requests/${id}`),
   getRequestEvents: (id: string) =>
     request<RequestEventDto[]>(`/api/requests/${id}/events`),
@@ -1052,6 +1401,16 @@ export const api = {
     }),
   createVacationRequest: (payload: CreateVacationPayload) =>
     request<RequestDto>('/api/requests/vacation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateDraftRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  resubmitRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}/resubmit`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
@@ -1070,6 +1429,7 @@ export const api = {
     actorId: string,
     note?: string,
     requiresHrConfirmation = false,
+    expectedUpdatedAt?: string,
   ) =>
     request<RequestDto>(`/api/requests/${id}/manager-approve`, {
       method: 'POST',
@@ -1077,22 +1437,38 @@ export const api = {
         actorId,
         note: note ?? null,
         requiresHrConfirmation,
+        expectedUpdatedAt,
       }),
     }),
-  managerReject: (id: string, actorId: string, note?: string) =>
+  managerReject: (
+    id: string,
+    actorId: string,
+    note?: string,
+    expectedUpdatedAt?: string,
+  ) =>
     request<RequestDto>(`/api/requests/${id}/manager-reject`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null }),
+      body: JSON.stringify({ actorId, note: note ?? null, expectedUpdatedAt }),
     }),
-  hrConfirm: (id: string, actorId: string, note?: string) =>
+  hrConfirm: (
+    id: string,
+    actorId: string,
+    note?: string,
+    expectedUpdatedAt?: string,
+  ) =>
     request<RequestDto>(`/api/requests/${id}/hr-confirm`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null }),
+      body: JSON.stringify({ actorId, note: note ?? null, expectedUpdatedAt }),
     }),
-  hrReject: (id: string, actorId: string, note: string) =>
+  hrReject: (
+    id: string,
+    actorId: string,
+    note: string,
+    expectedUpdatedAt?: string,
+  ) =>
     request<RequestDto>(`/api/requests/${id}/hr-reject`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note }),
+      body: JSON.stringify({ actorId, note, expectedUpdatedAt }),
     }),
   substituteAccept: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/substitute/accept`, {

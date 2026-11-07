@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TeamCockpitModule } from './team-cockpit/team-cockpit.module';
 import { ConfigModule } from '@nestjs/config';
 import { InstallationModule } from './installation/installation.module';
 import { CustomersModule } from './customers/customers.module';
@@ -44,6 +45,7 @@ import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
     AttachmentsModule,
     ViolationsModule,
     ErpExportModule,
+    TeamCockpitModule,
   ],
 })
 export class AppModule {}

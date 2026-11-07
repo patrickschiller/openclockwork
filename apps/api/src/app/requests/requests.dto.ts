@@ -1,8 +1,10 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import {
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
+  IsInt,
+  Min,
   IsEnum,
   IsISO8601,
   IsOptional,
@@ -10,11 +12,27 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
-import type { Request } from '@prisma/client';
+import type { Request, Prisma } from '@prisma/client';
 
-const REQUEST_TYPES = ['Vacation', 'HomeOffice', 'SpecialLeave', 'TimeAdjustment'] as const;
+const REQUEST_TYPES = [
+  'Vacation',
+  'HomeOffice',
+  'SpecialLeave',
+  'TimeAdjustment',
+] as const;
 
 export class CreateRequestDto {
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  targetTimeEntryId?: string | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedTargetRevision?: number | null;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
@@ -31,7 +49,7 @@ export class CreateRequestDto {
   @IsISO8601()
   to!: string;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -39,6 +57,17 @@ export class CreateRequestDto {
 }
 
 export class CreateVacationDto {
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  targetTimeEntryId?: string | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedTargetRevision?: number | null;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
@@ -51,34 +80,62 @@ export class CreateVacationDto {
   @IsISO8601()
   to!: string;
 
-  @ApiPropertyOptional({ nullable: true, format: 'uuid' })
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
   @IsOptional()
   @IsUUID()
   substituteId?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
   reason?: string | null;
 
-  @ApiPropertyOptional({ default: false, description: 'Take the first day as a half-day' })
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Take the first day as a half-day',
+  })
   @IsOptional()
   @IsBoolean()
   halfDayStart?: boolean;
 
-  @ApiPropertyOptional({ default: false, description: 'Take the last day as a half-day' })
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Take the last day as a half-day',
+  })
   @IsOptional()
   @IsBoolean()
   halfDayEnd?: boolean;
 }
 
+/** Complete editable values. Request type and owner are immutable. */
+export class UpdateDraftRequestDto extends OmitType(CreateVacationDto, [
+  'employeeId',
+] as const) {
+  @ApiProperty({
+    format: 'date-time',
+    description:
+      'updatedAt from the version being edited; stale writes return 409',
+  })
+  @IsISO8601()
+  expectedUpdatedAt!: string;
+}
+
 export class TransitionDto {
+  @ApiPropertyOptional({
+    format: 'date-time',
+    description:
+      'Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only.',
+  })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  expectedUpdatedAt?: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -93,6 +150,15 @@ export class ManagerApproveDto extends TransitionDto {
 }
 
 export class TransitionWithRequiredNoteDto {
+  @ApiPropertyOptional({
+    format: 'date-time',
+    description:
+      'Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only.',
+  })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  expectedUpdatedAt?: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;
@@ -114,7 +180,7 @@ export class BulkApproveDto {
   @IsUUID('all', { each: true })
   ids!: string[];
 
-  @ApiPropertyOptional({ nullable: true, maxLength: 2000 })
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 2000 })
   @IsOptional()
   @IsString()
   @MaxLength(2000)
@@ -151,34 +217,79 @@ export interface BulkResult {
   error?: string;
 }
 
-export interface RequestDto {
-  id: string;
-  employeeId: string;
-  type: string;
-  status: string;
-  workflowState: string;
-  from: string;
-  to: string;
-  reason: string | null;
-  requiresApproval: boolean;
-  approverId: string | null;
-  currentApproverId: string | null;
-  substituteId: string | null;
-  substituteAcceptedAt: string | null;
-  hrConfirmedAt: string | null;
-  cancelledAt: string | null;
-  calculatedDays: number;
-  halfDayStart: boolean;
-  halfDayEnd: boolean;
-  decidedAt: string | null;
-  decisionNote: string | null;
-  createdAt: string;
+export class RequestDto {
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  targetTimeEntryId!: string | null;
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  expectedTargetRevision!: number | null;
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description:
+      'Immutable server-captured original time-entry values, including id, revision, clockIn, clockOut and break-policy snapshot.',
+  })
+  targetTimeEntryBefore!: Prisma.JsonValue | null;
+
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+  @ApiProperty({ format: 'uuid' })
+  employeeId!: string;
+  @ApiProperty()
+  employeeName!: string;
+  @ApiProperty({ format: 'date-time' })
+  updatedAt!: string;
+  @ApiProperty({ enum: REQUEST_TYPES })
+  type!: string;
+  @ApiProperty()
+  status!: string;
+  @ApiProperty()
+  workflowState!: string;
+  @ApiProperty({ format: 'date-time' })
+  from!: string;
+  @ApiProperty({ format: 'date-time' })
+  to!: string;
+  @ApiProperty({ type: String, nullable: true })
+  reason!: string | null;
+  @ApiProperty()
+  requiresApproval!: boolean;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  approverId!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  currentApproverId!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  substituteId!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'date-time' })
+  substituteAcceptedAt!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'date-time' })
+  hrConfirmedAt!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'date-time' })
+  cancelledAt!: string | null;
+  @ApiProperty()
+  calculatedDays!: number;
+  @ApiProperty()
+  halfDayStart!: boolean;
+  @ApiProperty()
+  halfDayEnd!: boolean;
+  @ApiProperty({ type: String, nullable: true, format: 'date-time' })
+  decidedAt!: string | null;
+  @ApiProperty({ type: String, nullable: true })
+  decisionNote!: string | null;
+  @ApiProperty({ format: 'date-time' })
+  createdAt!: string;
 }
 
-export function toRequestDto(r: Request): RequestDto {
+export function toRequestDto(
+  r: Request & { employee: { firstName: string; lastName: string } },
+): RequestDto {
   return {
     id: r.id,
+    targetTimeEntryId: r.targetTimeEntryId,
+    expectedTargetRevision: r.expectedTargetRevision,
+    targetTimeEntryBefore: r.targetTimeEntryBefore,
     employeeId: r.employeeId,
+    employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
+    updatedAt: r.updatedAt.toISOString(),
     type: r.type,
     status: r.status,
     workflowState: r.workflowState,
@@ -189,7 +300,9 @@ export function toRequestDto(r: Request): RequestDto {
     approverId: r.approverId,
     currentApproverId: r.currentApproverId,
     substituteId: r.substituteId,
-    substituteAcceptedAt: r.substituteAcceptedAt ? r.substituteAcceptedAt.toISOString() : null,
+    substituteAcceptedAt: r.substituteAcceptedAt
+      ? r.substituteAcceptedAt.toISOString()
+      : null,
     hrConfirmedAt: r.hrConfirmedAt ? r.hrConfirmedAt.toISOString() : null,
     cancelledAt: r.cancelledAt ? r.cancelledAt.toISOString() : null,
     calculatedDays: Number(r.calculatedDays),

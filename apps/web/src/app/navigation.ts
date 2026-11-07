@@ -77,6 +77,13 @@ export const navItems: NavItem[] = [
     showInBottomNav: false,
   },
   {
+    to: '/team-cockpit',
+    labelKey: 'nav.teamCockpit',
+    icon: Users,
+    roles: ['Manager', 'HRAdmin'],
+    showInBottomNav: false,
+  },
+  {
     to: '/admin/requests',
     labelKey: 'nav.approvals',
     icon: Inbox,
@@ -94,7 +101,7 @@ export const navItems: NavItem[] = [
     to: '/admin/working-times',
     labelKey: 'nav.workingTimes',
     icon: FileBarChart,
-    roles: ['HRAdmin'],
+    roles: ['Manager', 'HRAdmin'],
     showInBottomNav: false,
   },
   {

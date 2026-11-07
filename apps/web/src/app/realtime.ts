@@ -63,20 +63,30 @@ export function useRealtimeInvalidation() {
       if (cancelled) return;
 
       const onTransition = () => {
+        qc.invalidateQueries({ queryKey: ['team-cockpit'] });
+        qc.invalidateQueries({ queryKey: ['working-time-report'] });
+        qc.invalidateQueries({ queryKey: ['absences'] });
         qc.invalidateQueries({ queryKey: ['requests'] });
+        qc.invalidateQueries({ queryKey: ['request-time-entry-audit'] });
         qc.invalidateQueries({ queryKey: ['vacation-balance'] });
         qc.invalidateQueries({ queryKey: ['account'] });
       };
       const onTimeEntry = () => {
+        qc.invalidateQueries({ queryKey: ['team-cockpit'] });
+        qc.invalidateQueries({ queryKey: ['working-time-report'] });
         qc.invalidateQueries({ queryKey: ['solo-times'] });
         qc.invalidateQueries({ queryKey: ['solo-report'] });
         qc.invalidateQueries({ queryKey: ['solo-summary'] });
         qc.invalidateQueries({ queryKey: ['solo-hints'] });
         qc.invalidateQueries({ queryKey: ['time-entries'] });
+        qc.invalidateQueries({ queryKey: ['time-adjustment-targets'] });
+        qc.invalidateQueries({ queryKey: ['time-entry-approvals'] });
+        qc.invalidateQueries({ queryKey: ['time-entry-approval-history'] });
         qc.invalidateQueries({ queryKey: ['account'] });
         qc.invalidateQueries({ queryKey: ['violations'] });
       };
       const onProject = () => {
+        qc.invalidateQueries({ queryKey: ['team-cockpit'] });
         qc.invalidateQueries({ queryKey: ['solo-projects'] });
         qc.invalidateQueries({ queryKey: ['solo-bookable'] });
         qc.invalidateQueries({ queryKey: ['solo-customers'] });
@@ -84,11 +94,19 @@ export function useRealtimeInvalidation() {
         qc.invalidateQueries({ queryKey: ['project-assignments'] });
         qc.invalidateQueries({ queryKey: ['bookable-projects'] });
       };
+      socket.on('absence:changed', onTransition);
+      socket.on('absence:created', onTransition);
+      socket.on('absence:updated', onTransition);
+      socket.on('absence:deleted', onTransition);
       socket.on('request:transitioned', onTransition);
       socket.on('time-entry:created', onTimeEntry);
       socket.on('time-entry:updated', onTimeEntry);
       socket.on('project:changed', onProject);
       detach = () => {
+        socket.off('absence:changed', onTransition);
+        socket.off('absence:created', onTransition);
+        socket.off('absence:updated', onTransition);
+        socket.off('absence:deleted', onTransition);
         socket.off('request:transitioned', onTransition);
         socket.off('time-entry:created', onTimeEntry);
         socket.off('time-entry:updated', onTimeEntry);

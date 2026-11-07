@@ -3,11 +3,13 @@ import { AccountsModule } from '../accounts/accounts.module';
 import { EmployeesModule } from '../employees/employees.module';
 import { LeaveAllowancesModule } from '../leave-allowances/leave-allowances.module';
 import { RequestsController } from './requests.controller';
+import { TimeAdjustmentsService } from './time-adjustments.service';
 import { RequestsService } from './requests.service';
 
 @Module({
   imports: [EmployeesModule, AccountsModule, LeaveAllowancesModule],
   controllers: [RequestsController],
-  providers: [RequestsService],
+  providers: [RequestsService, TimeAdjustmentsService],
+  exports: [RequestsService],
 })
 export class RequestsModule {}

@@ -17,6 +17,7 @@ import {
   downloadAuthenticated,
   type WorkingTimeReportDto,
   type WorkingTimeReportLocationDto,
+  type WorkingTimeComparisonDto,
 } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
@@ -53,10 +54,15 @@ function formatMinutes(minutes: number): string {
   return `${hours}:${minutePart}${secondPart ? `:${secondPart.toString().padStart(2, '0')}` : ''}`;
 }
 
-function formatTime(value: string, languageTag: string): string {
+function formatTime(
+  value: string,
+  languageTag: string,
+  timeZone?: string,
+): string {
   return new Date(value).toLocaleTimeString(languageTag, {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone,
   });
 }
 
@@ -104,11 +110,11 @@ export function workingTimeReportToCsv(
     [
       row.date,
       row.employeeName,
-      formatTime(row.clockIn, languageTag),
+      formatTime(row.clockIn, languageTag, report.timeZone),
       ...(includeLocations
         ? [formatLocation(row.clockInLocation, languageTag)]
         : []),
-      formatTime(row.clockOut, languageTag),
+      formatTime(row.clockOut, languageTag, report.timeZone),
       ...(includeLocations
         ? [formatLocation(row.clockOutLocation, languageTag)]
         : []),
@@ -144,12 +150,161 @@ function defaultRange(): { from: string; to: string } {
   };
 }
 
+type ReportPeriod = 'week' | 'month' | 'custom';
+
+function presetRange(period: Exclude<ReportPeriod, 'custom'>) {
+  if (period === 'month') return defaultRange();
+  const today = new Date();
+  const monday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { from: dateInputValue(monday), to: dateInputValue(sunday) };
+}
+
+export function ComparisonTable({ report }: { report: WorkingTimeReportDto }) {
+  const { t, languageTag, formatDate } = useI18n();
+  const hours = (minutes: number, signed = false) =>
+    t('comparison.hours', {
+      hours: new Intl.NumberFormat(languageTag, {
+        maximumFractionDigits: 2,
+        ...(signed ? { signDisplay: 'always' as const } : {}),
+      }).format(minutes / 60),
+    });
+  const colors: Record<WorkingTimeComparisonDto['indicator'], string> = {
+    Unknown: 'bg-muted text-muted-foreground',
+    Negative: 'bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200',
+    Balanced:
+      'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100',
+    Positive:
+      'bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200',
+    Excess: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('comparison.title')}</CardTitle>
+        <CardDescription>{t('comparison.description')}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm font-medium">
+          {t('comparison.period', {
+            from: formatDate(report.from),
+            to: formatDate(report.to),
+            timeZone: report.timeZone,
+          })}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t('comparison.provisional')}
+        </p>
+        {report.comparisons.length ? (
+          <div className="overflow-x-auto">
+            <table
+              className="w-full min-w-[780px] text-sm"
+              aria-label={t('comparison.title')}
+            >
+              <thead>
+                <tr className="border-b text-left">
+                  <th className="p-2">{t('common.employee')}</th>
+                  <th className="p-2 text-right">{t('comparison.target')}</th>
+                  <th className="p-2 text-right">{t('comparison.actual')}</th>
+                  <th className="p-2 text-right">
+                    {t('comparison.difference')}
+                  </th>
+                  <th className="p-2">{t('comparison.indicator')}</th>
+                  <th className="p-2 text-right">
+                    {t('comparison.openEntries')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {report.comparisons.map((comparison) => {
+                  const unknown = comparison.targetStatus === 'Unknown';
+                  const indicator = unknown ? 'Unknown' : comparison.indicator;
+                  return (
+                    <tr
+                      key={comparison.employeeId}
+                      className="border-b align-top last:border-0"
+                    >
+                      <th scope="row" className="p-2 text-left font-medium">
+                        {comparison.employeeName}
+                      </th>
+                      <td className="p-2 text-right tabular-nums">
+                        {!unknown && comparison.targetMinutes !== null
+                          ? hours(comparison.targetMinutes)
+                          : '—'}
+                      </td>
+                      <td className="p-2 text-right tabular-nums">
+                        {hours(comparison.actualMinutes)}
+                      </td>
+                      <td className="p-2 text-right tabular-nums">
+                        {!unknown && comparison.differenceMinutes !== null
+                          ? hours(comparison.differenceMinutes, true)
+                          : '—'}
+                      </td>
+                      <td className="max-w-sm p-2">
+                        <span
+                          className={`inline-block rounded px-2 py-1 font-medium ${colors[indicator]}`}
+                        >
+                          {t(`comparison.indicator.${indicator}`)}
+                        </span>
+                        {unknown && (
+                          <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                            <p>{t('comparison.historyGap')}</p>
+                            {comparison.unknownDates.length > 0 && (
+                              <p>
+                                {t('comparison.unknownDates', {
+                                  dates: comparison.unknownDates
+                                    .map(formatDate)
+                                    .join(', '),
+                                })}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-2 text-right tabular-nums">
+                        {new Intl.NumberFormat(languageTag).format(
+                          comparison.openEntryCount,
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            {t('comparison.empty')}
+          </p>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {t('comparison.reviewHint', {
+            hours: new Intl.NumberFormat(languageTag).format(
+              report.excessThresholdMinutes / 60,
+            ),
+          })}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t('comparison.notAccount')}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 const MULTIPLE_EMPLOYEES = '__multiple__';
 
 export function AdminWorkingTimesPage() {
   const user = useCurrentUser();
   const { t, enumLabel, languageTag, locale } = useI18n();
   const initialRange = useMemo(defaultRange, []);
+  const [period, setPeriod] = useState<ReportPeriod>('month');
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
   const [employeeId, setEmployeeId] = useState('');
@@ -157,7 +312,8 @@ export function AdminWorkingTimesPage() {
   const [includeLocations, setIncludeLocations] = useState(false);
   const [pdfPending, setPdfPending] = useState(false);
   const [pdfFailed, setPdfFailed] = useState(false);
-  const isAuthorized = user.role === 'HRAdmin';
+  const isHr = user.role === 'HRAdmin';
+  const isAuthorized = isHr || user.role === 'Manager';
   const orderedRange = from !== '' && to !== '' && from <= to;
   const validRange =
     orderedRange && (Date.parse(to) - Date.parse(from)) / 86_400_000 < 366;
@@ -169,7 +325,7 @@ export function AdminWorkingTimesPage() {
   const validSelection = !multipleEmployees || selectedEmployeeIds.length > 0;
 
   const employees = useQuery({
-    queryKey: ['employees', 'working-time-report'],
+    queryKey: ['employees', 'working-time-report', user.id, user.role],
     queryFn: () => api.workingTimeReportEmployees(),
     enabled: isAuthorized,
   });
@@ -177,6 +333,8 @@ export function AdminWorkingTimesPage() {
   const report = useQuery({
     queryKey: [
       'working-time-report',
+      user.id,
+      user.role,
       from,
       to,
       singleEmployeeId ?? null,
@@ -203,7 +361,9 @@ export function AdminWorkingTimesPage() {
 
   if (!isAuthorized) {
     return (
-      <p className="text-sm text-muted-foreground">{t('reports.adminOnly')}</p>
+      <p className="text-sm text-muted-foreground">
+        {t('reports.accessDenied')}
+      </p>
     );
   }
   const downloadCsv = () => {
@@ -236,7 +396,7 @@ export function AdminWorkingTimesPage() {
     URL.revokeObjectURL(url);
   };
   const downloadPdf = async () => {
-    if (!canDownload) return;
+    if (!canDownload || !isHr) return;
     const params = new URLSearchParams({ from, to, locale });
     if (singleEmployeeId) params.set('employeeId', singleEmployeeId);
     employeeIds?.forEach((id) => params.append('employeeIds', id));
@@ -263,6 +423,9 @@ export function AdminWorkingTimesPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           {t('reports.description')}
         </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {t(`reports.scope.${user.role}`)}
+        </p>
       </div>
 
       <Card>
@@ -273,6 +436,30 @@ export function AdminWorkingTimesPage() {
         <CardContent>
           <div className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
+              <Label htmlFor="working-time-period">{t('reports.period')}</Label>
+              <select
+                id="working-time-period"
+                className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={period}
+                disabled={pdfPending}
+                onChange={(event) => {
+                  const next = event.target.value as ReportPeriod;
+                  setPeriod(next);
+                  if (next !== 'custom') {
+                    const range = presetRange(next);
+                    setFrom(range.from);
+                    setTo(range.to);
+                  }
+                }}
+              >
+                {(['week', 'month', 'custom'] as const).map((value) => (
+                  <option key={value} value={value}>
+                    {t(`reports.${value}`)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
               <Label htmlFor="working-time-from">{t('common.from')}</Label>
               <Input
                 id="working-time-from"
@@ -280,7 +467,10 @@ export function AdminWorkingTimesPage() {
                 value={from}
                 max={to || undefined}
                 disabled={pdfPending}
-                onChange={(event) => setFrom(event.target.value)}
+                onChange={(event) => {
+                  setPeriod('custom');
+                  setFrom(event.target.value);
+                }}
               />
             </div>
             <div className="space-y-1">
@@ -291,7 +481,10 @@ export function AdminWorkingTimesPage() {
                 value={to}
                 min={from || undefined}
                 disabled={pdfPending}
-                onChange={(event) => setTo(event.target.value)}
+                onChange={(event) => {
+                  setPeriod('custom');
+                  setTo(event.target.value);
+                }}
               />
             </div>
             <div className="min-w-56 space-y-1">
@@ -339,15 +532,17 @@ export function AdminWorkingTimesPage() {
               <Download className="mr-2 h-4 w-4" aria-hidden="true" />
               {t('reports.downloadCsv')}
             </Button>
-            <Button
-              variant="outline"
-              disabled={!canDownload}
-              aria-busy={pdfPending}
-              onClick={downloadPdf}
-            >
-              <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t(pdfPending ? 'reports.preparingPdf' : 'reports.downloadPdf')}
-            </Button>
+            {isHr && (
+              <Button
+                variant="outline"
+                disabled={!canDownload}
+                aria-busy={pdfPending}
+                onClick={downloadPdf}
+              >
+                <Download className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t(pdfPending ? 'reports.preparingPdf' : 'reports.downloadPdf')}
+              </Button>
+            )}
           </div>
           {multipleEmployees && (
             <fieldset
@@ -387,9 +582,16 @@ export function AdminWorkingTimesPage() {
               )}
             </fieldset>
           )}
-          <p className="mt-3 text-sm text-muted-foreground">
-            {t('reports.pdfHint')}
-          </p>
+          {isHr && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              {t('reports.pdfHint')}
+            </p>
+          )}
+          {employees.isError && (
+            <p role="alert" className="mt-3 text-sm text-destructive">
+              {t('reports.employeesFailed')}
+            </p>
+          )}
           {!validRange && (
             <p className="mt-3 text-sm text-destructive">
               {t(
@@ -414,17 +616,30 @@ export function AdminWorkingTimesPage() {
         </Alert>
       )}
 
+      {validRange &&
+        validSelection &&
+        !report.isFetching &&
+        !report.isError &&
+        report.data && <ComparisonTable report={report.data} />}
+
       <Card>
         <CardHeader>
           <CardTitle>{t('reports.result')}</CardTitle>
           <CardDescription>{t('reports.projectIndependent')}</CardDescription>
         </CardHeader>
         <CardContent>
-          {report.isLoading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
+          {report.isFetching ? (
+            <p
+              role="status"
+              className="py-6 text-center text-sm text-muted-foreground"
+            >
               {t('common.loading')}
             </p>
-          ) : report.data && report.data.rows.length > 0 ? (
+          ) : validRange &&
+            validSelection &&
+            !report.isError &&
+            report.data &&
+            report.data.rows.length > 0 ? (
             <div className="overflow-x-auto">
               <table
                 className={`w-full ${includeLocations ? 'min-w-[1180px]' : 'min-w-[860px]'} text-sm`}
@@ -457,13 +672,20 @@ export function AdminWorkingTimesPage() {
                 </thead>
                 <tbody>
                   {report.data.rows.map((row) => (
-                    <tr key={row.id} className="border-b last:border-0">
+                    <tr
+                      key={`${row.id}:${row.clockIn}`}
+                      className="border-b last:border-0"
+                    >
                       <td className="whitespace-nowrap py-2 pr-3">
                         {row.date}
                       </td>
                       <td className="py-2 pr-3">{row.employeeName}</td>
                       <td className="whitespace-nowrap py-2 pr-3">
-                        {formatTime(row.clockIn, languageTag)}
+                        {formatTime(
+                          row.clockIn,
+                          languageTag,
+                          report.data?.timeZone,
+                        )}
                       </td>
                       {includeLocations && (
                         <td className="py-2 pr-3">
@@ -471,7 +693,11 @@ export function AdminWorkingTimesPage() {
                         </td>
                       )}
                       <td className="whitespace-nowrap py-2 pr-3">
-                        {formatTime(row.clockOut, languageTag)}
+                        {formatTime(
+                          row.clockOut,
+                          languageTag,
+                          report.data?.timeZone,
+                        )}
                       </td>
                       {includeLocations && (
                         <td className="py-2 pr-3">
