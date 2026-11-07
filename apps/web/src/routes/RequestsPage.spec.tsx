@@ -1,5 +1,6 @@
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -58,7 +59,18 @@ describe('request creation and draft revision', () => {
     if (originalTimezone === undefined) delete process.env.TZ;
     else process.env.TZ = originalTimezone;
   });
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
+    // Persisted locale wins over navigator.languages. Isolate it on Node 20
+    // (jsdom storage) as well as newer Node versions (native localStorage).
+    vi.spyOn(window, 'localStorage', 'get').mockReturnValue({
+      length: 0,
+      clear: vi.fn(),
+      key: () => null,
+      removeItem: vi.fn(),
+      getItem: () => null,
+      setItem: vi.fn(),
+    });
     listRequestsMock.mockReset().mockResolvedValue([]);
     getRequestMock.mockReset();
     getRequestEventsMock.mockReset().mockResolvedValue([]);

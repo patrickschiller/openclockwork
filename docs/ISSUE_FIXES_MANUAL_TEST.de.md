@@ -249,6 +249,16 @@ veraltete Auswahl nach weiterer Zeitänderung, leere Eingabe und Frühjahrslück
 Die Hilfsfunktion wird zusätzlich für UTC, New York und eine halbstündige
 Lord-Howe-Zeitumstellung geprüft.
 
+Der erste CI-Nachlauf bestand 207/208 Web-Tests: Der neue Englisch-Test
+übernahm unter Node 20 die in jsdom gespeicherte deutsche Sprachpräferenz, die
+absichtlich Vorrang vor der Browsersprache hat. Die Testfixture isoliert den
+Storage jetzt explizit wie die vorhandenen i18n-Tests; kein Anwendungscode
+musste dafür geändert werden. Der folgende lokale Nachlauf bestand mit
+Node **20.20.2** (nur per temporärem Tool-PATH, keine Repository-Konfiguration
+geändert): `TZ=UTC pnpm nx test web --run --skip-nx-cache` —
+**208/208 Tests in 34 Dateien**. Auch unter Node 26 wurden danach erneut
+208/208 bestanden; Lint ist unverändert grün, Typecheck aus unverändertem Cache.
+
 Nur Web und Anleitung geändert: keine API-, OpenAPI-, Client-Vertrags- oder
 Datenbankänderung. Die bisherigen API-Gates bleiben oben dokumentiert; die
 reguläre PR-CI prüft auch auf diesem Head erneut API-Synchronität und API-E2E.
