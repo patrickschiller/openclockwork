@@ -16,6 +16,69 @@ type Catalog = Record<string, string>;
 const STORAGE_KEY = 'openclockwork.locale';
 
 const de: Catalog = {
+  'frameApproval.ownTitle': 'Rahmenzeit-Genehmigungen für meine Zeitbuchungen',
+  'frameApproval.title': 'Zeitbuchungen',
+  'frameApproval.chain':
+    'Zeitbuchungen außerhalb der Rahmenzeit benötigen zuerst die Genehmigung der zugewiesenen Führungskraft und danach die Bestätigung durch HR. Beide bearbeiten sie unter Genehmigungen → Zeitbuchungen.',
+  'frameApproval.managerChanged':
+    'Solange HR noch nicht bestätigt hat, muss nach einer Änderung der zugewiesenen Führungskraft die neue Führungskraft erneut genehmigen.',
+  'frameApproval.refresh': 'Genehmigungen aktualisieren',
+  'frameApproval.empty':
+    'Keine genehmigungspflichtigen Zeitbuchungen vorhanden.',
+  'frameApproval.loadFailed':
+    'Zeitbuchungs-Genehmigungen konnten nicht geladen werden.',
+  'frameApproval.historyFailed':
+    'Der Genehmigungsverlauf konnte nicht geladen werden.',
+  'frameApproval.decisionFailed': 'Die Entscheidung wurde nicht gespeichert.',
+  'frameApproval.refreshHint':
+    'Bitte aktualisieren und den aktuellen Stand prüfen, bevor du erneut entscheidest.',
+  'frameApproval.notAllowed': 'Diese Entscheidung ist nicht zulässig.',
+  'frameApproval.note': 'Notiz (bei Ablehnung erforderlich)',
+  'frameApproval.reasonRequired':
+    'Für eine Ablehnung ist eine Begründung erforderlich.',
+  'frameApproval.assignedManager': 'zugewiesene Führungskraft',
+  'frameApproval.history': 'Genehmigungsverlauf',
+  'frameApproval.noHistory':
+    'Noch keine Entscheidungen oder Änderungen vorhanden.',
+  'frameApproval.system': 'System',
+  'frameApproval.managerResult':
+    'Führungskraft-Genehmigung gespeichert. Als Nächstes bestätigt HR unter Genehmigungen → Zeitbuchungen.',
+  'frameApproval.hrResult':
+    'HR-Bestätigung gespeichert. Die Zeitbuchung ist genehmigt.',
+  'frameApproval.rejectedResult': 'Ablehnung mit Begründung gespeichert.',
+  'frameApproval.approve.Manager': 'Als Führungskraft genehmigen',
+  'frameApproval.approve.HR': 'Als HR bestätigen',
+  'frameApproval.reject.Manager': 'Als Führungskraft ablehnen',
+  'frameApproval.reject.HR': 'Als HR ablehnen',
+  'frameApproval.state.Open': 'Offen – zuerst ausstempeln',
+  'frameApproval.state.BlockedManager': 'Blockiert – Führungskraft fehlt',
+  'frameApproval.state.PendingManager': 'Wartet auf Führungskraft',
+  'frameApproval.state.PendingHr': 'Wartet auf HR',
+  'frameApproval.state.Approved': 'Genehmigt',
+  'frameApproval.state.Rejected': 'Abgelehnt',
+  'frameApproval.state.Voided': 'Ungültig',
+  'frameApproval.help.Open':
+    'Bitte zuerst ausstempeln. Erst die abgeschlossene Zeitbuchung kann von der zugewiesenen Führungskraft und danach von HR unter Genehmigungen → Zeitbuchungen geprüft werden.',
+  'frameApproval.help.BlockedManager':
+    'Bitte HR bitten, eine aktive Führungskraft zuzuweisen. Danach genehmigt diese Führungskraft zuerst, anschließend bestätigt HR unter Genehmigungen → Zeitbuchungen. Es gibt keine direkte HR-Freigabe ohne Führungskraft-Genehmigung.',
+  'frameApproval.help.PendingManager':
+    'Nächster Schritt: {manager} prüft als zugewiesene Führungskraft unter Genehmigungen → Zeitbuchungen. Danach bestätigt HR am selben Ort.',
+  'frameApproval.help.PendingHr':
+    'Die Führungskraft hat genehmigt. Nächster Schritt: HR bestätigt unter Genehmigungen → Zeitbuchungen.',
+  'frameApproval.help.Approved':
+    'Die Zeitbuchung ist genehmigt. Dokumentierte Entscheidungen stehen mit Person und Zeitpunkt im Genehmigungsverlauf.',
+  'frameApproval.help.Rejected':
+    'Die Zeitbuchung wurde abgelehnt. Begründung und entscheidende Person stehen im Genehmigungsverlauf.',
+  'frameApproval.help.Voided':
+    'Diese Zeitbuchung ist nicht mehr gültig und kann nicht genehmigt werden. Der Verlauf bleibt einsehbar.',
+  'frameApproval.event.FrameSegmentCreated':
+    'Buchungssegment nach Änderung neu angelegt',
+  'frameApproval.event.FrameManagerApproved': 'Von Führungskraft genehmigt',
+  'frameApproval.event.FrameManagerRejected': 'Von Führungskraft abgelehnt',
+  'frameApproval.event.FrameHrConfirmed': 'Von HR bestätigt',
+  'frameApproval.event.FrameHrRejected': 'Von HR abgelehnt',
+  'frameApproval.event.FrameApprovalInvalidated':
+    'Bisherige Genehmigung durch Änderung aufgehoben',
   ...soloDe,
   ...terminalPinDe,
   'projects.deleteFailed': 'Projekt konnte nicht gelöscht werden',
@@ -347,6 +410,22 @@ const de: Catalog = {
     'Für den ausgewählten Tag wurde bereits ein Tagesblock gebucht.',
   'requests.title': 'Anträge',
   'requests.description': 'Urlaub, Home-Office, Sonderurlaub, Zeitkorrekturen',
+  'requests.edit': 'Antrag bearbeiten',
+  'requests.resubmit': 'Erneut einreichen',
+  'enum.Resubmitted': 'Erneut eingereicht',
+  'requests.saveDraft': 'Entwurf speichern',
+  'requests.employee': 'Mitarbeiter/in',
+  'requests.revisionReason': 'Rückgabegrund',
+  'requests.notDraft':
+    'Dieser Antrag ist kein Entwurf mehr. Bitte Übersicht neu laden.',
+  'requests.loadFailed': 'Antrag konnte nicht geladen werden.',
+  'requests.ambiguousTime':
+    'Diese Ortszeit kommt bei der Zeitumstellung in {zone} zweimal vor. Bitte das gewünschte Vorkommen wählen; unveränderte Werte behalten das gespeicherte Vorkommen.',
+  'requests.timeOccurrence': '{field} – Vorkommen',
+  'requests.chooseOccurrence': 'Vorkommen wählen',
+  'requests.timeOccurrenceOption': '{number}. Vorkommen ({offset})',
+  'requests.nonexistentTime':
+    'Bitte eine gültige Ortszeit eingeben. Zeiten in der Lücke der Zeitumstellung existieren nicht.',
   'requests.new': 'Neuer Antrag',
   'requests.own': 'Eigene Anträge',
   'requests.none': 'Noch keine Anträge.',
@@ -690,6 +769,64 @@ const de: Catalog = {
 };
 
 const en: Catalog = {
+  'frameApproval.ownTitle': 'Approvals for my out-of-frame time entries',
+  'frameApproval.title': 'Time entries',
+  'frameApproval.chain':
+    'Out-of-frame time entries first need approval by the assigned manager, then confirmation by HR. Both review them under Approvals → Time entries.',
+  'frameApproval.managerChanged':
+    'Before HR has confirmed, changing the assigned manager requires the new manager to approve again.',
+  'frameApproval.refresh': 'Refresh approvals',
+  'frameApproval.empty': 'No time entries requiring approval.',
+  'frameApproval.loadFailed': 'Could not load time entry approvals.',
+  'frameApproval.historyFailed': 'Could not load approval history.',
+  'frameApproval.decisionFailed': 'The decision was not saved.',
+  'frameApproval.refreshHint':
+    'Refresh and check the current status before deciding again.',
+  'frameApproval.notAllowed': 'This decision is not permitted.',
+  'frameApproval.note': 'Note (required for rejection)',
+  'frameApproval.reasonRequired': 'A reason is required to reject an entry.',
+  'frameApproval.assignedManager': 'assigned manager',
+  'frameApproval.history': 'Approval history',
+  'frameApproval.noHistory': 'No decisions or changes yet.',
+  'frameApproval.system': 'System',
+  'frameApproval.managerResult':
+    'Manager approval saved. HR confirms next under Approvals → Time entries.',
+  'frameApproval.hrResult':
+    'HR confirmation saved. The time entry is approved.',
+  'frameApproval.rejectedResult': 'Rejection and reason saved.',
+  'frameApproval.approve.Manager': 'Approve as manager',
+  'frameApproval.approve.HR': 'Confirm as HR',
+  'frameApproval.reject.Manager': 'Reject as manager',
+  'frameApproval.reject.HR': 'Reject as HR',
+  'frameApproval.state.Open': 'Open – clock out first',
+  'frameApproval.state.BlockedManager': 'Blocked – no active manager',
+  'frameApproval.state.PendingManager': 'Awaiting manager approval',
+  'frameApproval.state.PendingHr': 'Awaiting HR confirmation',
+  'frameApproval.state.Approved': 'Approved',
+  'frameApproval.state.Rejected': 'Rejected',
+  'frameApproval.state.Voided': 'Voided',
+  'frameApproval.help.Open':
+    'Clock out first. Only a closed time entry can be reviewed by the assigned manager and then HR under Approvals → Time entries.',
+  'frameApproval.help.BlockedManager':
+    'Ask HR to assign an active manager. That manager must approve first, followed by HR confirmation under Approvals → Time entries. HR cannot bypass manager approval.',
+  'frameApproval.help.PendingManager':
+    'Next: {manager}, the assigned manager, reviews under Approvals → Time entries. HR then confirms in the same place.',
+  'frameApproval.help.PendingHr':
+    'The manager has approved. Next: HR confirms under Approvals → Time entries.',
+  'frameApproval.help.Approved':
+    'This time entry is approved. Recorded decisions, reviewers and timestamps are available in approval history.',
+  'frameApproval.help.Rejected':
+    'The time entry was rejected. See approval history for the reason and reviewer.',
+  'frameApproval.help.Voided':
+    'This time entry is no longer valid and cannot be approved. Its history remains available.',
+  'frameApproval.event.FrameSegmentCreated':
+    'Entry segment created after a change',
+  'frameApproval.event.FrameManagerApproved': 'Approved by manager',
+  'frameApproval.event.FrameManagerRejected': 'Rejected by manager',
+  'frameApproval.event.FrameHrConfirmed': 'Confirmed by HR',
+  'frameApproval.event.FrameHrRejected': 'Rejected by HR',
+  'frameApproval.event.FrameApprovalInvalidated':
+    'Previous approval invalidated by a change',
   ...soloEn,
   ...terminalPinEn,
   'projects.deleteFailed': 'Could not delete project',
@@ -1018,6 +1155,22 @@ const en: Catalog = {
   'requests.title': 'Requests',
   'requests.description':
     'Vacation, home office, special leave, time adjustments',
+  'requests.edit': 'Edit request',
+  'requests.resubmit': 'Resubmit',
+  'enum.Resubmitted': 'Resubmitted',
+  'requests.saveDraft': 'Save draft',
+  'requests.employee': 'Employee',
+  'requests.revisionReason': 'Reason for revision',
+  'requests.notDraft':
+    'This request is no longer a draft. Please reload the list.',
+  'requests.loadFailed': 'Could not load request.',
+  'requests.ambiguousTime':
+    'This local time occurs twice when the clocks change in {zone}. Choose the intended occurrence; unchanged values keep the saved occurrence.',
+  'requests.timeOccurrence': '{field} – occurrence',
+  'requests.chooseOccurrence': 'Choose occurrence',
+  'requests.timeOccurrenceOption': 'Occurrence {number} ({offset})',
+  'requests.nonexistentTime':
+    'Enter a valid local time. Times in the clock-change gap do not exist.',
   'requests.new': 'New request',
   'requests.own': 'My requests',
   'requests.none': 'No requests yet.',

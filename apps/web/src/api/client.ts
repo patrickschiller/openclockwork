@@ -191,6 +191,41 @@ export interface TimeEntryDto {
   summary: TimeSummaryDto | null;
 }
 
+export type TimeEntryApprovalState =
+  | 'Open'
+  | 'BlockedManager'
+  | 'PendingManager'
+  | 'PendingHr'
+  | 'Approved'
+  | 'Rejected'
+  | 'Voided';
+
+export interface TimeEntryApprovalDto {
+  entry: TimeEntryDto;
+  revision: number;
+  employeeName: string;
+  managerId: string | null;
+  managerName: string | null;
+  state: TimeEntryApprovalState;
+  canDecide: boolean;
+}
+
+export interface TimeEntryApprovalDecision {
+  revision: number;
+  stage: 'Manager' | 'HR';
+  outcome: 'Approve' | 'Reject';
+  note?: string;
+}
+
+export interface TimeEntryApprovalEventDto {
+  id: string;
+  actorId: string | null;
+  actorName: string | null;
+  action: string;
+  reason: string | null;
+  occurredAt: string;
+}
+
 export interface SplitTimeEntryResult {
   first: TimeEntryDto;
   second: TimeEntryDto;
@@ -367,6 +402,8 @@ export interface AccountDto {
 export interface RequestDto {
   id: string;
   employeeId: string;
+  employeeName: string;
+  updatedAt: string;
   type: RequestType;
   status: RequestStatus;
   workflowState: WorkflowState;
@@ -544,6 +581,13 @@ export interface CreateVacationPayload {
   reason: string | null;
   halfDayStart?: boolean;
   halfDayEnd?: boolean;
+}
+
+export interface UpdateDraftRequestPayload extends Omit<
+  CreateVacationPayload,
+  'employeeId'
+> {
+  expectedUpdatedAt: string;
 }
 
 export interface UpsertLeaveAllowancePayload {
@@ -913,6 +957,19 @@ export const api = {
     if (to) params.set('to', to);
     return request<TimeEntryDto[]>(`/api/timeentries?${params.toString()}`);
   },
+  timeEntryApprovals: (scope: 'own' | 'review' = 'review') =>
+    request<TimeEntryApprovalDto[]>(
+      `/api/timeentries/approvals?scope=${scope}`,
+    ),
+  decideTimeEntryApproval: (id: string, payload: TimeEntryApprovalDecision) =>
+    request<TimeEntryApprovalDto>(`/api/timeentries/${id}/approval`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  timeEntryApprovalHistory: (id: string) =>
+    request<TimeEntryApprovalEventDto[]>(
+      `/api/timeentries/${id}/approval-history`,
+    ),
   clockIn: (payload: ClockInPayload) =>
     request<TimeEntryDto>('/api/timeentries/clock-in', {
       method: 'POST',
@@ -1052,6 +1109,16 @@ export const api = {
     }),
   createVacationRequest: (payload: CreateVacationPayload) =>
     request<RequestDto>('/api/requests/vacation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateDraftRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  resubmitRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}/resubmit`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
