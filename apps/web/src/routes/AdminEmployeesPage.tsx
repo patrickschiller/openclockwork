@@ -30,6 +30,7 @@ import {
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
 import { TerminalPinDialog } from './TerminalPinDialog';
+import { ContractPeriodsPanel } from './ContractPeriodsPanel';
 
 const ROLES: EmployeeRole[] = ['Employee', 'Manager', 'HRAdmin'];
 const TIME_MODELS: TimeModel[] = [
@@ -685,6 +686,9 @@ function EmployeeEditor({
             </label>
           )}
         </div>
+        {!isCreate && seed && (
+          <ContractPeriodsPanel employee={seed} schedules={schedules} />
+        )}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>

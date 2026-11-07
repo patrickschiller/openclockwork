@@ -51,7 +51,7 @@ describe('Project-independent working-time reports', () => {
     return { hr, manager, report, foreign };
   }
 
-  it('reports closed non-rejected entries regardless of project assignment', async () => {
+  it('reports closed Pending/Approved entries regardless of project assignment', async () => {
     const { hr, manager, report, foreign } = await fixture();
     const hrToken = await login(ctx.http, hr.email);
     const managerToken = await login(ctx.http, manager.email);
@@ -157,14 +157,27 @@ describe('Project-independent working-time reports', () => {
     expect(onlyDirect.body.rows).toHaveLength(1);
     expect(onlyDirect.body.rows[0].employeeId).toBe(report.id);
 
-    await ctx.http
+    const managerEmployees = await ctx.http
       .get('/api/reports/working-times/employees')
       .set('Authorization', `Bearer ${managerToken}`)
-      .expect(403);
-    await ctx.http
+      .expect(200);
+    expect(
+      new Set(
+        managerEmployees.body.map((employee: { id: string }) => employee.id),
+      ),
+    ).toEqual(new Set([manager.id, report.id]));
+    const managerReport = await ctx.http
       .get('/api/reports/working-times?from=2026-08-01&to=2026-08-31')
       .set('Authorization', `Bearer ${managerToken}`)
-      .expect(403);
+      .expect(200);
+    expect(
+      new Set(
+        managerReport.body.rows.map(
+          (row: { employeeId: string }) => row.employeeId,
+        ),
+      ),
+    ).toEqual(new Set([manager.id, report.id]));
+    expect(managerReport.body.totals.netMinutes).toBe(510);
   });
 
   it('validates calendar dates, ordering, range length and roles', async () => {

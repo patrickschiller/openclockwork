@@ -681,6 +681,8 @@ export class TimeEntriesService {
             clockOut: bookingNow,
             status: requires ? 'Pending' : 'Approved',
             requiresApproval: requires,
+            frameApproverId: null,
+            frameApprovedRevision: null,
             revision: { increment: 1 },
             clockOutLatitude:
               policy.isSolo && !policy.gpsEnabled
@@ -808,9 +810,32 @@ export class TimeEntriesService {
       const before = await this.auditSnapshot(tx, current);
       const row = await tx.timeEntry.update({
         where: { id },
-        data: { ...data, revision: { increment: 1 } },
+        data: {
+          ...data,
+          revision: { increment: 1 },
+          ...(current.approvalMode !== 'Solo' && current.requiresApproval
+            ? {
+                frameApproverId: null,
+                frameApprovedRevision: null,
+                ...(!current.voidedAt &&
+                current.clockOut &&
+                current.status !== 'Rejected'
+                  ? { status: 'Pending' as const }
+                  : {}),
+              }
+            : {}),
+        },
         include: ENTRY_INCLUDE,
       });
+      if (current.approvalMode !== 'Solo' && current.requiresApproval)
+        await this.writeAudit(
+          tx,
+          row,
+          user.id,
+          'FrameApprovalInvalidated',
+          before,
+          null,
+        );
       if (isSolo || current.approvalMode === 'Solo')
         await this.writeAudit(tx, row, user.id, 'BookingUpdated', before, null);
       return row;
@@ -911,6 +936,8 @@ export class TimeEntriesService {
             captureGroupId,
             revision: { increment: 1 },
             requiresApproval: firstRequires,
+            frameApproverId: null,
+            frameApprovedRevision: null,
             status: statusFor(firstRequires),
             clockOutLatitude: null,
             clockOutLongitude: null,
@@ -956,6 +983,24 @@ export class TimeEntriesService {
           where: { timeEntryId: entry.id, action: 'clock-out' },
           data: { timeEntryId: secondSegment.id },
         });
+        if (entry.approvalMode !== 'Solo' && entry.requiresApproval) {
+          await this.writeAudit(
+            tx,
+            firstSegment,
+            user.id,
+            'FrameApprovalInvalidated',
+            before,
+            null,
+          );
+          await this.writeAudit(
+            tx,
+            secondSegment,
+            user.id,
+            'FrameSegmentCreated',
+            null,
+            null,
+          );
+        }
         if (isSolo || entry.approvalMode === 'Solo') {
           await this.writeAudit(
             tx,
@@ -1097,6 +1142,8 @@ export class TimeEntriesService {
               clockOut,
               captureGroupId,
               requiresApproval,
+              frameApproverId: null,
+              frameApprovedRevision: null,
               status: requiresApproval
                 ? ('Pending' as const)
                 : ('Approved' as const),
@@ -1132,6 +1179,19 @@ export class TimeEntriesService {
               where: { timeEntryId: entry.id, action: 'clock-out' },
               data: { timeEntryId: last.id },
             });
+          if (entry.approvalMode !== 'Solo' && entry.requiresApproval) {
+            for (const segment of segments)
+              await this.writeAudit(
+                tx,
+                segment,
+                user.id,
+                segment.id === entry.id
+                  ? 'FrameApprovalInvalidated'
+                  : 'FrameSegmentCreated',
+                segment.id === entry.id ? before : null,
+                null,
+              );
+          }
           if (isSolo || entry.approvalMode === 'Solo') {
             for (const segment of segments)
               await this.writeAudit(
@@ -1725,6 +1785,8 @@ export class TimeEntriesService {
       status: entry.status,
       requiresApproval: entry.requiresApproval,
       approvalMode: entry.approvalMode,
+      frameApproverId: entry.frameApproverId,
+      frameApprovedRevision: entry.frameApprovedRevision,
       captureGroupId: entry.captureGroupId,
       breakRules: parseBreakRules(entry.breakRules),
       voidedAt: entry.voidedAt?.toISOString() ?? null,

@@ -136,6 +136,9 @@ model Employee {
   reports                       Employee[]                    @relation("ManagerToReports")
   workScheduleId                String?                       @db.Uuid
   workSchedule                  WorkSchedule?                 @relation(fields: [workScheduleId], references: [id], onDelete: SetNull)
+  contractPeriods               EmployeeContractPeriod[]      @relation("ContractEmployee")
+  confirmedContractPeriods      EmployeeContractPeriod[]      @relation("ContractConfirmer")
+  contractPeriodAudits          EmployeeContractPeriodAudit[] @relation("ContractAuditActor")
   timeEntries                   TimeEntry[]
   requests                      Request[]                     @relation("RequestEmployee")
   approverRequests              Request[]                     @relation("RequestApprover")
@@ -152,6 +155,7 @@ model Employee {
   soloPolicies                  SoloPolicy[]
   personalDays                  PersonalDay[]
   timeEntryAudits                TimeEntryAudit[]
+  frameApprovedEntries          TimeEntry[]                   @relation("FrameApprover")
   installationEvents            InstallationEvent[]
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt
@@ -204,6 +208,10 @@ model TimeEntry {
   source                            EntrySource                   @default(Manual)
   status                            EntryStatus                   @default(Open)
   requiresApproval                  Boolean                       @default(false)
+  /// Manager sign-off is valid only for the exact revision and current manager.
+  frameApprovedRevision             Int?
+  frameApproverId                   String?                       @db.Uuid
+  frameApprover                     Employee?                     @relation("FrameApprover", fields: [frameApproverId], references: [id], onDelete: SetNull)
   billable                          Boolean                       @default(false)
   revision                          Int                           @default(0)
   voidedAt                          DateTime?
@@ -212,6 +220,7 @@ model TimeEntry {
   /// Historical null values retain Team approval semantics.
   approvalMode                      String?
   auditEvents                       TimeEntryAudit[]
+  correctionRequests                Request[]                     @relation("CorrectionTarget")
   /// Policy snapshot captured at booking; later schedule changes do not rewrite history.
   breakRules                        Json                          @default("[]")
   latitude                          Decimal?                      @db.Decimal(9, 6)
@@ -376,6 +385,11 @@ model Request {
   to                   DateTime
   reason               String?
   requiresApproval     Boolean             @default(false)
+  targetTimeEntryId    String?             @db.Uuid
+  targetTimeEntry      TimeEntry?          @relation("CorrectionTarget", fields: [targetTimeEntryId], references: [id], onDelete: Restrict)
+  expectedTargetRevision Int?
+  targetTimeEntryBefore Json?
+  timeEntryAudits      TimeEntryAudit[]
   calculatedDays       Decimal             @default(0) @db.Decimal(6, 2)
   halfDayStart         Boolean             @default(false)
   halfDayEnd           Boolean             @default(false)
@@ -581,6 +595,8 @@ model Customer {
 }
 
 model TimeEntryAudit {
+  requestId   String?   @db.Uuid
+  request     Request?  @relation(fields: [requestId], references: [id], onDelete: Restrict)
   id          String    @id @default(uuid()) @db.Uuid
   timeEntryId String    @db.Uuid
   timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Restrict)
@@ -593,6 +609,7 @@ model TimeEntryAudit {
   occurredAt  DateTime  @default(now())
 
   @@index([timeEntryId, occurredAt])
+  @@index([requestId])
 }
 
 model PersonalDay {
@@ -695,4 +712,45 @@ model TerminalAuditEvent {
   @@index([terminalId, occurredAt])
   @@index([employeeId, occurredAt])
   @@index([occurredAt])
+}
+
+// Explicit HR-confirmed facts. No migration backfills unknown legacy history.
+// Schedule/holiday facts are snapshots, not references to mutable WorkSchedule.
+model EmployeeContractPeriod {
+  id               String   @id @default(uuid()) @db.Uuid
+  employeeId       String   @db.Uuid
+  employee         Employee @relation("ContractEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  effectiveFrom    DateTime @db.Date
+  effectiveTo      DateTime? @db.Date
+  employmentStart  DateTime @db.Date
+  employmentEnd    DateTime? @db.Date
+  weeklyHours      Decimal @db.Decimal(5, 2)
+  timeModel        TimeModel
+  workingDays      Int
+  holidayCalendar  String @db.VarChar(20)
+  holidayDates     String[] @default([])
+  scheduleLabel    String?
+  confirmationNote String
+  confirmedById    String? @db.Uuid
+  confirmedBy      Employee? @relation("ContractConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  revision         Int @default(0)
+  createdAt        DateTime @default(now())
+  audits           EmployeeContractPeriodAudit[]
+
+  @@unique([employeeId, effectiveFrom])
+  @@index([employeeId, effectiveTo])
+}
+
+model EmployeeContractPeriodAudit {
+  id         String @id @default(uuid()) @db.Uuid
+  periodId   String @db.Uuid
+  period     EmployeeContractPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  actorId    String? @db.Uuid
+  actor      Employee? @relation("ContractAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  before     Json?
+  after      Json
+  occurredAt DateTime @default(now())
+
+  @@index([periodId, occurredAt])
 }

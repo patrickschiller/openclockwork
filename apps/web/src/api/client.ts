@@ -109,6 +109,45 @@ export interface EmployeeDto {
   isActive: boolean;
 }
 
+/** Confirmed, self-contained historical facts; never a live schedule reference. */
+export interface ContractPeriodDto {
+  id: string;
+  employeeId: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  employmentStart: string;
+  employmentEnd: string | null;
+  weeklyHours: number;
+  timeModel: TimeModel;
+  workingDays: number;
+  holidayCalendar: HolidayCalendar;
+  holidayDates: string[];
+  scheduleLabel: string | null;
+  confirmationNote: string;
+  confirmedById: string | null;
+  revision: number;
+  createdAt: string;
+}
+
+type ContractPeriodSupersession =
+  | { supersedesPeriodId: string; expectedRevision: number }
+  | { supersedesPeriodId?: never; expectedRevision?: never };
+
+export type CreateContractPeriodPayload = Pick<
+  ContractPeriodDto,
+  | 'effectiveFrom'
+  | 'effectiveTo'
+  | 'employmentStart'
+  | 'employmentEnd'
+  | 'weeklyHours'
+  | 'timeModel'
+  | 'workingDays'
+  | 'holidayCalendar'
+  | 'holidayDates'
+  | 'scheduleLabel'
+  | 'confirmationNote'
+> & { confirmed: true } & ContractPeriodSupersession;
+
 export interface CreateEmployeePayload {
   personalNo: string;
   firstName: string;
@@ -189,6 +228,74 @@ export interface TimeEntryDto {
   serviceOrderTitle: string | null;
   activity: string | null;
   summary: TimeSummaryDto | null;
+}
+
+/** Eligibility and revision are server-authoritative; this endpoint is own-only. */
+export interface TimeAdjustmentTargetDto extends TimeEntryDto {
+  revision: number;
+}
+
+export interface TimeEntryBeforeSnapshot {
+  id: string;
+  revision: number;
+  clockIn: string;
+  clockOut: string;
+  status: string;
+  projectId: string | null;
+  serviceOrderId: string | null;
+  activity: string | null;
+  breakRules: unknown;
+  captureGroupId: string | null;
+  approvalMode: string | null;
+}
+
+export interface TimeEntryAuditDto {
+  actorName?: string | null;
+  id: string;
+  timeEntryId: string;
+  actorId: string | null;
+  action: string;
+  before: unknown;
+  after: unknown;
+  reason: string | null;
+  occurredAt: string;
+  requestId: string | null;
+}
+
+export type TimeEntryApprovalState =
+  | 'Open'
+  | 'BlockedManager'
+  | 'PendingManager'
+  | 'PendingHr'
+  | 'Approved'
+  | 'Rejected'
+  | 'Voided';
+
+export interface TimeEntryApprovalDto {
+  entry: TimeEntryDto;
+  revision: number;
+  employeeName: string;
+  managerId: string | null;
+  managerName: string | null;
+  state: TimeEntryApprovalState;
+  canDecide: boolean;
+}
+
+export interface TimeEntryApprovalDecision {
+  revision: number;
+  stage: 'Manager' | 'HR';
+  outcome: 'Approve' | 'Reject';
+  note?: string;
+}
+
+export interface TimeEntryApprovalEventDto {
+  requestId?: string | null;
+  id: string;
+  actorId: string | null;
+  actorName: string | null;
+  action: string;
+  reason: string | null;
+  occurredAt: string;
 }
 
 export interface SplitTimeEntryResult {
@@ -333,11 +440,28 @@ export interface WorkingTimeReportTotalsDto {
   netMinutes: number;
 }
 
+export interface WorkingTimeComparisonDto {
+  employeeId: string;
+  employeeName: string;
+  targetMinutes: number | null;
+  actualMinutes: number;
+  differenceMinutes: number | null;
+  targetStatus: 'Known' | 'Unknown';
+  unknownDates: string[];
+  reason: 'CONTRACT_HISTORY_GAP' | null;
+  indicator: 'Unknown' | 'Negative' | 'Balanced' | 'Positive' | 'Excess';
+  openEntryCount: number;
+}
+
 export interface WorkingTimeReportDto {
   from: string;
   to: string;
   rows: WorkingTimeReportRowDto[];
   totals: WorkingTimeReportTotalsDto;
+  comparisons: WorkingTimeComparisonDto[];
+  timeZone: string;
+  timeDefinition: 'net_working_time';
+  excessThresholdMinutes: 600;
 }
 
 export interface UpsertProjectPayload {
@@ -365,8 +489,13 @@ export interface AccountDto {
 }
 
 export interface RequestDto {
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
+  targetTimeEntryBefore?: TimeEntryBeforeSnapshot | null;
   id: string;
   employeeId: string;
+  employeeName: string;
+  updatedAt: string;
   type: RequestType;
   status: RequestStatus;
   workflowState: WorkflowState;
@@ -529,6 +658,8 @@ export interface UpsertWorkSchedulePayload {
 }
 
 export interface CreateRequestPayload {
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
   employeeId: string;
   type: RequestType;
   from: string;
@@ -544,6 +675,15 @@ export interface CreateVacationPayload {
   reason: string | null;
   halfDayStart?: boolean;
   halfDayEnd?: boolean;
+}
+
+export interface UpdateDraftRequestPayload extends Omit<
+  CreateVacationPayload,
+  'employeeId'
+> {
+  expectedUpdatedAt: string;
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
 }
 
 export interface UpsertLeaveAllowancePayload {
@@ -896,6 +1036,21 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  contractPeriods: (employeeId: string) =>
+    request<ContractPeriodDto[]>(
+      `/api/employees/${employeeId}/contract-periods`,
+    ),
+  createContractPeriod: (
+    employeeId: string,
+    payload: CreateContractPeriodPayload,
+  ) =>
+    request<ContractPeriodDto>(
+      `/api/employees/${employeeId}/contract-periods`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
   setEmployeePassword: (id: string, password: string) =>
     request<void>(`/api/employees/${id}/password`, {
       method: 'POST',
@@ -913,6 +1068,19 @@ export const api = {
     if (to) params.set('to', to);
     return request<TimeEntryDto[]>(`/api/timeentries?${params.toString()}`);
   },
+  timeEntryApprovals: (scope: 'own' | 'review' = 'review') =>
+    request<TimeEntryApprovalDto[]>(
+      `/api/timeentries/approvals?scope=${scope}`,
+    ),
+  decideTimeEntryApproval: (id: string, payload: TimeEntryApprovalDecision) =>
+    request<TimeEntryApprovalDto>(`/api/timeentries/${id}/approval`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  timeEntryApprovalHistory: (id: string) =>
+    request<TimeEntryApprovalEventDto[]>(
+      `/api/timeentries/${id}/approval-history`,
+    ),
   clockIn: (payload: ClockInPayload) =>
     request<TimeEntryDto>('/api/timeentries/clock-in', {
       method: 'POST',
@@ -1042,6 +1210,10 @@ export const api = {
     const qs = params.toString();
     return request<RequestDto[]>(`/api/requests${qs ? `?${qs}` : ''}`);
   },
+  timeAdjustmentTargets: () =>
+    request<TimeAdjustmentTargetDto[]>('/api/requests/time-adjustment-targets'),
+  requestTimeEntryAudit: (id: string) =>
+    request<TimeEntryAuditDto[]>(`/api/requests/${id}/time-entry-audit`),
   getRequest: (id: string) => request<RequestDto>(`/api/requests/${id}`),
   getRequestEvents: (id: string) =>
     request<RequestEventDto[]>(`/api/requests/${id}/events`),
@@ -1052,6 +1224,16 @@ export const api = {
     }),
   createVacationRequest: (payload: CreateVacationPayload) =>
     request<RequestDto>('/api/requests/vacation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateDraftRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  resubmitRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}/resubmit`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
