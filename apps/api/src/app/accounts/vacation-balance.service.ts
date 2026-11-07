@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { calculateWorkingDays } from 'shared';
 import { LeaveAllowancesService } from '../leave-allowances/leave-allowances.service';
@@ -20,16 +21,22 @@ export class VacationBalanceService {
     private readonly schedules: WorkSchedulesService,
   ) {}
 
-  async compute(employeeId: string, year: number): Promise<VacationBalanceDto> {
-    const allowance = await this.allowances.getOrDefault(employeeId, year);
+  async compute(
+    employeeId: string,
+    year: number,
+    excludeRequestId?: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ): Promise<VacationBalanceDto> {
+    const allowance = await this.allowances.getOrDefault(employeeId, year, db);
     const schedule = await this.schedules.resolveForEmployee(employeeId);
     const yearStart = new Date(Date.UTC(year, 0, 1));
     const yearEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59));
 
-    const requests = await this.prisma.request.findMany({
+    const requests = await db.request.findMany({
       where: {
         employeeId,
         type: 'Vacation',
+        ...(excludeRequestId ? { id: { not: excludeRequestId } } : {}),
         from: { lte: yearEnd },
         to: { gte: yearStart },
       },

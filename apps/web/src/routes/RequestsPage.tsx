@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, type RequestType } from '../api/client';
+import { api, type RequestDto, type RequestType } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
 
@@ -55,6 +55,7 @@ export function RequestsPage() {
   const employeeId = user.id;
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const requests = useQuery({
     queryKey: ['requests', { employeeId }],
@@ -76,17 +77,30 @@ export function RequestsPage() {
           <DialogTrigger asChild>
             <Button>{t('requests.new')}</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
             <NewRequestForm
               onClose={() => {
                 setDialogOpen(false);
                 qc.invalidateQueries({ queryKey: ['requests'] });
+                qc.invalidateQueries({ queryKey: ['vacation-balance'] });
               }}
             />
           </DialogContent>
         </Dialog>
       </div>
 
+      {editingId && (
+        <EditRequestDialog
+          requestId={editingId}
+          onClose={() => {
+            setEditingId(null);
+            qc.invalidateQueries({ queryKey: ['requests'] });
+            qc.invalidateQueries({ queryKey: ['request'] });
+            qc.invalidateQueries({ queryKey: ['request-events'] });
+            qc.invalidateQueries({ queryKey: ['vacation-balance'] });
+          }}
+        />
+      )}
       <Card>
         <CardHeader>
           <CardTitle>{t('requests.own')}</CardTitle>
@@ -101,6 +115,7 @@ export function RequestsPage() {
                 >
                   <div>
                     <p className="font-medium">
+                      {r.employeeName || `${user.firstName} ${user.lastName}`} ·{' '}
                       {enumLabel(r.type)} ·{' '}
                       {formatRange(
                         r.type as RequestType,
@@ -122,9 +137,19 @@ export function RequestsPage() {
                         {t('requests.specialApproval')}
                       </Badge>
                     )}
-                    <Badge variant="secondary">
-                      {enumLabel(r.workflowState)}
-                    </Badge>
+                    {r.workflowState === 'Draft' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingId(r.id)}
+                      >
+                        {enumLabel(r.workflowState)} · {t('requests.edit')}
+                      </Button>
+                    ) : (
+                      <Badge variant="secondary">
+                        {enumLabel(r.workflowState)}
+                      </Badge>
+                    )}
                   </div>
                   {r.type === 'SpecialLeave' && (
                     <AttachmentsList requestId={r.id} />
@@ -143,31 +168,74 @@ export function RequestsPage() {
   );
 }
 
-interface NewRequestFormProps {
+function EditRequestDialog({
+  requestId,
+  onClose,
+}: {
+  requestId: string;
   onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const request = useQuery({
+    queryKey: ['request', requestId],
+    queryFn: () => api.getRequest(requestId),
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
+        {request.data && !request.isFetching ? (
+          <NewRequestForm
+            key={request.data.updatedAt}
+            request={request.data}
+            onClose={onClose}
+          />
+        ) : (
+          <DialogHeader>
+            <DialogTitle>{t('requests.edit')}</DialogTitle>
+            <DialogDescription>
+              {request.isError ? t('requests.loadFailed') : t('common.loading')}
+            </DialogDescription>
+          </DialogHeader>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
-function isoDateTimeLocalNow(): string {
-  const d = new Date();
+interface NewRequestFormProps {
+  onClose: () => void;
+  request?: RequestDto;
+}
+
+function isoDateTimeLocalNow(iso?: string): string {
+  const d = iso ? new Date(iso) : new Date();
   // datetime-local needs YYYY-MM-DDTHH:mm in *local* time
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function NewRequestForm({ onClose }: NewRequestFormProps) {
+function NewRequestForm({ onClose, request }: NewRequestFormProps) {
   const user = useCurrentUser();
   const { t, enumLabel } = useI18n();
   const employeeId = user.id;
   const today = isoDateOnly(new Date());
-  const [type, setType] = useState<RequestType>('Vacation');
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState(today);
-  const [fromDt, setFromDt] = useState(isoDateTimeLocalNow);
-  const [toDt, setToDt] = useState(isoDateTimeLocalNow);
-  const [reason, setReason] = useState('');
-  const [substituteId, setSubstituteId] = useState<string>('');
-  const [halfDayStart, setHalfDayStart] = useState(false);
-  const [halfDayEnd, setHalfDayEnd] = useState(false);
+  const [type, setType] = useState<RequestType>(request?.type ?? 'Vacation');
+  const [from, setFrom] = useState(request?.from.slice(0, 10) ?? today);
+  const [to, setTo] = useState(request?.to.slice(0, 10) ?? today);
+  const [fromDt, setFromDt] = useState(() =>
+    isoDateTimeLocalNow(request?.from),
+  );
+  const [toDt, setToDt] = useState(() => isoDateTimeLocalNow(request?.to));
+  const [reason, setReason] = useState(request?.reason ?? '');
+  const [substituteId, setSubstituteId] = useState<string>(
+    request?.substituteId ?? '',
+  );
+  const [halfDayStart, setHalfDayStart] = useState(
+    request?.halfDayStart ?? false,
+  );
+  const [halfDayEnd, setHalfDayEnd] = useState(request?.halfDayEnd ?? false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -175,6 +243,21 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
     queryKey: ['employee-directory'],
     queryFn: () => api.employeeDirectory(),
   });
+
+  const events = useQuery({
+    queryKey: ['request-events', request?.id],
+    queryFn: () =>
+      request ? api.getRequestEvents(request.id) : Promise.resolve([]),
+    enabled: !!request,
+  });
+  const revisionNote =
+    request?.decisionNote ??
+    events.data
+      ?.filter(
+        (event) =>
+          event.kind === 'Returned' || event.kind === 'SubstituteDeclined',
+      )
+      .at(-1)?.note;
 
   const fromDate = useMemo(() => new Date(`${from}T00:00:00.000Z`), [from]);
   const year = fromDate.getUTCFullYear();
@@ -193,7 +276,25 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   }, [isTimeAdjustment, from, to, fromDt, toDt]);
 
   const create = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (saveOnly: boolean) => {
+      if (request) {
+        const payload = {
+          expectedUpdatedAt: request.updatedAt,
+          from: isTimeAdjustment
+            ? new Date(fromDt).toISOString()
+            : new Date(`${from}T00:00:00.000Z`).toISOString(),
+          to: isTimeAdjustment
+            ? new Date(toDt).toISOString()
+            : new Date(`${to}T00:00:00.000Z`).toISOString(),
+          reason: reason || null,
+          substituteId: type === 'Vacation' ? substituteId || null : null,
+          halfDayStart: type === 'Vacation' && halfDayStart,
+          halfDayEnd: type === 'Vacation' && halfDayEnd,
+        };
+        return saveOnly
+          ? api.updateDraftRequest(request.id, payload)
+          : api.resubmitRequest(request.id, payload);
+      }
       if (type === 'Vacation') {
         return api.createVacationRequest({
           employeeId,
@@ -233,19 +334,41 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
   const insufficientVacation =
     type === 'Vacation' &&
     balance.data !== undefined &&
-    balance.data.remainingDays < 1;
+    balance.data.remainingDays < 0.5;
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{t('requests.new')}</DialogTitle>
+        <DialogTitle>
+          {t(request ? 'requests.edit' : 'requests.new')}
+        </DialogTitle>
         <DialogDescription>{t('requests.chooseTypeRange')}</DialogDescription>
       </DialogHeader>
       <div className="space-y-4 py-2">
+        <p className="text-sm font-medium">
+          {t('requests.employee')}:{' '}
+          {request?.employeeName || `${user.firstName} ${user.lastName}`}
+        </p>
+        {request && revisionNote && (
+          <Alert>
+            <AlertDescription>
+              {t('requests.revisionReason')}: {revisionNote}
+            </AlertDescription>
+          </Alert>
+        )}
+        {request && request.workflowState !== 'Draft' && (
+          <Alert variant="destructive">
+            <AlertDescription>{t('requests.notDraft')}</AlertDescription>
+          </Alert>
+        )}
+        {request?.type === 'SpecialLeave' && (
+          <AttachmentsList requestId={request.id} />
+        )}
         <div className="space-y-2">
           <Label htmlFor="type">{t('common.type')}</Label>
           <select
             id="type"
+            disabled={!!request}
             value={type}
             onChange={(e) => setType(e.target.value as RequestType)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -349,7 +472,7 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
           </div>
         )}
 
-        {type === 'SpecialLeave' && (
+        {type === 'SpecialLeave' && !request && (
           <div className="space-y-2">
             <Label htmlFor="attachment">{t('requests.attachmentLabel')}</Label>
             <Input
@@ -407,14 +530,37 @@ function NewRequestForm({ onClose }: NewRequestFormProps) {
         <Button variant="ghost" onClick={onClose}>
           {t('common.cancel')}
         </Button>
+        {request && (
+          <Button
+            variant="outline"
+            disabled={
+              create.isPending ||
+              invalidRange ||
+              request.workflowState !== 'Draft'
+            }
+            onClick={() => {
+              setError(null);
+              create.mutate(true);
+            }}
+          >
+            {t('requests.saveDraft')}
+          </Button>
+        )}
         <Button
-          disabled={create.isPending || insufficientVacation || invalidRange}
+          disabled={
+            create.isPending ||
+            insufficientVacation ||
+            invalidRange ||
+            (!!request && request.workflowState !== 'Draft')
+          }
           onClick={() => {
             setError(null);
-            create.mutate();
+            create.mutate(false);
           }}
         >
-          {create.isPending ? t('common.saving') : t('requests.submit')}
+          {create.isPending
+            ? t('common.saving')
+            : t(request ? 'requests.resubmit' : 'requests.submit')}
         </Button>
       </DialogFooter>
     </>
