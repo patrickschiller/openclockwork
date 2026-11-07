@@ -73,6 +73,8 @@ export function useRealtimeInvalidation() {
         qc.invalidateQueries({ queryKey: ['solo-summary'] });
         qc.invalidateQueries({ queryKey: ['solo-hints'] });
         qc.invalidateQueries({ queryKey: ['time-entries'] });
+        qc.invalidateQueries({ queryKey: ['time-entry-approvals'] });
+        qc.invalidateQueries({ queryKey: ['time-entry-approval-history'] });
         qc.invalidateQueries({ queryKey: ['account'] });
         qc.invalidateQueries({ queryKey: ['violations'] });
       };

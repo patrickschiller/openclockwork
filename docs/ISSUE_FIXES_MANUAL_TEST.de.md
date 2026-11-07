@@ -300,5 +300,239 @@ TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
 ```
 
 Zum Fortsetzen denselben `up -d --wait`-Befehl verwenden, **nicht** erneut seeden.
-Kein `down -v`: Das würde die Nachtestdaten löschen. Folgepakete #41, #43, #45
-und #44 ergänzen diese Anleitung erst bei ihrer jeweiligen Implementierung.
+Kein `down -v`: Das würde die Nachtestdaten löschen. Weitere Pakete ergänzen
+diese Anleitung erst bei ihrer jeweiligen Implementierung.
+
+## Paket #41 – Freigabe normaler Buchungen außerhalb der Rahmenzeit
+
+### Branch, Abhängigkeit und isoliertes Setup
+
+- Branch: `fix/41-outside-frame-approval`.
+- Worktree: `/Users/patrickschiller/openclockwork-issue-41`.
+- Basis ist der akzeptierte #42-Head `4ff247bc18adfc0b245d8dbb044f7968cf2a4678`.
+- Der PR zielt für die vorhandene vollständige CI auf `main`, enthält deshalb
+  **kumulativ #42 + #41** und hängt von PR #46 ab. Vorgesehene Reihenfolge:
+  zuerst #46, danach #41; hier wird nichts gemergt. Der aktuelle obere Branch
+  kann ohne Merge bereits beide Pakete gemeinsam testen.
+- Additive Migration `20261107031000_time_entry_frame_approval`: zwei nullable
+  Signaturfelder. Bestehende Buchungswerte, Revisionen und Historien bleiben
+  erhalten; alte ausstehende Buchungen beginnen bei der Managerprüfung.
+
+Grundlage weiterhin [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md).
+Einen separaten Stack verwenden; keine bestehenden Projekte/Volumes löschen.
+Im #41-Worktree oder einem neuen Checkout dieses Branches:
+
+```bash
+git fetch origin
+git worktree add ../openclockwork-41-manual origin/fix/41-outside-frame-approval
+cd ../openclockwork-41-manual
+
+cat > /tmp/openclockwork-41-compose.yml <<'YAML'
+services:
+  api:
+    image: openclockwork-api:issue41-local
+  web:
+    image: openclockwork-web:issue41-local
+YAML
+
+TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
+  -p openclockwork-issue41 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-41-compose.yml build
+
+TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
+  -p openclockwork-issue41 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-41-compose.yml up -d --wait
+
+TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
+  -p openclockwork-issue41 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-41-compose.yml exec -T \
+  -e NODE_ENV=development \
+  -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
+  api node --import tsx prisma/seed.ts
+```
+
+Seed nur auf der **neuen leeren Datenbank** ausführen, beim Wiederaufnehmen
+nicht erneut. Oberfläche: <http://localhost:18041>. API-Zeitzone im bestehenden
+Test-Compose ist Europe/Berlin. Die synthetischen Rollen und das lokale Passwort
+stehen im #42-Setup oben: Anna = Beschäftigte, Marc = zugewiesener Manager,
+Hannah = HR, Bernd = anderer Beschäftigter. Separate Browserprofile verwenden.
+Anna muss einem aktiven Manager mit Rolle **Manager** zugeordnet sein.
+Rolle HRAdmin ersetzt diese erste Stufe ausdrücklich nicht.
+
+### A. Tatsächliches Stempeln und Auffindbarkeit
+
+1. Als Hannah unter Mitarbeitenden/Arbeitszeitplänen für Anna einen Plan wählen,
+   dessen Rahmen die **aktuelle Server-Ortszeit nicht einschließt** (z. B.
+   07:00–08:00, wenn gerade nachmittags getestet wird). Vorherige Zuordnung
+   notieren. Keine laufende Session und keinen Tagesblock für den Testtag nutzen.
+2. Als Anna **Buchen → Kommen**, kurz darauf **Gehen**. Es muss ein positives,
+   abgeschlossenes Intervall entstehen. Während die Uhr läuft: kein Entscheiden
+   möglich, auch nicht per direktem Freigabe-API-Aufruf.
+3. In **Buchen** ist der eigene Freigabebereich sichtbar. Er benennt die
+   Managerprüfung, Marc und den Ort **Genehmigungen → Zeitbuchungen** sowie
+   die danach zwingende HR-Bestätigung. Es handelt sich um eine normale
+   PWA-Zeitbuchung, nicht um einen neu anzulegenden Zeitkorrekturantrag.
+4. Als Marc **Genehmigungen** öffnen: Im Bereich für Zeitbuchungen steht Anna
+   mit Zeitraum und Status. Managerfreigabe ausführen. Erwartet:
+   `PendingHr`, weiterhin Buchungsstatus `Pending`; noch kein HR-Endergebnis.
+5. Als Hannah dieselbe Seite öffnen, HR bestätigen. Erwartet: dieselbe
+   Buchungs-ID, `Approved`; Anna und Marc sehen nach Aktualisierung das Ergebnis.
+   Der Verlauf zeigt beide tatsächlichen Akteure, Zeitpunkte, Ergebnisse und
+   gegebenenfalls Notizen. Es entsteht kein zusätzlicher Antrag.
+6. Auf Englisch wiederholen. Alle neuen Stufen, Hilfen, Aktionen, Fehler und
+   Historienereignisse sind übersetzt; mit Tab/Enter bedienbar.
+
+### B. Reproduzierbare Legacy-Ausgangsbuchungen
+
+Zum gezielten Nachtest alter ausstehender Einträge können auf **diesem neuen
+synthetischen Stack** drei feste Intervalle angelegt werden. Die Seed-Zeiten
+liegen relativ zum aktuellen Datum; vorab prüfen, dass die folgenden historischen
+Oktobertage frei sind. Bei Konflikt keine vorhandenen Daten ändern, sondern
+freie Tage im SQL wählen. Die neuen Spalten absichtlich nicht setzen:
+Das bildet die Altbestands-Situation nach der Migration ab.
+
+```bash
+TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
+  -p openclockwork-issue41 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-41-compose.yml exec -T db \
+  psql -U openclockwork -d openclockwork_test -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO "TimeEntry" (
+  "id", "employeeId", "clockIn", "clockOut", "source", "status",
+  "requiresApproval", "approvalMode", "note", "updatedAt"
+)
+SELECT fixture.id::uuid, employee.id, fixture.start_at::timestamptz,
+  fixture.end_at::timestamptz, 'Pwa', 'Pending', true, NULL,
+  'Synthetischer Nachtest #41', CURRENT_TIMESTAMP
+FROM "Employee" employee
+CROSS JOIN (VALUES
+  ('00000000-0000-4000-8000-000000004101', '2026-10-05T03:00:00Z', '2026-10-05T05:00:00Z'),
+  ('00000000-0000-4000-8000-000000004102', '2026-10-06T03:00:00Z', '2026-10-06T05:00:00Z'),
+  ('00000000-0000-4000-8000-000000004103', '2026-10-07T03:00:00Z', '2026-10-07T05:00:00Z')
+) AS fixture(id, start_at, end_at)
+WHERE employee.email = 'anna.mueller@openclockwork.test'
+ON CONFLICT ("id") DO NOTHING;
+SQL
+```
+
+1. Ersten Eintrag durch Marc und Hannah wie oben freigeben. Erwartet:
+   unveränderte ID/Zeiten, je eine Entscheidung, kein Bypass wegen
+   `approvalMode=null`.
+2. Zweiten Eintrag mit einer echten Notiz ablehnen; beide Ablehnungsstufen
+   getrennt prüfen (bei Bedarf einen weiteren freien synthetischen Eintrag
+   anlegen). Ohne nichtleere Begründung ist Ablehnen gesperrt. Nach Ablehnung
+   ist weder Managerfreigabe noch HR-Bestätigung nachträglich erlaubt.
+3. Beim dritten Eintrag als Hannah vorübergehend Annas Managerzuordnung
+   entfernen oder einen nicht als Manager berechtigten Account zuweisen.
+   Erwartet: erklärter blockierter Zustand mit Aufforderung, dass HR eine
+   aktive Führungskraft zuordnet. Keine direkte HR-Bestätigung möglich.
+   Gültige Zuordnung wiederherstellen: erst Manager, dann HR.
+4. Nach Managerfreigabe eine **andere** aktive Führungskraft zuordnen:
+   alte Führungskraft verliert Zugriff; alter HR-Tab darf nicht bestätigen.
+   Der neue Manager muss den aktuellen Stand freigeben, anschließend HR.
+
+### C. Negative Fälle, Änderungen und Konkurrenz
+
+Netzwerkdetails ausschließlich im isolierten Stack verwenden. Keine Bearer-Token
+in Dokumente oder Issues übernehmen.
+
+`GET /api/timeentries/approvals?scope=own` liefert nur eigene Einträge;
+`scope=review` liefert berechtigte Team-/HR-Sicht. Jeder Datensatz enthält
+`revision`, `state`, `canDecide` und die Buchung. Entscheidung:
+
+```http
+POST /api/timeentries/<id>/approval
+Content-Type: application/json
+
+{
+  "revision": 0,
+  "stage": "Manager",
+  "outcome": "Approve",
+  "note": "Synthetisch geprüft"
+}
+```
+
+Für HR die **neu gelesene** Revision und `stage=HR` verwenden.
+Ablehnung: `outcome=Reject`, nichtleere Notiz. Verlauf:
+`GET /api/timeentries/<id>/approval-history`.
+
+| Versuch | Erwartung |
+| --- | --- |
+| Ohne Login | 401 |
+| Beschäftigte lesen Review-Liste | 403; eigene Status-/Verlaufssicht bleibt möglich |
+| Fremde Beschäftigte oder teamfremder Manager entscheiden/lesen Verlauf | 403 |
+| `actorId` oder `employeeId` im Entscheidungsbody fälschen | Keine Berechtigungsänderung; Identität ausschließlich aus JWT |
+| HR als Manager entscheiden / Manager als HR entscheiden | 403 |
+| HR-Stufe vor Managerfreigabe | 409 |
+| Eigene Buchung als Manager oder HR selbst freigeben | 403; andere zuständige Personen erforderlich |
+| Offene, verworfene, bereits genehmigte/abgelehnte oder nicht genehmigungspflichtige Buchung entscheiden | 409 |
+| Fehlende/negative Revision, ungültige Stufe | 400 |
+| Veraltete Revision oder wiederholte Entscheidung | 409; keine zweite erfolgreiche Entscheidung, kein doppeltes Auditereignis |
+| Zwei Managerentscheidungen oder zwei HR-Entscheidungen gleichzeitig | Genau ein Erfolg, einmal 409 |
+| Buchungsänderung gleichzeitig mit Entscheidung auf derselben alten Revision | Genau ein Schreibvorgang erfolgreich; anderer 409 |
+| Managerfreigabe, danach Projekt/Tätigkeit/Notiz ändern | Zurück zur Managerprüfung; alter HR-Stand 409, Verlauf enthält Invalidierung |
+| Vollständig freigegebene Außenrahmenbuchung nachträglich ändern | Erneut Manager → HR, keine übernommene Endfreigabe |
+| Freigegebene Außenrahmenbuchung aufteilen / Projektzeitbereich nachtragen | Betroffene Außenrahmensegmente erneut Managerprüfung; echte Rahmenzeitsegmente behalten normales Verhalten, alte Entscheidungen bleiben im Verlauf auffindbar |
+| Abgelehnte Buchung aufteilen | Kein Reinwaschen: beide Segmente bleiben abgelehnt |
+| Normale geschlossene Buchung innerhalb des Rahmens | Weiterhin direkt genehmigt; kein neuer Freigabeschritt |
+| Separater Solo-Stack: Stempeln, manuell buchen, korrigieren, aufteilen | Unveränderte Solo-Regeln; keine Team-Freigabe alter/aktueller Daten möglich |
+
+Hannah kann eigene Außenrahmenbuchungen nicht selbst bestätigen; dafür eine
+zweite synthetische HR-Person anlegen. Ebenso braucht eine Führungskraft bei
+eigenen Buchungen eine andere zugewiesene Führungskraft. Wenn diese Rollen fehlen,
+ist zunächst die Organisationszuordnung zu vervollständigen, nicht eine Stufe zu
+überspringen. Danach ursprüngliche Plan-/Managerzuordnungen wiederherstellen.
+
+### Automatische Verifikation #41
+
+Ausgeführt am 07.11.2026. Isolierter PostgreSQL-16-Container
+`openclockwork-issue-41-db`, Loopback-Port `15441`, ausschließlich synthetische
+Datenbanken `openclockwork_test_41` und `openclockwork_upgrade_41`. Keine
+bestehende Datenbank zurückgesetzt. Toolchain: pnpm 9.15.9; API-/Web-Gesamttests
+zusätzlich unter Node 20.20.2 (CI-Version), übrige lokale Gates unter Node 26.12.1.
+
+| Gate | Tatsächliches Ergebnis |
+| --- | --- |
+| `TZ=Europe/Berlin pnpm nx e2e api-e2e --testPathPatterns=time-entry-approvals` | **27/27 neue API-/Service-Regressionen bestanden** |
+| `TZ=Europe/Berlin pnpm nx e2e api-e2e` unter Node 20.20.2 | **331/331 Tests, 38 Suites bestanden** |
+| `TZ=UTC pnpm nx run-many -t test -p web,shared --run --skip-nx-cache` unter Node 20.20.2 | **Web 234/234 in 35 Dateien**, **Shared 88/88 in 7 Dateien bestanden**, ohne Cache |
+| `pnpm nx run-many -t typecheck,lint -p api,web,shared,api-e2e` | **Alle vier Typechecks und Lint erfolgreich**; 0 Fehler, 13 bestehende Warnungen in unveränderten Dateien, keine neue Warnung |
+| `pnpm nx run-many -t build -p api,web,shared` getrennt von Typechecks | **Alle drei Builds erfolgreich**, einschließlich Web/PWA; unveränderter Shared-Build aus Nx-Cache |
+| `pnpm verify:api` mit isolierter Test-`DATABASE_URL` | **Erfolgreich**; finale OpenAPI-Datei und generierter Client bleiben identisch zur gestagten Fassung |
+| Baseline-Migrationen aus akzeptiertem #42 → `node ops/upgrade-smoke.mjs seed` → neue Migration → `node ops/upgrade-smoke.mjs verify` | **Erfolgreich**; echte historische Pending-Buchung bleibt mit Revision 7 und null Signaturmarkern erhalten, keine erfundene Freigabe |
+| `git diff --check` | **Erfolgreich** |
+
+Der Upgrade-Sentinel wurde in einer eigenen frischen Datenbank angelegt:
+`PRISMA_BASE_DIR=/Users/patrickschiller/openclockwork-issue-42 pnpm prisma migrate deploy --config ops/prisma-upgrade-baseline.config.ts`,
+danach Seed, Migration und Verifikation auf derselben isolierten Upgrade-URL.
+Der erweiterte Upgrade-Smoke wird auch von der regulären PR-CI ausgeführt.
+
+Abgedeckt sind reale Manager→HR-Entscheidungen und Ablehnungen, Pflichtnotiz,
+Tokenidentität statt Body-Identität, Team-/Rollen-/Selbstfreigabegrenzen,
+fehlende/inaktive/falsch berechtigte Manager, Neuzuordnung, Altbestand,
+offene/terminale/in-frame/Solo-Einträge, doppelte/stale/parallele Entscheidungen,
+Änderungsrennen, Änderung nach Endfreigabe, Split-/Projektbereichs-Invalidierung
+und auffindbarer Verlauf selbst nach Verschieben eines alten Segments in den
+Rahmen. Bestehende Solo-/Terminal-/Tagesblock-/Antragsfälle liefen vollständig mit.
+Die Oberfläche wird mit React Testing Library geprüft, einschließlich DE/EN,
+Mitarbeiterhinweisen, Rollenaktionen, Fehlern und Verlauf.
+
+Die zusätzlichen historischen Listeneinträge erforderten ID-basierte statt
+positionsabhängige Assertions in zwei neuen Tests. Ein Zwischenlauf unter
+Node 26 zeigte außerdem einen einzelnen lokalen Socket-`ETIMEDOUT`; der
+abschließende vollständige Node-20-Lauf bestand ohne Wiederholungslogik oder
+Produktänderung dafür.
+
+Der manuelle Docker-/Browser-Durchlauf aus dieser Anleitung wurde **nicht**
+als durchgeführt oder bestanden gewertet. Keine Release-, Tag-, Versions-,
+Merge- oder Deployment-Aktion.
+
+Zum Stoppen mit Datenerhalt:
+
+```bash
+TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
+  -p openclockwork-issue41 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-41-compose.yml stop
+```
+
+Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #43, #45 und #44 sind
+noch nicht Bestandteil dieses Pakets.

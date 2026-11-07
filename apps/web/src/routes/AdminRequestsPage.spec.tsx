@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 import { AdminRequestsPage } from './AdminRequestsPage';
+import { api } from '../api/client';
 
 const request = {
   id: 'request-42',
@@ -17,6 +18,7 @@ const request = {
 };
 vi.mock('../api/client', () => ({
   api: {
+    timeEntryApprovals: vi.fn().mockResolvedValue([]),
     listRequests: vi
       .fn()
       .mockImplementation(async (filter) =>
@@ -43,6 +45,8 @@ describe('request identity in approval context (#42)', () => {
   it('shows the employee name in the inbox and retained audit trail', async () => {
     renderWithProviders(<AdminRequestsPage />);
     expect(await screen.findByText(/Anna Example · Urlaub/)).toBeDefined();
+    expect(await screen.findByText('Zeitbuchungen')).toBeDefined();
+    expect(api.timeEntryApprovals).toHaveBeenCalledWith('review');
     fireEvent.click(screen.getByRole('button', { name: 'Verlauf' }));
     expect(
       await screen.findByText(/Anna Example · Urlaub · 4.5.2026/),

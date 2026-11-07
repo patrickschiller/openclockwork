@@ -2027,6 +2027,122 @@
         "tags": ["time-entries"]
       }
     },
+    "/api/timeentries/approvals": {
+      "get": {
+        "operationId": "TimeEntriesController_approvalList",
+        "parameters": [
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": ["own", "review"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryApprovalDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
+      }
+    },
+    "/api/timeentries/{id}/approval-history": {
+      "get": {
+        "operationId": "TimeEntriesController_approvalHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryApprovalEventDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
+      }
+    },
+    "/api/timeentries/{id}/approval": {
+      "post": {
+        "operationId": "TimeEntriesController_decideApproval",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideTimeEntryApprovalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryApprovalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
+      }
+    },
     "/api/timeentries/clock-in": {
       "post": {
         "operationId": "TimeEntriesController_clockIn",
@@ -6522,6 +6638,112 @@
           "activity",
           "summary"
         ]
+      },
+      "TimeEntryApprovalDto": {
+        "type": "object",
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/TimeEntryDto"
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "managerId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "managerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "Open",
+              "BlockedManager",
+              "PendingManager",
+              "PendingHr",
+              "Approved",
+              "Rejected",
+              "Voided"
+            ]
+          },
+          "canDecide": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entry",
+          "revision",
+          "employeeName",
+          "managerId",
+          "managerName",
+          "state",
+          "canDecide"
+        ]
+      },
+      "TimeEntryApprovalEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "action": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "actorId",
+          "actorName",
+          "action",
+          "reason",
+          "occurredAt"
+        ]
+      },
+      "DecideTimeEntryApprovalDto": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "stage": {
+            "type": "string",
+            "enum": ["Manager", "HR"]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["Approve", "Reject"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": ["revision", "stage", "outcome"]
       },
       "ClockInDto": {
         "type": "object",

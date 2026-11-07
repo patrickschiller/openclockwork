@@ -152,6 +152,7 @@ model Employee {
   soloPolicies                  SoloPolicy[]
   personalDays                  PersonalDay[]
   timeEntryAudits                TimeEntryAudit[]
+  frameApprovedEntries          TimeEntry[]                   @relation("FrameApprover")
   installationEvents            InstallationEvent[]
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt
@@ -204,6 +205,10 @@ model TimeEntry {
   source                            EntrySource                   @default(Manual)
   status                            EntryStatus                   @default(Open)
   requiresApproval                  Boolean                       @default(false)
+  /// Manager sign-off is valid only for the exact revision and current manager.
+  frameApprovedRevision             Int?
+  frameApproverId                   String?                       @db.Uuid
+  frameApprover                     Employee?                     @relation("FrameApprover", fields: [frameApproverId], references: [id], onDelete: SetNull)
   billable                          Boolean                       @default(false)
   revision                          Int                           @default(0)
   voidedAt                          DateTime?

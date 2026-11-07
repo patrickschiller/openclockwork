@@ -14,6 +14,7 @@ if (!databaseUrl || !['seed', 'verify'].includes(mode)) {
 
 const employeeId = '00000000-0000-4000-8000-000000000014';
 const timeEntryId = '00000000-0000-4000-8000-000000000114';
+const pendingEntryId = '00000000-0000-4000-8000-000000000115';
 const scheduleId = '00000000-0000-4000-8000-000000000214';
 const terminalId = '00000000-0000-4000-8000-000000000314';
 const fallbackEmployeeId = '00000000-0000-4000-8000-000000000414';
@@ -109,12 +110,46 @@ try {
         [JSON.stringify(legacyBreakRules), timeEntryId],
       );
     }
+    // This row exists before the new approval columns and must remain pending,
+    // with no fabricated manager sign-off after migration.
+    await client.query(
+      `INSERT INTO "TimeEntry" (
+        "id", "employeeId", "clockIn", "clockOut", "source", "status",
+        "requiresApproval", "revision", "approvalMode", "updatedAt"
+      ) VALUES ($1, $2, TIMESTAMP '2026-01-05 06:00:00',
+        TIMESTAMP '2026-01-05 08:00:00', 'Pwa', 'Pending', true, 7, NULL, CURRENT_TIMESTAMP)`,
+      [pendingEntryId, fallbackEmployeeId],
+    );
     await client.query('COMMIT');
 
     console.log(
       'Inserted upgrade sentinels for employees, policies, time entry, and terminal.',
     );
   } else {
+    const pending = await client.query(
+      `SELECT "status"::text, "requiresApproval", "revision", "approvalMode",
+        "frameApproverId", "frameApprovedRevision",
+        "clockIn" = TIMESTAMP '2026-01-05 06:00:00' AS "clockInPreserved",
+        "clockOut" = TIMESTAMP '2026-01-05 08:00:00' AS "clockOutPreserved"
+       FROM "TimeEntry" WHERE "id" = $1`,
+      [pendingEntryId],
+    );
+    assert.deepEqual(
+      pending.rows,
+      [
+        {
+          status: 'Pending',
+          requiresApproval: true,
+          revision: 7,
+          approvalMode: null,
+          frameApproverId: null,
+          frameApprovedRevision: null,
+          clockInPreserved: true,
+          clockOutPreserved: true,
+        },
+      ],
+      'Legacy pending entries must start at manager review without altering working time.',
+    );
     const sentinel = await client.query(
       `SELECT
         e."personalNo",

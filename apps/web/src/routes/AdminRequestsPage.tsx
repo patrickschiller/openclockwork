@@ -25,6 +25,7 @@ import { api, type BulkResult, type RequestDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { cn } from '@/lib/utils';
 import { useI18n } from '../app/i18n';
+import { TimeEntryApprovals } from '../components/timeentries/TimeEntryApprovals';
 
 type BulkDialog =
   | { mode: 'approve'; ids: string[] }
@@ -106,6 +107,8 @@ export function AdminRequestsPage() {
             : t('approvals.managerInbox')}
         </p>
       </div>
+
+      <TimeEntryApprovals scope="review" />
 
       {bulkOutcome && (
         <BulkResultBanner
