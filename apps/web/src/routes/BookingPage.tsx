@@ -30,6 +30,10 @@ import {
 import { useCurrentUser } from '../app/auth';
 import { useOnline } from '../app/use-online';
 import { useI18n } from '../app/i18n';
+import {
+  refreshTimeEntryApprovals,
+  TimeEntryApprovals,
+} from '../components/timeentries/TimeEntryApprovals';
 
 function captureGps(): Promise<{
   latitude: number;
@@ -342,7 +346,7 @@ export function BookingPage() {
       if (context?.previous) qc.setQueryData(entriesKey, context.previous);
       setError(e instanceof Error ? e.message : t('booking.failed'));
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: entriesKey }),
+    onSettled: () => refreshTimeEntryApprovals(qc),
   });
 
   const clockOutMutation = useMutation<
@@ -365,7 +369,7 @@ export function BookingPage() {
       if (context?.previous) qc.setQueryData(entriesKey, context.previous);
       setError(e instanceof Error ? e.message : t('booking.clockOutFailed'));
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: entriesKey }),
+    onSettled: () => refreshTimeEntryApprovals(qc),
   });
 
   return (
@@ -530,6 +534,8 @@ export function BookingPage() {
         </CardContent>
       </Card>
 
+      <TimeEntryApprovals scope="own" />
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{t('booking.lastEntries')}</CardTitle>
@@ -589,11 +595,12 @@ export function BookingPage() {
                         {t('booking.dailyBlockSource')}
                       </Badge>
                     )}
-                    {e.requiresApproval && (
-                      <Badge variant="destructive">
-                        {t('booking.approval')}
-                      </Badge>
-                    )}
+                    {e.requiresApproval &&
+                      (e.status === 'Pending' || e.status === 'Open') && (
+                        <Badge variant="destructive">
+                          {t('booking.approval')}
+                        </Badge>
+                      )}
                     <Badge
                       variant={
                         e.status === 'Approved' ? 'default' : 'secondary'
@@ -640,7 +647,7 @@ export function BookingPage() {
           onClose={() => setEditDialogEntry(null)}
           onSaved={() => {
             setEditDialogEntry(null);
-            qc.invalidateQueries({ queryKey: entriesKey });
+            void refreshTimeEntryApprovals(qc);
           }}
         />
       )}
@@ -651,7 +658,7 @@ export function BookingPage() {
           onClose={() => setSplitDialogEntry(null)}
           onSaved={() => {
             setSplitDialogEntry(null);
-            qc.invalidateQueries({ queryKey: entriesKey });
+            void refreshTimeEntryApprovals(qc);
           }}
         />
       )}
@@ -662,7 +669,7 @@ export function BookingPage() {
           onClose={() => setBookRangeOpen(false)}
           onSaved={() => {
             setBookRangeOpen(false);
-            qc.invalidateQueries({ queryKey: entriesKey });
+            void refreshTimeEntryApprovals(qc);
           }}
         />
       )}
@@ -673,9 +680,7 @@ export function BookingPage() {
           onClose={() => setDailyBlockOpen(false)}
           onSaved={() => {
             setDailyBlockOpen(false);
-            qc.invalidateQueries({ queryKey: entriesKey });
-            qc.invalidateQueries({ queryKey: ['account', employeeId] });
-            qc.invalidateQueries({ queryKey: ['violations', employeeId] });
+            void refreshTimeEntryApprovals(qc);
           }}
         />
       )}

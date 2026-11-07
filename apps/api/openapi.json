@@ -2027,6 +2027,122 @@
         "tags": ["time-entries"]
       }
     },
+    "/api/timeentries/approvals": {
+      "get": {
+        "operationId": "TimeEntriesController_approvalList",
+        "parameters": [
+          {
+            "name": "scope",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": ["own", "review"],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryApprovalDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
+      }
+    },
+    "/api/timeentries/{id}/approval-history": {
+      "get": {
+        "operationId": "TimeEntriesController_approvalHistory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryApprovalEventDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
+      }
+    },
+    "/api/timeentries/{id}/approval": {
+      "post": {
+        "operationId": "TimeEntriesController_decideApproval",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideTimeEntryApprovalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryApprovalDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["time-entries"]
+      }
+    },
     "/api/timeentries/clock-in": {
       "post": {
         "operationId": "TimeEntriesController_clockIn",
@@ -3394,7 +3510,17 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequestDto"
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3419,7 +3545,94 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["requests"]
+      }
+    },
+    "/api/requests/time-adjustment-targets": {
+      "get": {
+        "operationId": "RequestsController_timeAdjustmentTargets",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["requests"]
+      }
+    },
+    "/api/requests/{id}/time-entry-audit": {
+      "get": {
+        "operationId": "RequestsController_timeEntryAudit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryAuditDto"
+                  }
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3445,7 +3658,55 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["requests"]
+      },
+      "patch": {
+        "operationId": "RequestsController_updateDraft",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDraftRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3498,7 +3759,57 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["requests"]
+      }
+    },
+    "/api/requests/{id}/resubmit": {
+      "post": {
+        "operationId": "RequestsController_resubmit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDraftRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3534,7 +3845,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3570,7 +3888,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3606,7 +3931,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3642,7 +3974,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3678,7 +4017,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3714,7 +4060,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3750,7 +4103,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3786,7 +4146,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3822,7 +4189,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -3858,7 +4232,14 @@
         },
         "responses": {
           "201": {
-            "description": ""
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6338,6 +6719,118 @@
           "summary"
         ]
       },
+      "TimeEntryApprovalDto": {
+        "type": "object",
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/TimeEntryDto"
+          },
+          "revision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "managerId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "managerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "Open",
+              "BlockedManager",
+              "PendingManager",
+              "PendingHr",
+              "Approved",
+              "Rejected",
+              "Voided"
+            ]
+          },
+          "canDecide": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entry",
+          "revision",
+          "employeeName",
+          "managerId",
+          "managerName",
+          "state",
+          "canDecide"
+        ]
+      },
+      "TimeEntryApprovalEventDto": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "action": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "requestId",
+          "id",
+          "actorId",
+          "actorName",
+          "action",
+          "reason",
+          "occurredAt"
+        ]
+      },
+      "DecideTimeEntryApprovalDto": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "number",
+            "minimum": 0
+          },
+          "stage": {
+            "type": "string",
+            "enum": ["Manager", "HR"]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["Approve", "Reject"]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": ["revision", "stage", "outcome"]
+      },
       "ClockInDto": {
         "type": "object",
         "properties": {
@@ -6780,6 +7273,15 @@
       "TimeEntryAuditDto": {
         "type": "object",
         "properties": {
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -6814,6 +7316,7 @@
           }
         },
         "required": [
+          "requestId",
           "id",
           "timeEntryId",
           "actorId",
@@ -7656,9 +8159,160 @@
         },
         "required": ["baseDays", "carryOverDays", "adjustmentDays"]
       },
+      "RequestDto": {
+        "type": "object",
+        "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "targetTimeEntryBefore": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "Immutable server-captured original time-entry values, including id, revision, clockIn, clockOut and break-policy snapshot."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["Vacation", "HomeOffice", "SpecialLeave", "TimeAdjustment"]
+          },
+          "status": {
+            "type": "string"
+          },
+          "workflowState": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "approverId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "currentApproverId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "substituteId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "substituteAcceptedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "hrConfirmedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "cancelledAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "calculatedDays": {
+            "type": "number"
+          },
+          "halfDayStart": {
+            "type": "boolean"
+          },
+          "halfDayEnd": {
+            "type": "boolean"
+          },
+          "decidedAt": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "decisionNote": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "targetTimeEntryId",
+          "expectedTargetRevision",
+          "targetTimeEntryBefore",
+          "id",
+          "employeeId",
+          "employeeName",
+          "updatedAt",
+          "type",
+          "status",
+          "workflowState",
+          "from",
+          "to",
+          "reason",
+          "requiresApproval",
+          "approverId",
+          "currentApproverId",
+          "substituteId",
+          "substituteAcceptedAt",
+          "hrConfirmedAt",
+          "cancelledAt",
+          "calculatedDays",
+          "halfDayStart",
+          "halfDayEnd",
+          "decidedAt",
+          "decisionNote",
+          "createdAt"
+        ]
+      },
       "CreateRequestDto": {
         "type": "object",
         "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
           "employeeId": {
             "type": "string",
             "format": "uuid"
@@ -7678,7 +8332,7 @@
             "example": "2026-08-07T00:00:00.000Z"
           },
           "reason": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 2000
           }
@@ -7688,6 +8342,16 @@
       "CreateVacationDto": {
         "type": "object",
         "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
           "employeeId": {
             "type": "string",
             "format": "uuid"
@@ -7701,12 +8365,12 @@
             "format": "date-time"
           },
           "substituteId": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "format": "uuid"
           },
           "reason": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 2000
           },
@@ -7723,6 +8387,55 @@
         },
         "required": ["employeeId", "from", "to"]
       },
+      "UpdateDraftRequestDto": {
+        "type": "object",
+        "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "substituteId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "halfDayStart": {
+            "type": "boolean",
+            "default": false,
+            "description": "Take the first day as a half-day"
+          },
+          "halfDayEnd": {
+            "type": "boolean",
+            "default": false,
+            "description": "Take the last day as a half-day"
+          },
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "updatedAt from the version being edited; stale writes return 409"
+          }
+        },
+        "required": ["from", "to", "expectedUpdatedAt"]
+      },
       "TransitionDto": {
         "type": "object",
         "properties": {
@@ -7731,7 +8444,7 @@
             "format": "uuid"
           },
           "note": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 2000
           }
@@ -7746,7 +8459,7 @@
             "format": "uuid"
           },
           "note": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 2000
           },
@@ -7786,7 +8499,7 @@
             }
           },
           "note": {
-            "type": "object",
+            "type": "string",
             "nullable": true,
             "maxLength": 2000
           },

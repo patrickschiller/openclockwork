@@ -1,3 +1,4 @@
+import { TimeAdjustmentDiff, RequestTimeEntryAudit } from './RequestsPage';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -25,6 +26,7 @@ import { api, type BulkResult, type RequestDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { cn } from '@/lib/utils';
 import { useI18n } from '../app/i18n';
+import { TimeEntryApprovals } from '../components/timeentries/TimeEntryApprovals';
 
 type BulkDialog =
   | { mode: 'approve'; ids: string[] }
@@ -106,6 +108,8 @@ export function AdminRequestsPage() {
             : t('approvals.managerInbox')}
         </p>
       </div>
+
+      <TimeEntryApprovals scope="review" />
 
       {bulkOutcome && (
         <BulkResultBanner
@@ -502,7 +506,7 @@ function RequestRow({
           )}
           <div>
             <p className="font-medium">
-              {enumLabel(request.type)} ·{' '}
+              {request.employeeName} · {enumLabel(request.type)} ·{' '}
               {isTimeAdjustment
                 ? `${formatDateTime(request.from)} – ${formatDateTime(request.to)}`
                 : `${formatDate(request.from.slice(0, 10))} – ${formatDate(request.to.slice(0, 10))}`}
@@ -525,6 +529,8 @@ function RequestRow({
           </Button>
         </div>
       </div>
+
+      {isTimeAdjustment && <TimeAdjustmentDiff request={request} />}
 
       {((role === 'Manager' && inManagerInbox) ||
         (role === 'HRAdmin' && (inHrInbox || inManagerInbox))) && (
@@ -624,10 +630,16 @@ function AuditTrail({ requestId }: { requestId: string }) {
         <SheetTitle>{t('requests.auditHistory')}</SheetTitle>
         <SheetDescription>
           {requestQuery.data
-            ? `${enumLabel(requestQuery.data.type)} · ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.from : requestQuery.data.from.slice(0, 10))} – ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.to : requestQuery.data.to.slice(0, 10))}`
+            ? `${requestQuery.data.employeeName} · ${enumLabel(requestQuery.data.type)} · ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.from : requestQuery.data.from.slice(0, 10))} – ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.to : requestQuery.data.to.slice(0, 10))}`
             : '…'}
         </SheetDescription>
       </SheetHeader>
+      {requestQuery.data?.type === 'TimeAdjustment' && (
+        <div className="mt-4 space-y-3">
+          <TimeAdjustmentDiff request={requestQuery.data} />
+          <RequestTimeEntryAudit requestId={requestId} />
+        </div>
+      )}
       <div className="mt-4">
         {eventsQuery.data && eventsQuery.data.length > 0 ? (
           <ol className="space-y-3 text-sm">

@@ -152,6 +152,7 @@ model Employee {
   soloPolicies                  SoloPolicy[]
   personalDays                  PersonalDay[]
   timeEntryAudits                TimeEntryAudit[]
+  frameApprovedEntries          TimeEntry[]                   @relation("FrameApprover")
   installationEvents            InstallationEvent[]
   createdAt                     DateTime                      @default(now())
   updatedAt                     DateTime                      @updatedAt
@@ -204,6 +205,10 @@ model TimeEntry {
   source                            EntrySource                   @default(Manual)
   status                            EntryStatus                   @default(Open)
   requiresApproval                  Boolean                       @default(false)
+  /// Manager sign-off is valid only for the exact revision and current manager.
+  frameApprovedRevision             Int?
+  frameApproverId                   String?                       @db.Uuid
+  frameApprover                     Employee?                     @relation("FrameApprover", fields: [frameApproverId], references: [id], onDelete: SetNull)
   billable                          Boolean                       @default(false)
   revision                          Int                           @default(0)
   voidedAt                          DateTime?
@@ -212,6 +217,7 @@ model TimeEntry {
   /// Historical null values retain Team approval semantics.
   approvalMode                      String?
   auditEvents                       TimeEntryAudit[]
+  correctionRequests                Request[]                     @relation("CorrectionTarget")
   /// Policy snapshot captured at booking; later schedule changes do not rewrite history.
   breakRules                        Json                          @default("[]")
   latitude                          Decimal?                      @db.Decimal(9, 6)
@@ -376,6 +382,11 @@ model Request {
   to                   DateTime
   reason               String?
   requiresApproval     Boolean             @default(false)
+  targetTimeEntryId    String?             @db.Uuid
+  targetTimeEntry      TimeEntry?          @relation("CorrectionTarget", fields: [targetTimeEntryId], references: [id], onDelete: Restrict)
+  expectedTargetRevision Int?
+  targetTimeEntryBefore Json?
+  timeEntryAudits      TimeEntryAudit[]
   calculatedDays       Decimal             @default(0) @db.Decimal(6, 2)
   halfDayStart         Boolean             @default(false)
   halfDayEnd           Boolean             @default(false)
@@ -581,6 +592,8 @@ model Customer {
 }
 
 model TimeEntryAudit {
+  requestId   String?   @db.Uuid
+  request     Request?  @relation(fields: [requestId], references: [id], onDelete: Restrict)
   id          String    @id @default(uuid()) @db.Uuid
   timeEntryId String    @db.Uuid
   timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Restrict)
@@ -593,6 +606,7 @@ model TimeEntryAudit {
   occurredAt  DateTime  @default(now())
 
   @@index([timeEntryId, occurredAt])
+  @@index([requestId])
 }
 
 model PersonalDay {

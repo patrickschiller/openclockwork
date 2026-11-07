@@ -676,6 +676,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/timeentries/approvals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TimeEntriesController_approvalList'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/{id}/approval-history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TimeEntriesController_approvalHistory'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/{id}/approval': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TimeEntriesController_decideApproval'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/timeentries/clock-in': {
     parameters: {
       query?: never;
@@ -1268,6 +1316,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/requests/time-adjustment-targets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['RequestsController_timeAdjustmentTargets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/requests/{id}/time-entry-audit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['RequestsController_timeEntryAudit'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/requests/{id}': {
     parameters: {
       query?: never;
@@ -1281,7 +1361,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    patch: operations['RequestsController_updateDraft'];
     trace?: never;
   };
   '/api/requests/{id}/events': {
@@ -1310,6 +1390,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['RequestsController_createVacation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/requests/{id}/resubmit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['RequestsController_resubmit'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2332,6 +2428,44 @@ export interface components {
       activity: string | null;
       summary: components['schemas']['TimeSummaryDto'] | null;
     };
+    TimeEntryApprovalDto: {
+      entry: components['schemas']['TimeEntryDto'];
+      revision: number;
+      employeeName: string;
+      /** Format: uuid */
+      managerId: string | null;
+      managerName: string | null;
+      /** @enum {string} */
+      state:
+        | 'Open'
+        | 'BlockedManager'
+        | 'PendingManager'
+        | 'PendingHr'
+        | 'Approved'
+        | 'Rejected'
+        | 'Voided';
+      canDecide: boolean;
+    };
+    TimeEntryApprovalEventDto: {
+      /** Format: uuid */
+      requestId: string | null;
+      id: string;
+      /** Format: uuid */
+      actorId: string | null;
+      actorName: string | null;
+      action: string;
+      reason: string | null;
+      /** Format: date-time */
+      occurredAt: string;
+    };
+    DecideTimeEntryApprovalDto: {
+      revision: number;
+      /** @enum {string} */
+      stage: 'Manager' | 'HR';
+      /** @enum {string} */
+      outcome: 'Approve' | 'Reject';
+      note?: string;
+    };
     ClockInDto: {
       note?: string | null;
       billable?: boolean;
@@ -2500,6 +2634,9 @@ export interface components {
       second: components['schemas']['TimeEntryDto'];
     };
     TimeEntryAuditDto: {
+      actorName?: string | null;
+      /** Format: uuid */
+      requestId: string | null;
       /** Format: uuid */
       id: string;
       /** Format: uuid */
@@ -2813,7 +2950,56 @@ export interface components {
       adjustmentDays: number;
       adjustmentReason?: Record<string, never> | null;
     };
+    RequestDto: {
+      /** Format: uuid */
+      targetTimeEntryId: string | null;
+      expectedTargetRevision: number | null;
+      /** @description Immutable server-captured original time-entry values, including id, revision, clockIn, clockOut and break-policy snapshot. */
+      targetTimeEntryBefore: {
+        [key: string]: unknown;
+      } | null;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      employeeId: string;
+      employeeName: string;
+      /** Format: date-time */
+      updatedAt: string;
+      /** @enum {string} */
+      type: 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeAdjustment';
+      status: string;
+      workflowState: string;
+      /** Format: date-time */
+      from: string;
+      /** Format: date-time */
+      to: string;
+      reason: string | null;
+      requiresApproval: boolean;
+      /** Format: uuid */
+      approverId: string | null;
+      /** Format: uuid */
+      currentApproverId: string | null;
+      /** Format: uuid */
+      substituteId: string | null;
+      /** Format: date-time */
+      substituteAcceptedAt: string | null;
+      /** Format: date-time */
+      hrConfirmedAt: string | null;
+      /** Format: date-time */
+      cancelledAt: string | null;
+      calculatedDays: number;
+      halfDayStart: boolean;
+      halfDayEnd: boolean;
+      /** Format: date-time */
+      decidedAt: string | null;
+      decisionNote: string | null;
+      /** Format: date-time */
+      createdAt: string;
+    };
     CreateRequestDto: {
+      /** Format: uuid */
+      targetTimeEntryId?: string | null;
+      expectedTargetRevision?: number | null;
       /** Format: uuid */
       employeeId: string;
       /** @enum {string} */
@@ -2828,9 +3014,12 @@ export interface components {
        * @example 2026-08-07T00:00:00.000Z
        */
       to: string;
-      reason?: Record<string, never> | null;
+      reason?: string | null;
     };
     CreateVacationDto: {
+      /** Format: uuid */
+      targetTimeEntryId?: string | null;
+      expectedTargetRevision?: number | null;
       /** Format: uuid */
       employeeId: string;
       /** Format: date-time */
@@ -2838,8 +3027,8 @@ export interface components {
       /** Format: date-time */
       to: string;
       /** Format: uuid */
-      substituteId?: Record<string, never> | null;
-      reason?: Record<string, never> | null;
+      substituteId?: string | null;
+      reason?: string | null;
       /**
        * @description Take the first day as a half-day
        * @default false
@@ -2851,15 +3040,42 @@ export interface components {
        */
       halfDayEnd: boolean;
     };
+    UpdateDraftRequestDto: {
+      /** Format: uuid */
+      targetTimeEntryId?: string | null;
+      expectedTargetRevision?: number | null;
+      /** Format: date-time */
+      from: string;
+      /** Format: date-time */
+      to: string;
+      /** Format: uuid */
+      substituteId?: string | null;
+      reason?: string | null;
+      /**
+       * @description Take the first day as a half-day
+       * @default false
+       */
+      halfDayStart: boolean;
+      /**
+       * @description Take the last day as a half-day
+       * @default false
+       */
+      halfDayEnd: boolean;
+      /**
+       * Format: date-time
+       * @description updatedAt from the version being edited; stale writes return 409
+       */
+      expectedUpdatedAt: string;
+    };
     TransitionDto: {
       /** Format: uuid */
       actorId: string;
-      note?: Record<string, never> | null;
+      note?: string | null;
     };
     ManagerApproveDto: {
       /** Format: uuid */
       actorId: string;
-      note?: Record<string, never> | null;
+      note?: string | null;
       /** @default false */
       requiresHrConfirmation: boolean;
     };
@@ -2872,7 +3088,7 @@ export interface components {
       /** Format: uuid */
       actorId: string;
       ids: string[];
-      note?: Record<string, never> | null;
+      note?: string | null;
       /** @default false */
       requiresHrConfirmation: boolean;
     };
@@ -4190,6 +4406,73 @@ export interface operations {
       };
     };
   };
+  TimeEntriesController_approvalList: {
+    parameters: {
+      query?: {
+        scope?: 'own' | 'review';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryApprovalDto'][];
+        };
+      };
+    };
+  };
+  TimeEntriesController_approvalHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryApprovalEventDto'][];
+        };
+      };
+    };
+  };
+  TimeEntriesController_decideApproval: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DecideTimeEntryApprovalDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryApprovalDto'];
+        };
+      };
+    };
+  };
   TimeEntriesController_clockIn: {
     parameters: {
       query?: never;
@@ -5059,7 +5342,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'][];
+        };
       };
     };
   };
@@ -5080,7 +5365,52 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
+      };
+    };
+  };
+  RequestsController_timeAdjustmentTargets: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'][];
+        };
+      };
+    };
+  };
+  RequestsController_timeEntryAudit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryAuditDto'][];
+        };
       };
     };
   };
@@ -5099,7 +5429,34 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
+      };
+    };
+  };
+  RequestsController_updateDraft: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateDraftRequestDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5139,7 +5496,34 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
+      };
+    };
+  };
+  RequestsController_resubmit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateDraftRequestDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5162,7 +5546,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5185,7 +5571,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5208,7 +5596,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5231,7 +5621,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5254,7 +5646,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5277,7 +5671,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5300,7 +5696,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5323,7 +5721,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5346,7 +5746,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5369,7 +5771,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
