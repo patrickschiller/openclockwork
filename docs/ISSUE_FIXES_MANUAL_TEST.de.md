@@ -5,10 +5,15 @@
 Dieser Abschnitt ist der **gemeinsame Einstieg für Patrick zu Hause**. Der Branch
 `feat/44-manager-cockpit` enthält kumulativ **#42 + #41 + #43 + #45 + #44**.
 Es sind weder Merges noch Releases oder fünf Branchwechsel erforderlich.
-Die PR-Abhängigkeit bleibt **#46 → #47 → #48 → #49 → Cockpit-PR**; den exakten
+Die PR-Abhängigkeit bleibt **#46 → #47 → #48 → #49 → #50**; den exakten
 abschließend geprüften Head nennen PR und Issue-Kommentar. Die zusätzliche
 Cockpit-Migration ist additiv. Die bestehenden Benutzerdateien im Hauptcheckout
 werden nicht für den Nachtest verwendet.
+Der unabhängig akzeptierte **Codestand** ist
+`1972c52db027b38bcfba3bb9b29a41e5f6e61433`; der folgende reine Doku-Nachtrag
+ändert ihn fachlich nicht. Den abschließend CI-geprüften Dokumentations-Head
+nennen [PR #50](https://github.com/patrickschiller/openclockwork/pull/50) und
+Issue-Kommentar, nicht eine selbstreferenzielle Commit-ID in dieser Datei.
 
 ### Ein Branch, ein neuer lokaler Stack
 
@@ -37,6 +42,12 @@ all5() {
     -p openclockwork-all-five -f docker-compose.test.yml \
     -f /tmp/openclockwork-all-five-compose.yml "$@"
 }
+# Alle Paket-Fixtures und Paket-Kontrollbefehle auf denselben Stack lenken.
+dc42() { all5 "$@"; }
+dc41() { all5 "$@"; }
+dc43() { all5 "$@"; }
+dc45() { all5 "$@"; }
+dc44() { all5 "$@"; }
 all5 build
 all5 up -d --wait
 all5 exec -T -e NODE_ENV=development \
@@ -50,6 +61,30 @@ Den Seed genau einmal auf diesem neuen Stack ausführen. Einstieg:
 und diese URL verwenden. Die älteren paketweisen Setup-/Worktree-/Port-Befehle
 weiter unten sind **Alternativen**, nicht zusätzlich auszuführen. Insbesondere
 nicht erneut seeden und nicht auf fünf andere Branches wechseln.
+
+**Einen Modus pro Shell wählen:** Beim Gesamtnachtest sind `dc42`, `dc41`,
+`dc43`, `dc45` und `dc44` bereits oben als Weiterleitungen zu `all5` definiert.
+Die späteren, ausdrücklich mit **„Nur Einzeltest“** bezeichneten Setup-Blöcke
+überspringen: weder deren Worktree-/Override-Befehle noch deren anders definierte
+Wrapper kopieren. Direkt zu den Szenarien und SQL-Fixtures wechseln; diese
+verwenden immer den ausgewählten Paket-Wrapper. Paketweise Stopps während des
+Gesamtnachtests ebenfalls überspringen und erst ganz am Ende `all5 stop` nutzen.
+Alle später genannten Ports `18041`–`18045` gelten **nur für Einzeltests**;
+im Gesamtnachtest bleibt jede Oberfläche auf **18050**.
+
+| Modus | Wrapper für Fixture/Steuerung | Compose-Projekt | Web-Port |
+| --- | --- | --- | --- |
+| Gesamtnachtest aller fünf | `dc42` / `dc41` / `dc43` / `dc45` / `dc44` → `all5` | `openclockwork-all-five` | 18050 |
+| Nur Einzeltest #42 | eigenes `dc42` aus dem #42-Setup | `openclockwork-issue42` | 18042 |
+| Nur Einzeltest #41 | eigenes `dc41` aus dem #41-Setup | `openclockwork-issue41` | 18041 |
+| Nur Einzeltest #43 | eigenes `dc43` aus dem #43-Setup | `openclockwork-issue43` | 18043 |
+| Nur Einzeltest #45 | eigenes `dc45` aus dem #45-Setup | `openclockwork-issue45` | 18045 |
+| Nur Einzeltest #44 | eigenes `dc44` aus dem #44-Setup | `openclockwork-issue44` | 18044 |
+
+Die Abschnitte **„Automatisch ausgeführte Gates“ / „Automatische Verifikation“**
+sind historische Automationsnachweise, keine zusätzlich auszuführenden Schritte
+dieses Heimnachtests. Insbesondere keine weitere E2E-Datenbank starten und keine
+E2E-Test-Suite gegen die manuelle Compose-Datenbank richten.
 
 | Rolle           | Synthetisches Konto                 | Verwendung                                            |
 | --------------- | ----------------------------------- | ----------------------------------------------------- |
@@ -95,8 +130,8 @@ Alle Schritte laufen auf `localhost:18050` und demselben kombinierten Branch.
    gegen 40 h Soll, Vertragswechsel mitten in der Woche, Feiertag/Halbtag).
    Ohne bestätigte Historie sind Soll/Differenz unbekannt, nicht 0. Eine spätere
    operative Profil-/Planänderung darf historische Vertragssnapshots nicht
-   überschreiben. Für den SQL-Fixture-Block aus #45 kann die Abkürzung
-   `dc45() { all5 "$@"; }` definiert werden; dessen separates Setup überspringen.
+   überschreiben. Für den SQL-Fixture-Block aus #45 ist `dc45` oben bereits
+   richtig definiert; dessen separates Setup überspringen.
 5. **#44 – volles Cockpit:** Als Marc über die Navigation das Manager-Cockpit
    öffnen. Buchungsstatus, bekannte Kernzeitpflicht und unbestimmbare Fälle
    getrennt prüfen; beide Genehmigungsarten direkt bearbeiten; stellvertretend
@@ -126,6 +161,25 @@ Tatsächlich ausgeführte automatisierte Gesamt-Gates und ein gegebenenfalls rea
 laufender Browser-/Runtime-Smoke sind im letzten Paketabschnitt mit Ergebnis
 getrennt dokumentiert.
 
+### Geprüfte Stack-Auswahl dieses Doku-Nachtrags
+
+Die kopierten Shell-Wrapper und Fixture-/Kontrollaufrufe wurden für **beide
+Modi** geprüft: 19 Bash-Blöcke syntaktisch gültig, **42** aufgezeichnete
+Befehlsweiterleitungen und **10 echte, ausschließlich lesende** Compose-
+Konfigurationen (je #42/#41/#43/#45/#44 kombiniert und einzeln). Geprüft sind
+Projektname, Loopback-Port, Images, API-CORS-Port und projektgebundene Volumes.
+Beispielsweise zeigt `dc41 config --format json` im Gesamtnachtest
+`openclockwork-all-five`/18050, im Einzeltest `openclockwork-issue41`/18041.
+Entsprechend gelten die übrigen Zeilen der Modustabelle.
+
+Alle **fünf SQL-Heredocs** sind bytegleich zum akzeptierten Codestand geblieben.
+Für die Zielprüfung wurden mutierende Docker-Aufrufe nur aufgezeichnet, nicht
+weitergeleitet; Override-Inhalte lagen für `config` ausschließlich in einem
+frischen temporären Verzeichnis. Kein realer Stack wurde erzeugt, gestartet,
+verändert oder gestoppt, kein SQL erneut ausgeführt. Keine unveränderten lokalen
+Code-Volltests wiederholt; die regulären GitHub-Gates prüfen den neuen Doku-Head
+separat, dessen Ergebnis in PR #50 und Issue-Kommentar steht.
+
 ## Paket #42 – zurückgegebene Anträge bearbeiten
 
 - Issue: <https://github.com/patrickschiller/openclockwork/issues/42>
@@ -135,10 +189,13 @@ getrennt dokumentiert.
   Migration erforderlich: Die vorhandenen Felder `updatedAt` und `workflowState`
   sichern Schreibzugriffe ab; das vorhandene Ereignis `Resubmitted` wird verwendet.
 
-### Isoliertes lokales Setup
+### Nur Einzeltest #42: isoliertes lokales Setup
+
+**Gesamtnachtest:** Dieses gesamte Setup überspringen; `dc42` und Port 18050
+sind oben bereits festgelegt. Mit Abschnitt A fortfahren.
 
 Die Grundlage ist [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md).
-Für diesen Nachtest **nicht** die bestehenden Solo-/Team-Projekte wiederverwenden.
+Für diesen Einzeltest **nicht** die bestehenden Solo-/Team-Projekte wiederverwenden.
 Eigene Projekt-, Image-Namen und Port vermeiden Änderungen an anderen Teststacks.
 Nur synthetische Daten verwenden; weder Produktivdaten importieren noch eine
 vorhandene `.env` laden.
@@ -163,17 +220,16 @@ services:
     image: openclockwork-web:issue42-local
 YAML
 
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml build
+dc42() {
+  TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
+    -p openclockwork-issue42 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-42-compose.yml "$@"
+}
+dc42 build
 
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml up -d --wait
+dc42 up -d --wait
 
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml exec -T \
+dc42 exec -T \
   -e NODE_ENV=development \
   -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
   api node --import tsx prisma/seed.ts
@@ -399,7 +455,10 @@ nacheinander starten. Es wurde dafür keine Projektkonfiguration geändert.
 Weitere nicht blockierende Ausgaben: React-Router-Future-Hinweise,
 Node-localStorage-Hinweis und veraltete Browserslist-Daten.
 
-Reproduzierbare API-Testumgebung (ausschließlich neue synthetische Testinstanz):
+**Optionaler separater Entwickler-Nachlauf, nicht Teil des manuellen
+Gesamtnachtests:** Reproduzierbare API-Testumgebung ausschließlich auf einer
+neuen synthetischen E2E-Instanz. Im Heimnachtest diesen Block überspringen;
+niemals die manuelle Compose-Datenbank als E2E-Resetziel verwenden:
 
 ```bash
 docker run --name openclockwork-issue-42-db \
@@ -417,21 +476,22 @@ Die Test-Suite prüft den Testdatenbanknamen vor Migration/Reset. Ein vorhandene
 `DATABASE_URL` muss entfernt oder bewusst auf dieselbe isolierte Instanz gesetzt
 werden; widersprüchliche Ziele werden abgewiesen.
 
-### Stoppen, Daten erhalten
+### Nur Einzeltest #42: stoppen, Daten erhalten
+
+Beim Gesamtnachtest diesen Zwischenstopp überspringen und mit #41 fortfahren.
+`dc42` bleibt in beiden Modi auf den gewählten Stack gebunden.
 
 ```bash
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml stop
+dc42 stop
 ```
 
-Zum Fortsetzen denselben `up -d --wait`-Befehl verwenden, **nicht** erneut seeden.
+Zum Fortsetzen `dc42 up -d --wait` verwenden, **nicht** erneut seeden.
 Kein `down -v`: Das würde die Nachtestdaten löschen. Weitere Pakete ergänzen
 diese Anleitung erst bei ihrer jeweiligen Implementierung.
 
 ## Paket #41 – Freigabe normaler Buchungen außerhalb der Rahmenzeit
 
-### Branch, Abhängigkeit und isoliertes Setup
+### Branch, Abhängigkeit und Setup nur für Einzeltest #41
 
 - Branch: `fix/41-outside-frame-approval`.
 - Worktree: `/Users/patrickschiller/openclockwork-issue-41`.
@@ -444,8 +504,13 @@ diese Anleitung erst bei ihrer jeweiligen Implementierung.
   Signaturfelder. Bestehende Buchungswerte, Revisionen und Historien bleiben
   erhalten; alte ausstehende Buchungen beginnen bei der Managerprüfung.
 
+**Gesamtnachtest:** Den folgenden Einzeltest-Setup-Block überspringen, `dc41`
+von ganz oben beibehalten und direkt mit Abschnitt A bzw. Fixture B fortfahren.
+Oberfläche bleibt Port 18050; keine weitere Override-Datei erforderlich.
+
 Grundlage weiterhin [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md).
-Einen separaten Stack verwenden; keine bestehenden Projekte/Volumes löschen.
+Nur beim Einzeltest einen separaten Stack verwenden; keine bestehenden
+Projekte/Volumes löschen.
 Im #41-Worktree oder einem neuen Checkout dieses Branches:
 
 ```bash
@@ -461,17 +526,16 @@ services:
     image: openclockwork-web:issue41-local
 YAML
 
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml build
+dc41() {
+  TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
+    -p openclockwork-issue41 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-41-compose.yml "$@"
+}
+dc41 build
 
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml up -d --wait
+dc41 up -d --wait
 
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml exec -T \
+dc41 exec -T \
   -e NODE_ENV=development \
   -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
   api node --import tsx prisma/seed.ts
@@ -511,16 +575,16 @@ Rolle HRAdmin ersetzt diese erste Stufe ausdrücklich nicht.
 ### B. Reproduzierbare Legacy-Ausgangsbuchungen
 
 Zum gezielten Nachtest alter ausstehender Einträge können auf **diesem neuen
-synthetischen Stack** drei feste Intervalle angelegt werden. Die Seed-Zeiten
+synthetischen Stack** drei feste Intervalle angelegt werden. `dc41` wählt
+im Gesamtnachtest `all5`/18050, im Einzeltest den eigenen #41-Stack/18041.
+Die Seed-Zeiten
 liegen relativ zum aktuellen Datum; vorab prüfen, dass die folgenden historischen
 Oktobertage frei sind. Bei Konflikt keine vorhandenen Daten ändern, sondern
 freie Tage im SQL wählen. Die neuen Spalten absichtlich nicht setzen:
 Das bildet die Altbestands-Situation nach der Migration ab.
 
 ```bash
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml exec -T db \
+dc41 exec -T db \
   psql -U openclockwork -d openclockwork_test -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO "TimeEntry" (
   "id", "employeeId", "clockIn", "clockOut", "source", "status",
@@ -652,12 +716,12 @@ Der manuelle Docker-/Browser-Durchlauf aus dieser Anleitung wurde **nicht**
 als durchgeführt oder bestanden gewertet. Keine Release-, Tag-, Versions-,
 Merge- oder Deployment-Aktion.
 
-Zum Stoppen mit Datenerhalt:
+**Nur Einzeltest #41:** Zum Stoppen mit Datenerhalt den gewählten Wrapper
+verwenden. Beim Gesamtnachtest diesen Zwischenstopp überspringen und mit #43
+fortfahren. Den Gesamtnachtest erst ganz am Ende über `all5 stop` beenden.
 
 ```bash
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml stop
+dc41 stop
 ```
 
 Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #43, #45 und #44 sind
@@ -665,7 +729,7 @@ noch nicht Bestandteil dieses Pakets.
 
 ## Paket #43 – bestehende Zeitbuchung gezielt korrigieren
 
-### Branch, Abhängigkeiten und isolierter Teststack
+### Branch, Abhängigkeiten und Setup nur für Einzeltest #43
 
 - Branch: `fix/43-existing-entry-correction`.
 - Worktree: `/Users/patrickschiller/openclockwork-issue-43`.
@@ -677,8 +741,12 @@ noch nicht Bestandteil dieses Pakets.
   Ziel-ID/Originalrevision/Originalsnapshot und ein Request-Link im Buchungsaudit.
   Bestehende fehlende-Buchung-Anträge bleiben ohne erfundene Zielbindung.
 
-Weiterhin [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md) verwenden, aber
-separates Compose-Projekt, Images und Port. Keine vorhandenen Volumes löschen:
+**Gesamtnachtest:** Den folgenden Einzeltest-Setup-Block überspringen, `dc43`
+von ganz oben beibehalten und direkt mit Fixture A fortfahren. Oberfläche bleibt
+Port 18050; keine weitere Override-Datei erforderlich.
+
+Nur beim Einzeltest [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md) mit einem
+separaten Compose-Projekt, Images und Port verwenden. Keine Volumes löschen:
 
 ```bash
 git fetch origin
@@ -693,17 +761,16 @@ services:
     image: openclockwork-web:issue43-local
 YAML
 
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml build
+dc43() {
+  TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
+    -p openclockwork-issue43 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-43-compose.yml "$@"
+}
+dc43 build
 
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml up -d --wait
+dc43 up -d --wait
 
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml exec -T \
+dc43 exec -T \
   -e NODE_ENV=development \
   -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
   api node --import tsx prisma/seed.ts
@@ -722,12 +789,11 @@ Zwei unterschiedliche, freie Tage verwenden, damit beide ursprünglichen
 Issue-Beispiele separat durchspielbar sind. Die relative Seed-Zeiterfassung liegt
 nahe dem Ausführungsdatum; vorab prüfen, dass die folgenden historischen Tage
 frei sind. Bei Konflikt einen anderen freien Tag wählen, keine bestehenden
-Buchungen löschen.
+Buchungen löschen. `dc43` wählt im Gesamtnachtest `all5`/18050, im Einzeltest
+den eigenen #43-Stack/18043.
 
 ```bash
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml exec -T db \
+dc43 exec -T db \
   psql -U openclockwork -d openclockwork_test -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO "TimeEntry" (
   "id", "employeeId", "clockIn", "clockOut", "source", "status",
@@ -915,12 +981,12 @@ Der ausführliche manuelle Docker-/Browser-Nachtest oben wurde **nicht**
 als durchgeführt oder bestanden behauptet. Keine Releases, Tags, Versionsbumps,
 Merges, Deployments oder Release-Workflows.
 
-Zum Stoppen mit Datenerhalt:
+**Nur Einzeltest #43:** Zum Stoppen mit Datenerhalt den gewählten Wrapper
+verwenden. Beim Gesamtnachtest diesen Zwischenstopp überspringen und mit #45
+fortfahren; erst ganz am Ende `all5 stop` nutzen.
 
 ```bash
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml stop
+dc43 stop
 ```
 
 Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #45 und #44 folgen erst
@@ -989,10 +1055,15 @@ Keine erneuten lokalen Volltests für diese reine Textkorrektur.
   PDF bleibt HR vorbehalten; ein PDF-Funktionsausbau gehört nicht zum Umfang
   dieses Soll/Ist-Pakets.
 
-### A. Eigenständiges lokales Setup und synthetische Prüfdaten
+### A. Auswahl des Stacks und gemeinsame Prüfdaten
 
-Die Voraussetzungen aus [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md)
-verwenden, aber einen **eigenen** Stack auf Port `18045` starten. Keine bestehende
+**Gesamtnachtest:** Nur den folgenden Setup-Block überspringen. `dc45` von
+oben beibehalten und anschließend den gemeinsamen SQL-Fixture-Block in diesem
+Abschnitt ausführen. Oberfläche bleibt Port 18050.
+
+**Nur Einzeltest #45:** Die Voraussetzungen aus
+[LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md) verwenden und einen
+**eigenen** Stack auf Port `18045` starten. Keine bestehende
 Datenbank, `.env` oder Produktivdaten verwenden:
 
 ```bash
@@ -1028,7 +1099,9 @@ bereits bestehende Vertragsperioden bei einem erneuten Seed nicht um.
 
 Für reproduzierbare Zahlen unabhängig von sonstigen Seed-Buchungen zwei
 **neue** synthetische Mitarbeiter ohne bestätigte Historie und fünf geschlossene
-Testbuchungen anlegen. Diesen SQL-Block nur im eben angelegten Teststack ausführen,
+Testbuchungen anlegen. `dc45` wählt im Gesamtnachtest `all5`/18050, im
+Einzeltest den eigenen #45-Stack/18045. Diesen SQL-Block nur im gewählten
+Teststack ausführen,
 auf einer frischen Instanz genau einmal. Keine vorhandenen Buchungen ändern:
 
 ```bash
@@ -1200,8 +1273,10 @@ Loopback-Listener-Lebensdauer pro Suite; keine Retries oder schwächeren
 HTTP-Assertions. Die vollständigen Nachläufe mit diesem Listener waren grün.
 Builds und Typechecks liefen getrennt, ohne `dist`-Rennen.
 
-Stoppen ohne Datenverlust: `dc45 stop`. Zum Fortsetzen `dc45 up -d --wait`;
-kein erneuter Seed und kein `down -v`.
+**Nur Einzeltest #45:** Stoppen ohne Datenverlust: `dc45 stop`. Zum Fortsetzen
+`dc45 up -d --wait`; kein erneuter Seed und kein `down -v`. Beim Gesamtnachtest
+hier nicht stoppen, sondern mit #44 fortfahren und erst abschließend `all5 stop`
+verwenden.
 
 ## #44 – vollständiges Manager-Cockpit
 
@@ -1209,14 +1284,48 @@ kein erneuter Seed und kein `down -v`.
 `3a2361d0d2d25f23ce030ce751cf67873aedbf8f`. Das Paket umfasst die zentrale
 Teamübersicht, **beide** Genehmigungsarten, echte stellvertretende Zeiterfassung
 und Abwesenheiten sowie Detailhistorie **und** Kalender. Der PR ist kumulativ;
-Reihenfolge **#46 → #47 → #48 → #49 → Cockpit-PR**, alle gegen `main` für die
+Reihenfolge **#46 → #47 → #48 → #49 → #50**, alle gegen `main` für die
 bestehende CI. Nicht vor den Abhängigkeiten einzeln mergen.
 
-### A. Gemeinsames Setup und reproduzierbare Person
+### A. Gewählten Stack verwenden und reproduzierbare Person
 
-Den Abschnitt **„Gesamtnachtest aller fünf Pakete“ ganz oben** verwenden:
-`all5`, Projekt `openclockwork-all-five`, Port **18050**, einmaliger synthetischer
-Seed. Kein weiterer Stack, Branchwechsel oder Seed notwendig. Die folgenden
+**Gesamtnachtest:** Das Setup ganz oben verwenden: `dc44` leitet bereits an
+`all5`, Projekt `openclockwork-all-five`, Port **18050** weiter. Den folgenden
+Einzeltest-Setup-Block vollständig überspringen. Kein weiterer Stack,
+Branchwechsel oder Seed notwendig.
+
+**Nur Einzeltest #44 – Alternative zum Gesamtnachtest:** In einer separaten
+Shell einen neuen Test-Worktree und eigenen Stack verwenden. Nicht zusätzlich
+zum Gesamtnachtest ausführen; keine vorhandenen Daten/Volumes verwenden.
+
+```bash
+git fetch origin
+git worktree add --detach ../openclockwork-44-manual origin/feat/44-manager-cockpit
+cd ../openclockwork-44-manual
+cat > /tmp/openclockwork-44-compose.yml <<'YAML'
+services:
+  api:
+    image: openclockwork-api:issue44-local
+  web:
+    image: openclockwork-web:issue44-local
+YAML
+dc44() {
+  TEST_WEB_PORT=18044 docker compose --env-file /dev/null \
+    -p openclockwork-issue44 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-44-compose.yml "$@"
+}
+dc44 build
+dc44 up -d --wait
+dc44 exec -T -e NODE_ENV=development \
+  -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
+  api node --import tsx prisma/seed.ts
+```
+
+Nur im Einzeltest: Oberfläche <http://localhost:18044>, Seed einmal auf dem
+neuen Stack, dieselben synthetischen Rollen wie oben. `dc44` ist dann auf diesen
+Einzeltest gebunden. Im Gesamtnachtest bleiben Alias und Port 18050 unverändert.
+
+**Ab hier beide Modi:** Die folgenden
 SQL-Befehle sind ausschließlich Fixture-Vorbereitung auf **dieser neuen lokalen
 Testdatenbank**. Keine Produktivdaten, keine künstliche rückwirkende
 Vertragshistorie. Das Demo-Passwort wird nur aus dem synthetischen Seed übernommen.
@@ -1227,7 +1336,7 @@ kein allgemeines Anwesenheitsmodell. Damit ist der Kernzeitfall auch am Wochenen
 prüfbar. Zwischen 00:01 und 23:58 Berliner Zeit gilt die bekannte Kernzeit.
 
 ```bash
-all5 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test <<'SQL'
+dc44 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test <<'SQL'
 BEGIN;
 INSERT INTO "WorkSchedule" (
   "id", "name", "frameStart", "frameEnd", "workingDays", "breakRules", "updatedAt"
@@ -1386,7 +1495,7 @@ Für alle vier Modi dieselben Negativfälle prüfen:
 Auditkontrolle auf genau der isolierten Testdatenbank:
 
 ```bash
-all5 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test -c \
+dc44 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test -c \
  'SELECT "action", "actorId", "employeeId", "resourceKind", "resourceId", "reason", "occurredAt"
   FROM "TeamProxyAudit" WHERE "employeeId" = '\''00000000-0000-4000-8000-000000004401'\''
   ORDER BY "occurredAt";'
@@ -1432,7 +1541,7 @@ keinen erfundenen Vertrag. Bei wiederholtem Ausführen verhindert der Marker
 Duplikate. Danach genau das Vorjahr im Jahresfilter wählen.
 
 ```bash
-all5 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test <<'SQL'
+dc44 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test <<'SQL'
 INSERT INTO "TimeEntry" (
   "id", "employeeId", "clockIn", "clockOut", "source", "status",
   "requiresApproval", "breakRules", "note", "updatedAt"
@@ -1472,8 +1581,10 @@ Keine Mock-API, keine realen Daten, keine gespeicherten Auth-Traces.
 
 Der opt-in Test prüft vor Mutationen lokalen Docker-Kontext, exaktes Compose-
 Projekt, synthetische Datenbank und Loopback-Port. Er ist nicht gegen ein
-beliebiges Deployment ausführbar. Nach obigem einmaligem Setup, auf einem
-Node-20-/pnpm-9-Entwicklerrechner mit installierten Abhängigkeiten und Chromium:
+beliebiges Deployment ausführbar. Nur nach dem **kombinierten Setup** mit
+Projekt `openclockwork-all-five` und Port 18050 ausführen, nicht gegen den
+alternativen Einzeltest auf 18044. Auf einem Node-20-/pnpm-9-Entwicklerrechner
+mit installierten Abhängigkeiten und Chromium:
 
 ```bash
 pnpm exec playwright install chromium
@@ -1523,5 +1634,7 @@ Commits übertragen werden. Menschlicher Gesamtnachtest zu Hause und unabhängig
 Abnahme durch unabhängiges Review sind damit nicht vorweggenommen. Kein Merge, Release,
 Tag, Versionsbump oder Deployment.
 
-Lokal zum Ende `all5 stop`; Daten/Attachments bleiben für eine Fortsetzung
+Zum Ende `dc44 stop` verwenden: im Gesamtnachtest entspricht das `all5 stop`,
+im Einzeltest stoppt es ausschließlich `openclockwork-issue44`. Fortsetzen mit
+`dc44 up -d --wait` in derselben Wrapper-Auswahl; Daten/Attachments bleiben
 vorhanden. Keine Volumes löschen und nicht erneut seeden.
