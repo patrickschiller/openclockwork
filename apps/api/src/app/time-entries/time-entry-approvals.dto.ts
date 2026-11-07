@@ -56,6 +56,8 @@ export class DecideTimeEntryApprovalDto {
 }
 
 export class TimeEntryApprovalEventDto {
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  requestId!: string | null;
   @ApiProperty()
   id!: string;
   @ApiProperty({ type: String, nullable: true, format: 'uuid' })

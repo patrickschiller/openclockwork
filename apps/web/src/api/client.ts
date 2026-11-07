@@ -191,6 +191,38 @@ export interface TimeEntryDto {
   summary: TimeSummaryDto | null;
 }
 
+/** Eligibility and revision are server-authoritative; this endpoint is own-only. */
+export interface TimeAdjustmentTargetDto extends TimeEntryDto {
+  revision: number;
+}
+
+export interface TimeEntryBeforeSnapshot {
+  id: string;
+  revision: number;
+  clockIn: string;
+  clockOut: string;
+  status: string;
+  projectId: string | null;
+  serviceOrderId: string | null;
+  activity: string | null;
+  breakRules: unknown;
+  captureGroupId: string | null;
+  approvalMode: string | null;
+}
+
+export interface TimeEntryAuditDto {
+  actorName?: string | null;
+  id: string;
+  timeEntryId: string;
+  actorId: string | null;
+  action: string;
+  before: unknown;
+  after: unknown;
+  reason: string | null;
+  occurredAt: string;
+  requestId: string | null;
+}
+
 export type TimeEntryApprovalState =
   | 'Open'
   | 'BlockedManager'
@@ -218,6 +250,7 @@ export interface TimeEntryApprovalDecision {
 }
 
 export interface TimeEntryApprovalEventDto {
+  requestId?: string | null;
   id: string;
   actorId: string | null;
   actorName: string | null;
@@ -400,6 +433,9 @@ export interface AccountDto {
 }
 
 export interface RequestDto {
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
+  targetTimeEntryBefore?: TimeEntryBeforeSnapshot | null;
   id: string;
   employeeId: string;
   employeeName: string;
@@ -566,6 +602,8 @@ export interface UpsertWorkSchedulePayload {
 }
 
 export interface CreateRequestPayload {
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
   employeeId: string;
   type: RequestType;
   from: string;
@@ -588,6 +626,8 @@ export interface UpdateDraftRequestPayload extends Omit<
   'employeeId'
 > {
   expectedUpdatedAt: string;
+  targetTimeEntryId?: string | null;
+  expectedTargetRevision?: number | null;
 }
 
 export interface UpsertLeaveAllowancePayload {
@@ -1099,6 +1139,10 @@ export const api = {
     const qs = params.toString();
     return request<RequestDto[]>(`/api/requests${qs ? `?${qs}` : ''}`);
   },
+  timeAdjustmentTargets: () =>
+    request<TimeAdjustmentTargetDto[]>('/api/requests/time-adjustment-targets'),
+  requestTimeEntryAudit: (id: string) =>
+    request<TimeEntryAuditDto[]>(`/api/requests/${id}/time-entry-audit`),
   getRequest: (id: string) => request<RequestDto>(`/api/requests/${id}`),
   getRequestEvents: (id: string) =>
     request<RequestEventDto[]>(`/api/requests/${id}/events`),

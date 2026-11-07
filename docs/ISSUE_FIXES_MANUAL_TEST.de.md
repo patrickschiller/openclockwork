@@ -536,3 +536,262 @@ TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
 
 Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #43, #45 und #44 sind
 noch nicht Bestandteil dieses Pakets.
+
+## Paket #43 – bestehende Zeitbuchung gezielt korrigieren
+
+### Branch, Abhängigkeiten und isolierter Teststack
+
+- Branch: `fix/43-existing-entry-correction`.
+- Worktree: `/Users/patrickschiller/openclockwork-issue-43`.
+- Basis: akzeptierter #41-Head `dbe68f57a93ba26bdc315d31fd4b313586a4337b`.
+- Kumulativ enthält der neue PR **#42 + #41 + #43**, Ziel weiterhin `main`
+  für sämtliche CI-Jobs. Abhängigkeit und vorgesehene Reihenfolge:
+  **PR #46 → PR #47 → #43-PR**. Keine dieser Änderungen wird hier gemergt.
+- Additive Migration `20261107040000_targeted_time_corrections`: optionale
+  Ziel-ID/Originalrevision/Originalsnapshot und ein Request-Link im Buchungsaudit.
+  Bestehende fehlende-Buchung-Anträge bleiben ohne erfundene Zielbindung.
+
+Weiterhin [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md) verwenden, aber
+separates Compose-Projekt, Images und Port. Keine vorhandenen Volumes löschen:
+
+```bash
+git fetch origin
+git worktree add ../openclockwork-43-manual origin/fix/43-existing-entry-correction
+cd ../openclockwork-43-manual
+
+cat > /tmp/openclockwork-43-compose.yml <<'YAML'
+services:
+  api:
+    image: openclockwork-api:issue43-local
+  web:
+    image: openclockwork-web:issue43-local
+YAML
+
+TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
+  -p openclockwork-issue43 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-43-compose.yml build
+
+TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
+  -p openclockwork-issue43 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-43-compose.yml up -d --wait
+
+TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
+  -p openclockwork-issue43 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-43-compose.yml exec -T \
+  -e NODE_ENV=development \
+  -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
+  api node --import tsx prisma/seed.ts
+```
+
+Seed nur einmal auf diesem **leeren synthetischen Stack** ausführen.
+Oberfläche: <http://localhost:18043>; Server und Browser für die Beispiele auf
+Europe/Berlin stellen. Synthetische Rollen aus den vorigen Paketen:
+Anna beantragt, Marc ist zugewiesener Manager, Hannah bestätigt als HR,
+Bernd prüft Fremdzugriff. Lokales initiales Seed-Passwort: `openclockwork`.
+Keine echten Daten oder Tokens verwenden.
+
+### A. Reproduzierbare bestehende 08:00–16:00-Buchungen
+
+Zwei unterschiedliche, freie Tage verwenden, damit beide ursprünglichen
+Issue-Beispiele separat durchspielbar sind. Die relative Seed-Zeiterfassung liegt
+nahe dem Ausführungsdatum; vorab prüfen, dass die folgenden historischen Tage
+frei sind. Bei Konflikt einen anderen freien Tag wählen, keine bestehenden
+Buchungen löschen.
+
+```bash
+TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
+  -p openclockwork-issue43 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-43-compose.yml exec -T db \
+  psql -U openclockwork -d openclockwork_test -v ON_ERROR_STOP=1 <<'SQL'
+INSERT INTO "TimeEntry" (
+  "id", "employeeId", "clockIn", "clockOut", "source", "status",
+  "approvalMode", "breakRules", "note", "updatedAt"
+)
+SELECT fixture.id::uuid, employee.id, fixture.start_at::timestamptz,
+  fixture.end_at::timestamptz, 'Pwa', 'Approved', 'Team',
+  '[{"afterMinutes":360,"breakMinutes":30},{"afterMinutes":540,"breakMinutes":45}]'::jsonb,
+  'Synthetische Originalbuchung #43', CURRENT_TIMESTAMP
+FROM "Employee" employee
+CROSS JOIN (VALUES
+  ('00000000-0000-4000-8000-000000004301', '2026-10-12T06:00:00Z', '2026-10-12T14:00:00Z'),
+  ('00000000-0000-4000-8000-000000004302', '2026-10-13T06:00:00Z', '2026-10-13T14:00:00Z')
+) AS fixture(id, start_at, end_at)
+WHERE employee.email = 'anna.mueller@openclockwork.test'
+ON CONFLICT ("id") DO NOTHING;
+SQL
+```
+
+1. Als Anna die Buchungen unter **Buchen** ansehen, IDs, Zeiten, Anzahl und
+   Saldo notieren. In den Oktoberbeispielen entsprechen 06:00Z–14:00Z lokal
+   08:00–16:00. Mit dem gespeicherten Pausenschema sind das 480 Minuten brutto,
+   30 Minuten Pause, 450 Minuten netto.
+2. **Anträge → Neuer Antrag → Zeitkorrektur** öffnen. Explizit
+   **bestehende Buchung korrigieren** statt **fehlende Buchung** wählen.
+   Eine eigene vorhandene Buchung auswählen. Erwartet: Zeiten exakt vorbelegt,
+   Original-ID und Originalrevision gebunden, verständliche
+   **Vorher → Vorgeschlagen**-Gegenüberstellung.
+3. Erste Buchung von **08:00–16:00 auf 08:00–17:00** ändern und einreichen.
+   Bis zur finalen Genehmigung bleibt die Originalbuchung unverändert.
+   Marc sieht Original-/Vorschlagswerte im Genehmigungskontext.
+4. Als Marc innerhalb des normalen Rahmens genehmigen. Erwartet: **dieselbe
+   Buchungs-ID**, keine zusätzliche Buchung, Revision um eins erhöht.
+   Projekt/Auftrag, Tätigkeit, Notiz, Abrechenbarkeit und ursprüngliche
+   Pausenregel bleiben erhalten. Bei diesem Pausenschema: 540 Minuten brutto,
+   45 Pause, 495 netto; Saldoänderung **+45**, nicht eine doppelte 9-Stunden-Buchung.
+5. Zweite Buchung separat auf **09:00–16:00** korrigieren und genehmigen.
+   Erwartet: gleiche ID, 420 brutto, 30 Pause, 390 netto; Delta **−60**.
+   Die erste Korrektur und alle anderen Tagesbuchungen bleiben unberührt.
+6. Im Antrag/Verlauf stehen ursprünglicher und vorgeschlagener Stand, tatsächliche
+   Entscheidung und verknüpftes Buchungsaudit. Das neue Audit enthält echten
+   Akteur, Zeitpunkt, Vorher/Nachher und Request-ID; alte Auditereignisse bleiben.
+7. Die Auswahl einer **fehlenden Buchung** separat in einem wirklich freien
+   Intervall testen: kein Ziel erforderlich, nach endgültiger Freigabe entsteht
+   genau eine neue Buchung wie bisher.
+
+### B. Außenrahmen, Draft, Version und Datenschutz
+
+1. Einen freien Vorschlag außerhalb Annas konfigurierten Rahmens wählen.
+   Marc genehmigt zunächst nur den Antrag: **PendingHr**; die Buchung bleibt
+   bis zu Hannahs Bestätigung unverändert. Erst HR aktualisiert dieselbe ID.
+   Weder vorhandene alte #41-Genehmigungen noch eine deaktivierte HR-Checkbox
+   dürfen die Prüfung der **neuen Werte** ersetzen.
+2. Marc gibt einen gezielten Korrekturantrag zurück. Anna öffnet den Entwurf:
+   Vorschlag, ursprünglicher Vergleich, Ziel-ID und Originalrevision bleiben
+   erhalten. Nur Grund ändern, speichern, wieder öffnen und erneut einreichen.
+   Ziel und gebundene Revision dürfen sich dabei nicht still auf einen
+   inzwischen neuen Serverstand verschieben.
+3. Das Ziel in einem anderen Tab nachträglich ändern/aufteilen oder über #41
+   entscheiden, sodass seine Revision steigt. Alter Korrekturantrag:
+   **409**, keine Änderung an Buchung, Antrag oder Audit durch diesen Versuch.
+   Aktuellen Stand prüfen, alten Antrag stornieren und einen neuen mit der
+   aktuellen Zielversion anlegen. Ziel/Originalrevision sind absichtlich auch
+   im Entwurf unveränderlich.
+4. Mit Bernds Token Annas Ziel-ID verwenden; oder `employeeId` im Body fälschen:
+   kein Zugriff. Auswahl liefert ausschließlich eigene berechtigte Ziele.
+   Offene, verworfene, abgelehnte und Solo-Buchungen sind keine zulässigen Ziele.
+5. In einem getrennten Solo-Teststack die bestehenden direkten Owner-Korrekturen
+   prüfen: unverändert. Team-Anträge erlauben keinen Umweg an den Solo-Owner-
+   Berechtigungen vorbei.
+
+### C. API-Negativ-/Konkurrenzfälle
+
+Nur im isolierten Teststack aus den Browser-Netzwerkdetails wiederholen.
+Keine echten Bearer-Token in Dokumente/Issues kopieren.
+
+`GET /api/requests/time-adjustment-targets` liefert berechtigte eigene Ziele
+einschließlich `revision`. Gezielter Antrag, z. B. für das erste Oktoberbeispiel:
+
+```json
+{
+  "employeeId": "<Anna-ID; der Server verwendet ausschließlich die JWT-Identität>",
+  "type": "TimeAdjustment",
+  "from": "2026-10-12T06:00:00.000Z",
+  "to": "2026-10-12T15:00:00.000Z",
+  "targetTimeEntryId": "00000000-0000-4000-8000-000000004301",
+  "expectedTargetRevision": 0,
+  "reason": "Synthetischer Nachtest #43"
+}
+```
+
+Die aktuelle Zielrevision verwenden, nicht blind die Beispiel-Null. Der Server
+erfasst den Originalsnapshot selbst; ein mitgesendeter gefälschter
+`targetTimeEntryBefore` ersetzt ihn nicht. Draft-Speichern/Wiedereinreichen aus
+#42 erwartet weiterhin `expectedUpdatedAt`; Ziel und Zielrevision bleiben
+gleich. Buchungsaudit zum Antrag:
+`GET /api/requests/:id/time-entry-audit`, nur mit Antrags-Leseberechtigung.
+
+| Fall | Erwartung |
+| --- | --- |
+| Kein Login | 401 |
+| Fremde Ziel-ID / gefälschte Mitarbeiteridentität | 403; keine Buchungsänderung |
+| Offenes, verworfenes, abgelehntes oder Solo-Ziel | 409; nicht auswählbar |
+| Ziel-ID ohne Revision oder umgekehrt / negative Revision | 400 |
+| Zielbindung bei Urlaub/Homeoffice/Sonderurlaub | 400 |
+| Anderes Ziel oder andere Originalrevision im Draft unterschieben | 400; kein Retargeting unter alter Genehmigung |
+| Nur unveränderte eigene Zielbuchung überlappt | Zulässig; exakt diese ID ist ausgenommen |
+| Andere Zeitbuchung desselben Tages überlappt den Vorschlag | 409; kein pauschales Tagesüberschreiben |
+| Ziel fehlt, aber Vorschlag überlappt bestehende Buchung | Weiterhin 409 |
+| Zielrevision zwischen Antrag und finaler Entscheidung verändert | 409; Antrag bleibt ausstehend, Ziel und Audit unverändert |
+| HR vor erforderlicher Managerfreigabe / Selbstfreigabe / teamfremder Manager | Keine Materialisierung; 403/409 je nach Rolle/Stufe |
+| Managerzuordnung vor finaler HR-Bestätigung geändert | Keine Nutzung der alten Managerfreigabe |
+| Zweimal denselben Antrag genehmigen | Ein Erfolg, danach 403/409; eine Buchungsänderung/ein Anwendungsaudit |
+| Bereits angewendeten gezielten Korrekturantrag stornieren | 409; Rückänderung nur durch einen neuen geprüften Korrekturantrag, nicht durch irreführendes Request-Storno |
+| Zwei verschiedene, nicht überlappende Vorschläge für dieselbe Originalrevision parallel final genehmigen | Genau ein Ziel-Update; anderer Antrag 409, nicht still überschrieben |
+| Parallel Clock-/Split-/Metadaten-/#41-Entscheidung | Gemeinsame Sperr-/Revisionsregeln; keine verlorene Änderung |
+| Fehler während finaler Anwendung/Audit | Antrag, Request-Ereignis, Buchungsänderung und Buchungsaudit gemeinsam zurückgerollt |
+
+### D. Sekunden, DST, Pausen und Nachvollziehbarkeit
+
+Die #42-Tests aus Abschnitt D weiterhin ausführen. Zusätzlich bei einer gezielten
+Korrektur eine eigene gültige Originalbuchung mit Sekunden/Millisekunden und
+Herbst-Zeitumstellung verwenden: reine Grundänderung behält Zielrevision und
+ISO-Zeitpunkte exakt; Vorher/Vorschlag zeigen die unterschiedlichen Instants.
+Beide Vorkommen der Ortszeit müssen korrekt bleiben; geänderte mehrdeutige
+Ortszeiten verlangen weiterhin eine ausdrückliche Auswahl. Ein gültiges
+rückstellungsübergreifendes Intervall darf nicht wegen lokal früherem Ende
+abgelehnt werden.
+
+Pausen werden anhand der gespeicherten Buchungs-/Capture-Group-Regel neu
+berechnet, nicht durch Überschreiben mit dem aktuellen Standardplan.
+Andere Gruppenmitglieder/Projekte/Aufträge/Originalaudits bleiben erhalten.
+DE/EN und Tab/Enter auf Moduswahl, Zielauswahl, Vergleich und Aktionen prüfen.
+Der tatsächliche manuelle Browserdurchlauf wird nicht allein aufgrund dieser
+Anleitung als bestanden gewertet.
+
+### Automatische Verifikation #43
+
+Ausgeführt am 07.11.2026 mit pnpm 9.15.9. Die neuen API-/UI-Regressionen
+prüfen reale Services bzw. React Testing Library; die vollständigen Suites
+wurden zusätzlich unter **Node 20.20.2** (CI-Version) ausgeführt. Sonstige lokale
+Build-/Typgates: Node 26.12.1.
+
+Isolierter PostgreSQL-16-Container `openclockwork-issue-43-db`,
+Loopback-Port `15443`, neue synthetische Datenbanken
+`openclockwork_test_43` und `openclockwork_upgrade_43`. Keine vorhandene
+Datenbank zurückgesetzt.
+
+| Gate | Tatsächliches Ergebnis |
+| --- | --- |
+| `pnpm nx e2e api-e2e --testPathPatterns=targeted-time-corrections` mit `TZ=Europe/Berlin` | **35/35 neue API-/Service-Fälle bestanden** |
+| `TZ=Europe/Berlin pnpm nx e2e api-e2e` unter Node 20.20.2, einschließlich finaler Stornosicherung | **366/366 Tests, 39 Suites bestanden** |
+| `TZ=UTC pnpm nx test web --run src/routes/RequestsPage.spec.tsx src/routes/AdminRequestsPage.spec.tsx src/components/timeentries/TimeEntryApprovals.spec.tsx src/app/i18n.spec.tsx src/lib/local-date-time.spec.ts` | **68/68 gezielte UI-/DST-Tests bestanden** |
+| `TZ=UTC pnpm nx run-many -t test -p web,shared --run --skip-nx-cache` unter Node 20.20.2 | **Web 247/247 in 35 Dateien**, **Shared 88/88 in 7 Dateien bestanden**, ohne Cache |
+| `pnpm nx run-many -t typecheck,lint -p api,web,shared,api-e2e` | **Alle vier Typechecks und Lint erfolgreich**; 0 Fehler, 13 bestehende Warnungen in unveränderten Dateien, keine neue Warnung |
+| `pnpm nx run-many -t build -p api,web,shared`, erst nach abgeschlossenen Typechecks | **Alle drei Builds erfolgreich**, einschließlich Web/PWA; unveränderter Shared-Build aus Nx-Cache |
+| `pnpm verify:api` mit isolierter Test-`DATABASE_URL` | **Erfolgreich**; finale OpenAPI-/Client-Dateien identisch zur gestagten Fassung |
+| Akzeptiertes #41-Schema → erweiterte Upgrade-Sentinels → neue Migration → `node ops/upgrade-smoke.mjs verify` | **Erfolgreich**; alter Missing-Booking-Antrag bleibt ohne Ziel/Revision/Snapshot, bestehendes Buchungsaudit behält Akteur und Vorher/Nachher ohne erfundenen Request-Link |
+| `git diff --check` | **Erfolgreich** |
+
+Die vollständigen API-Tests umfassen #42-Draft/ABA-/Urlaubsregeln, #41-Freigaben,
+Solo-/Terminal-/Split-/Bereichs-/Tagesblock-/Report-Flows. Die 35 neuen Fälle
+belegen insbesondere Same-ID und stabile Anzahl für beide Issue-Beispiele,
+Netto-/Saldo-Delta, Projekt-/Auftrags-/Pausen-/Capture-Snapshots, ausschließliche
+Zielausnahme, Rollen/Eigentümer/Modus, unveränderliche Draft-Bindung,
+stale/parallele Entscheidungen und echten Rollback nach bereits ausgeführtem
+Buchungsupdate in sämtlichen finalen Approval-Routen. Reine Grundänderungen
+behalten Originalversion und Sekunden/DST-Instants. Bereits angewendete gezielte
+Korrekturen lassen sich nicht durch bloßes Request-Storno irreführend rückgängig
+machen.
+
+Die anfänglichen neuen Tests wurden an zwei bestehende Tatsachen angepasst:
+Fixtures dürfen die PostgreSQL-Overlap-Constraint nicht verletzen; ungruppierte
+Team-Summaries runden weiterhin auf ganze Minuten, während gespeicherte
+ISO-Zeitpunkte unverändert millisekundengenau bleiben. Die Reviewer-UI-Testzone
+ist explizit Europe/Berlin, unabhängig vom Host. Eine lokale Intl-Typerweiterung
+ermöglicht die bereits von Browsern/Node 20 unterstützte Millisekundenanzeige,
+ohne Projektkonfiguration oder Fachrundung zu ändern.
+
+Der ausführliche manuelle Docker-/Browser-Nachtest oben wurde **nicht**
+als durchgeführt oder bestanden behauptet. Keine Releases, Tags, Versionsbumps,
+Merges, Deployments oder Release-Workflows.
+
+Zum Stoppen mit Datenerhalt:
+
+```bash
+TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
+  -p openclockwork-issue43 -f docker-compose.test.yml \
+  -f /tmp/openclockwork-43-compose.yml stop
+```
+
+Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #45 und #44 folgen erst
+nach unabhängiger Abnahme; hier noch nicht begonnen.

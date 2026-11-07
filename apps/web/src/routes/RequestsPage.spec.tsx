@@ -20,9 +20,17 @@ const resubmitRequestMock = vi.fn();
 const employeeDirectoryMock = vi.fn();
 const employeesMock = vi.fn();
 const createVacationRequestMock = vi.fn();
+const createRequestMock = vi.fn();
+const targetsMock = vi.fn();
+const requestAuditMock = vi.fn();
+const cancelRequestMock = vi.fn();
 
 vi.mock('../api/client', () => ({
   api: {
+    createRequest: (...args: unknown[]) => createRequestMock(...args),
+    timeAdjustmentTargets: (...args: unknown[]) => targetsMock(...args),
+    requestTimeEntryAudit: (...args: unknown[]) => requestAuditMock(...args),
+    cancelRequest: (...args: unknown[]) => cancelRequestMock(...args),
     listRequests: (...args: unknown[]) => listRequestsMock(...args),
     getRequest: (...args: unknown[]) => getRequestMock(...args),
     getRequestEvents: (...args: unknown[]) => getRequestEventsMock(...args),
@@ -72,6 +80,10 @@ describe('request creation and draft revision', () => {
       setItem: vi.fn(),
     });
     listRequestsMock.mockReset().mockResolvedValue([]);
+    createRequestMock.mockReset().mockResolvedValue({});
+    targetsMock.mockReset().mockResolvedValue([]);
+    requestAuditMock.mockReset().mockResolvedValue([]);
+    cancelRequestMock.mockReset().mockResolvedValue({});
     getRequestMock.mockReset();
     getRequestEventsMock.mockReset().mockResolvedValue([]);
     updateDraftRequestMock.mockReset().mockResolvedValue({});
@@ -484,5 +496,342 @@ describe('request creation and draft revision', () => {
     } finally {
       languageSpy.mockRestore();
     }
+  });
+  const target = {
+    id: 'entry-to-correct',
+    employeeId: 'requester',
+    revision: 7,
+    clockIn: '2026-10-25T00:50:23.456Z',
+    clockOut: '2026-10-25T01:10:45.789Z',
+    status: 'Approved',
+    approvalMode: 'Team',
+  };
+
+  async function openNewCorrection() {
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Neuer Antrag' }));
+    fireEvent.change(screen.getByLabelText('Typ'), {
+      target: { value: 'TimeAdjustment' },
+    });
+    fireEvent.change(screen.getByLabelText('Art der Zeitkorrektur'), {
+      target: { value: 'correction' },
+    });
+    return screen.findByLabelText('Zu korrigierende Buchung');
+  }
+
+  it('requires a selected target, prefills exact fold-crossing instants, shows the gross diff, and sends only target ID/revision plus proposed times', async () => {
+    targetsMock.mockResolvedValue([target]);
+    const select = await openNewCorrection();
+    await within(select).findByRole('option', { name: /entry-to-correct/ });
+    // A valid proposal alone must not allow an untargeted correction.
+    fireEvent.change(screen.getByLabelText('Von'), {
+      target: { value: '2026-06-15T08:00:00.000' },
+    });
+    fireEvent.change(screen.getByLabelText('Bis'), {
+      target: { value: '2026-06-15T09:00:00.000' },
+    });
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Antrag stellen',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    fireEvent.change(select, { target: { value: target.id } });
+    expect((screen.getByLabelText('Von') as HTMLInputElement).value).toBe(
+      '2026-10-25T02:50:23.456',
+    );
+    expect(
+      (screen.getByLabelText('Von – Vorkommen') as HTMLSelectElement).value,
+    ).toBe(target.clockIn);
+    expect(
+      (screen.getByLabelText('Bis – Vorkommen') as HTMLSelectElement).value,
+    ).toBe(target.clockOut);
+    fireEvent.change(screen.getByLabelText('Bis'), {
+      target: { value: '2026-10-25T03:10:45.789' },
+    });
+    expect(
+      screen.getByText('Bruttodauer: 1.222,333 s → 4.822,333 s (Δ 3.600 s)'),
+    ).toBeDefined();
+    expect(
+      screen.getByText(/Es entsteht keine doppelte Buchung/),
+    ).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Antrag stellen' }));
+    await waitFor(() =>
+      expect(createRequestMock).toHaveBeenCalledWith({
+        employeeId: 'requester',
+        type: 'TimeAdjustment',
+        from: target.clockIn,
+        to: '2026-10-25T02:10:45.789Z',
+        reason: null,
+        targetTimeEntryId: target.id,
+        expectedTargetRevision: 7,
+      }),
+    );
+    expect(targetsMock).toHaveBeenCalledWith();
+  });
+
+  it('resets both values and occurrence choices when selecting another target', async () => {
+    const later = {
+      ...target,
+      id: 'later',
+      revision: 9,
+      clockIn: '2026-10-25T01:20:11.123Z',
+      clockOut: '2026-10-25T02:40:55.987Z',
+    };
+    targetsMock.mockResolvedValue([target, later]);
+    const select = await openNewCorrection();
+    await within(select).findByRole('option', { name: /entry-to-correct/ });
+    fireEvent.change(select, { target: { value: target.id } });
+    fireEvent.change(select, { target: { value: later.id } });
+    expect(
+      (screen.getByLabelText('Von – Vorkommen') as HTMLSelectElement).value,
+    ).toBe(later.clockIn);
+    expect((screen.getByLabelText('Bis') as HTMLInputElement).value).toBe(
+      '2026-10-25T03:40:55.987',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Antrag stellen' }));
+    await waitFor(() =>
+      expect(createRequestMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: later.clockIn,
+          to: later.clockOut,
+          targetTimeEntryId: later.id,
+          expectedTargetRevision: 9,
+        }),
+      ),
+    );
+  });
+
+  it('leaves missing-booking creation independent from target eligibility and omits target fields', async () => {
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'Neuer Antrag' }));
+    fireEvent.change(screen.getByLabelText('Typ'), {
+      target: { value: 'TimeAdjustment' },
+    });
+    expect(
+      (screen.getByLabelText('Art der Zeitkorrektur') as HTMLSelectElement)
+        .value,
+    ).toBe('missing');
+    fireEvent.change(screen.getByLabelText('Von'), {
+      target: { value: '2026-06-15T08:10:23.456' },
+    });
+    fireEvent.change(screen.getByLabelText('Bis'), {
+      target: { value: '2026-06-15T09:20:45.789' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Antrag stellen' }));
+    await waitFor(() =>
+      expect(createRequestMock).toHaveBeenCalledWith({
+        employeeId: 'requester',
+        type: 'TimeAdjustment',
+        from: '2026-06-15T06:10:23.456Z',
+        to: '2026-06-15T07:20:45.789Z',
+        reason: null,
+      }),
+    );
+    expect(targetsMock).not.toHaveBeenCalled();
+  });
+
+  it('shows target loading and does not permit correction submission while eligibility is unknown', async () => {
+    targetsMock.mockReturnValue(new Promise(() => undefined));
+    await openNewCorrection();
+    expect(screen.getByRole('status').textContent).toBe('Lädt …');
+    expect(
+      (screen.getByLabelText('Zu korrigierende Buchung') as HTMLSelectElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Antrag stellen',
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
+  it.each(['empty', 'error'] as const)(
+    'shows actionable target loading outcomes and prevents untargeted correction: %s',
+    async (outcome) => {
+      if (outcome === 'error')
+        targetsMock.mockRejectedValue(new Error('Unavailable'));
+      await openNewCorrection();
+      await screen.findByText(
+        outcome === 'empty'
+          ? 'Keine abgeschlossenen Team-Buchungen für eine Korrektur verfügbar.'
+          : 'Buchungen konnten nicht geladen werden.',
+      );
+      if (outcome === 'error')
+        expect(
+          screen.getByRole('button', { name: 'Erneut laden' }),
+        ).toBeDefined();
+      expect(
+        (
+          screen.getByRole('button', {
+            name: 'Antrag stellen',
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+      expect(createRequestMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('retains immutable draft target/revision and before snapshot even with newer cached target data, and offers cancellation after a stale rejection', async () => {
+    const correction = {
+      ...draft,
+      type: 'TimeAdjustment',
+      from: target.clockIn,
+      to: target.clockOut,
+      targetTimeEntryId: target.id,
+      expectedTargetRevision: target.revision,
+      targetTimeEntryBefore: target,
+    };
+    listRequestsMock.mockResolvedValue([correction]);
+    getRequestMock.mockResolvedValue(correction);
+    resubmitRequestMock.mockRejectedValue(
+      new Error('Target time entry has changed'),
+    );
+    const { queryClient } = renderWithProviders(<RequestsPage />);
+    queryClient.setQueryData(
+      ['time-adjustment-targets'],
+      [{ ...target, revision: 8, clockIn: '2026-10-25T01:00:00.000Z' }],
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Entwurf · Antrag bearbeiten',
+      }),
+    );
+    await screen.findByLabelText('Art der Zeitkorrektur');
+    expect(
+      (screen.getByLabelText('Art der Zeitkorrektur') as HTMLSelectElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText('Zu korrigierende Buchung') as HTMLSelectElement)
+        .disabled,
+    ).toBe(true);
+    fireEvent.change(screen.getByLabelText('Begründung (optional)'), {
+      target: { value: 'Reason only' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Erneut einreichen' }));
+    await screen.findByText('Target time entry has changed');
+    expect(resubmitRequestMock).toHaveBeenCalledWith(
+      draft.id,
+      expect.objectContaining({
+        from: target.clockIn,
+        to: target.clockOut,
+        reason: 'Reason only',
+        targetTimeEntryId: target.id,
+        expectedTargetRevision: 7,
+      }),
+    );
+    expect(
+      within(screen.getByRole('dialog')).getByText(
+        /Ziel und Revision dieses Entwurfs bleiben unverändert/,
+      ),
+    ).toBeDefined();
+    expect(targetsMock).not.toHaveBeenCalled();
+    expect(createRequestMock).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Diesen Antrag stornieren' }),
+    );
+    await waitFor(() =>
+      expect(cancelRequestMock).toHaveBeenCalledWith(draft.id, 'requester'),
+    );
+  });
+
+  it('saves the persisted targeted draft revision with the unchanged exact proposal', async () => {
+    const correction = {
+      ...draft,
+      type: 'TimeAdjustment',
+      from: target.clockIn,
+      to: target.clockOut,
+      targetTimeEntryId: target.id,
+      expectedTargetRevision: 7,
+      targetTimeEntryBefore: target,
+    };
+    listRequestsMock.mockResolvedValue([correction]);
+    getRequestMock.mockResolvedValue(correction);
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Entwurf · Antrag bearbeiten',
+      }),
+    );
+    await screen.findByLabelText('Von');
+    fireEvent.click(screen.getByRole('button', { name: 'Entwurf speichern' }));
+    await waitFor(() =>
+      expect(updateDraftRequestMock).toHaveBeenCalledWith(
+        draft.id,
+        expect.objectContaining({
+          from: target.clockIn,
+          to: target.clockOut,
+          targetTimeEntryId: target.id,
+          expectedTargetRevision: 7,
+        }),
+      ),
+    );
+  });
+
+  it('shows employee before/proposed and request-scoped applied audit after final approval', async () => {
+    listRequestsMock.mockResolvedValue([
+      {
+        ...draft,
+        type: 'TimeAdjustment',
+        workflowState: 'Approved',
+        from: target.clockIn,
+        to: '2026-10-25T02:10:45.789Z',
+        targetTimeEntryId: target.id,
+        expectedTargetRevision: 7,
+        targetTimeEntryBefore: target,
+      },
+    ]);
+    requestAuditMock.mockResolvedValue([
+      {
+        id: 'audit',
+        requestId: draft.id,
+        timeEntryId: target.id,
+        action: 'FrameRequestCorrected',
+        before: target,
+        after: { ...target, clockOut: '2026-10-25T02:10:45.789Z' },
+        occurredAt: '2026-10-26T12:00:00.000Z',
+        reason: 'Corrected',
+      },
+    ]);
+    renderWithProviders(<RequestsPage />);
+    expect(
+      await screen.findByText(
+        'Bruttodauer: 1.222,333 s → 4.822,333 s (Δ 3.600 s)',
+      ),
+    ).toBeDefined();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Buchungsänderung im Verlauf' }),
+    );
+    expect(
+      await screen.findByText(
+        'Buchung entry-to-correct durch Antrag same-request korrigiert',
+      ),
+    ).toBeDefined();
+    expect(requestAuditMock).toHaveBeenCalledWith(draft.id);
+  });
+
+  it('translates correction selection and exact before/proposed diff into English', async () => {
+    vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['en-GB']);
+    targetsMock.mockResolvedValue([target]);
+    renderWithProviders(<RequestsPage />);
+    fireEvent.click(screen.getByRole('button', { name: 'New request' }));
+    fireEvent.change(screen.getByLabelText('Type'), {
+      target: { value: 'TimeAdjustment' },
+    });
+    fireEvent.change(screen.getByLabelText('Time adjustment mode'), {
+      target: { value: 'correction' },
+    });
+    const select = await screen.findByLabelText('Booking to correct');
+    await within(select).findByRole('option', { name: /entry-to-correct/ });
+    fireEvent.change(select, { target: { value: target.id } });
+    expect(screen.getByText('Before:')).toBeDefined();
+    expect(screen.getByText('Proposed:')).toBeDefined();
+    expect(
+      screen.getByText('Gross duration: 1,222.333 s → 1,222.333 s (Δ 0 s)'),
+    ).toBeDefined();
   });
 });

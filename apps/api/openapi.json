@@ -3563,6 +3563,86 @@
         "tags": ["requests"]
       }
     },
+    "/api/requests/time-adjustment-targets": {
+      "get": {
+        "operationId": "RequestsController_timeAdjustmentTargets",
+        "parameters": [
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["requests"]
+      }
+    },
+    "/api/requests/{id}/time-entry-audit": {
+      "get": {
+        "operationId": "RequestsController_timeEntryAudit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TimeEntryAuditDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["requests"]
+      }
+    },
     "/api/requests/{id}": {
       "get": {
         "operationId": "RequestsController_get",
@@ -6690,6 +6770,11 @@
       "TimeEntryApprovalEventDto": {
         "type": "object",
         "properties": {
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
           "id": {
             "type": "string"
           },
@@ -6715,6 +6800,7 @@
           }
         },
         "required": [
+          "requestId",
           "id",
           "actorId",
           "actorName",
@@ -7187,6 +7273,15 @@
       "TimeEntryAuditDto": {
         "type": "object",
         "properties": {
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "requestId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -7221,6 +7316,7 @@
           }
         },
         "required": [
+          "requestId",
           "id",
           "timeEntryId",
           "actorId",
@@ -8066,6 +8162,22 @@
       "RequestDto": {
         "type": "object",
         "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "targetTimeEntryBefore": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "Immutable server-captured original time-entry values, including id, revision, clockIn, clockOut and break-policy snapshot."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -8160,6 +8272,9 @@
           }
         },
         "required": [
+          "targetTimeEntryId",
+          "expectedTargetRevision",
+          "targetTimeEntryBefore",
           "id",
           "employeeId",
           "employeeName",
@@ -8188,6 +8303,16 @@
       "CreateRequestDto": {
         "type": "object",
         "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
           "employeeId": {
             "type": "string",
             "format": "uuid"
@@ -8217,6 +8342,16 @@
       "CreateVacationDto": {
         "type": "object",
         "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
           "employeeId": {
             "type": "string",
             "format": "uuid"
@@ -8255,6 +8390,16 @@
       "UpdateDraftRequestDto": {
         "type": "object",
         "properties": {
+          "targetTimeEntryId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "expectedTargetRevision": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
           "from": {
             "type": "string",
             "format": "date-time"
