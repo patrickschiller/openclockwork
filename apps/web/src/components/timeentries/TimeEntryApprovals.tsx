@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -27,11 +27,22 @@ export async function refreshTimeEntryApprovals(
       'violations',
       'working-time-report',
       'project-report',
+      'team-cockpit',
+      'requests',
+      'time-adjustment-targets',
     ].map((key) => qc.invalidateQueries({ queryKey: [key] })),
   );
 }
 
-export function TimeEntryApprovals({ scope }: { scope: 'own' | 'review' }) {
+export function TimeEntryApprovals({
+  scope,
+  pendingOnly = false,
+  timeZone,
+}: {
+  scope: 'own' | 'review';
+  pendingOnly?: boolean;
+  timeZone?: string;
+}) {
   const user = useCurrentUser();
   const { t } = useI18n();
   const allowed =
@@ -40,7 +51,15 @@ export function TimeEntryApprovals({ scope }: { scope: 'own' | 'review' }) {
     queryKey: ['time-entry-approvals', scope, user.id, user.role],
     queryFn: () => api.timeEntryApprovals(scope),
     enabled: allowed,
+    refetchInterval: pendingOnly ? 30_000 : false,
   });
+  const approvals = query.data?.filter(
+    (item) =>
+      !pendingOnly ||
+      ['Open', 'BlockedManager', 'PendingManager', 'PendingHr'].includes(
+        item.state,
+      ),
+  );
   if (!allowed) return null;
 
   return (
@@ -76,18 +95,20 @@ export function TimeEntryApprovals({ scope }: { scope: 'own' | 'review' }) {
         >
           {t('frameApproval.refresh')}
         </Button>
-        {query.isSuccess && query.data.length === 0 && (
+        {query.isSuccess && approvals?.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {t('frameApproval.empty')}
           </p>
         )}
-        {query.data && query.data.length > 0 && (
+        {approvals && approvals.length > 0 && (
           <ul className="divide-y">
-            {query.data.map((approval) => (
+            {approvals.map((approval) => (
               <TimeEntryApprovalRow
                 key={approval.entry.id}
                 approval={approval}
                 scope={scope}
+                refreshOnError={pendingOnly}
+                timeZone={timeZone}
               />
             ))}
           </ul>
@@ -100,14 +121,19 @@ export function TimeEntryApprovals({ scope }: { scope: 'own' | 'review' }) {
 function TimeEntryApprovalRow({
   approval,
   scope,
+  refreshOnError,
+  timeZone,
 }: {
   approval: TimeEntryApprovalDto;
   scope: 'own' | 'review';
+  refreshOnError: boolean;
+  timeZone?: string;
 }) {
   const user = useCurrentUser();
   const { t, formatDateTime } = useI18n();
   const qc = useQueryClient();
   const [note, setNote] = useState('');
+  const decisionLock = useRef(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const { entry, state } = approval;
@@ -141,6 +167,10 @@ function TimeEntryApprovalRow({
         ...(note.trim() ? { note: note.trim() } : {}),
       });
     },
+    onError: () => (refreshOnError ? refreshTimeEntryApprovals(qc) : undefined),
+    onSettled: () => {
+      decisionLock.current = false;
+    },
     onSuccess: async (_updated, outcome) => {
       setResult(
         t(
@@ -158,13 +188,18 @@ function TimeEntryApprovalRow({
   const labelId = `frame-approval-${entry.id}`;
 
   return (
-    <li className="space-y-3 py-4" aria-labelledby={labelId}>
+    <li
+      className="space-y-3 py-4"
+      aria-labelledby={labelId}
+      data-entry-id={entry.id}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p id={labelId} className="font-medium">
-            {approval.employeeName} · {formatDateTime(entry.clockIn)} –{' '}
+            {approval.employeeName} · {formatDateTime(entry.clockIn, timeZone)}{' '}
+            –{' '}
             {entry.clockOut
-              ? formatDateTime(entry.clockOut)
+              ? formatDateTime(entry.clockOut, timeZone)
               : t('booking.open')}
           </p>
           {entry.summary && (
@@ -226,6 +261,8 @@ function TimeEntryApprovalRow({
               size="sm"
               disabled={decision.isPending}
               onClick={() => {
+                if (decisionLock.current) return;
+                decisionLock.current = true;
                 setResult(null);
                 decision.mutate('Approve');
               }}
@@ -237,6 +274,8 @@ function TimeEntryApprovalRow({
               variant="destructive"
               disabled={decision.isPending || !note.trim()}
               onClick={() => {
+                if (decisionLock.current) return;
+                decisionLock.current = true;
                 setResult(null);
                 decision.mutate('Reject');
               }}
@@ -255,16 +294,24 @@ function TimeEntryApprovalRow({
       >
         {t('frameApproval.history')}
       </Button>
-      {historyOpen && <ApprovalHistory entryId={entry.id} />}
+      {historyOpen && (
+        <ApprovalHistory entryId={entry.id} timeZone={timeZone} />
+      )}
     </li>
   );
 }
 
-function ApprovalHistory({ entryId }: { entryId: string }) {
+export function ApprovalHistory({
+  entryId,
+  timeZone,
+}: {
+  entryId: string;
+  timeZone?: string;
+}) {
   const user = useCurrentUser();
   const { t, formatDateTime } = useI18n();
   const history = useQuery({
-    queryKey: ['time-entry-approval-history', entryId, user.id],
+    queryKey: ['time-entry-approval-history', entryId, user.id, user.role],
     queryFn: () => api.timeEntryApprovalHistory(entryId),
   });
   return (
@@ -295,7 +342,7 @@ function ApprovalHistory({ entryId }: { entryId: string }) {
                 {event.actorName ?? event.actorId ?? t('frameApproval.system')}{' '}
                 ·{' '}
                 <time dateTime={event.occurredAt}>
-                  {formatDateTime(event.occurredAt)}
+                  {formatDateTime(event.occurredAt, timeZone)}
                 </time>
               </p>
               {event.requestId && (

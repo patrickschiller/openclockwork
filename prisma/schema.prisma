@@ -139,6 +139,8 @@ model Employee {
   contractPeriods               EmployeeContractPeriod[]      @relation("ContractEmployee")
   confirmedContractPeriods      EmployeeContractPeriod[]      @relation("ContractConfirmer")
   contractPeriodAudits          EmployeeContractPeriodAudit[] @relation("ContractAuditActor")
+  proxyActions                  TeamProxyAudit[] @relation("ProxyActor")
+  beneficiaryProxyActions       TeamProxyAudit[] @relation("ProxyBeneficiary")
   timeEntries                   TimeEntry[]
   requests                      Request[]                     @relation("RequestEmployee")
   approverRequests              Request[]                     @relation("RequestApprover")
@@ -753,4 +755,22 @@ model EmployeeContractPeriodAudit {
   occurredAt DateTime @default(now())
 
   @@index([periodId, occurredAt])
+}
+
+// Immutable operational evidence for explicitly authorized on-behalf actions.
+model TeamProxyAudit {
+  id           String @id @default(uuid()) @db.Uuid
+  actorId      String? @db.Uuid
+  actor        Employee? @relation("ProxyActor", fields: [actorId], references: [id], onDelete: SetNull)
+  employeeId   String @db.Uuid
+  employee     Employee @relation("ProxyBeneficiary", fields: [employeeId], references: [id], onDelete: Restrict)
+  resourceKind String
+  resourceId   String @db.Uuid
+  action       String
+  reason       String
+  values       Json
+  occurredAt   DateTime @default(now())
+
+  @@index([employeeId, occurredAt])
+  @@index([resourceKind, resourceId])
 }

@@ -8,6 +8,7 @@ import {
 import { Prisma, type TimeEntry } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import {
+  DEFAULT_FRAME,
   calculateBreakMinutes,
   calculateDailyTargetMinutes,
   calculateGrossMinutesForNet,
@@ -18,11 +19,19 @@ import {
 } from 'shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
-import { WorkSchedulesService } from '../work-schedules/work-schedules.service';
+import {
+  WorkSchedulesService,
+  toFrameRule,
+} from '../work-schedules/work-schedules.service';
 import { ProjectsService } from '../projects/projects.service';
 import { InstallationService } from '../installation/installation.service';
 import { calculateCaptureSummaries } from './capture-summary';
 import type { JwtUser } from '../auth/jwt.strategy';
+import { assertProxyTarget, writeProxyAudit } from '../team-cockpit/team-scope';
+import type {
+  ProxyClockInDto,
+  ProxyManualTimeEntryDto,
+} from './proxy-time-entry.dto';
 import {
   toTimeEntryDto,
   type BookProjectRangeDto,
@@ -619,6 +628,138 @@ export class TimeEntriesService {
       }
       throw error;
     }
+    this.events.broadcast('time-entry:created', {
+      id: created.id,
+      employeeId: created.employeeId,
+      clockIn: created.clockIn.toISOString(),
+    });
+    return toTimeEntryDto(created);
+  }
+
+  /** A separate Team authority path; never delegates to Solo owner mutations. */
+  async proxyClockIn(
+    employeeId: string,
+    dto: ProxyClockInDto,
+    actor: JwtUser,
+  ): Promise<TimeEntryDto> {
+    return this.createProxyTimeEntry(employeeId, dto, actor, null);
+  }
+
+  async proxyManual(
+    employeeId: string,
+    dto: ProxyManualTimeEntryDto,
+    actor: JwtUser,
+  ): Promise<TimeEntryDto> {
+    const interval = {
+      clockIn: new Date(dto.clockIn),
+      clockOut: new Date(dto.clockOut),
+    };
+    this.assertClosedInterval(interval.clockIn, interval.clockOut);
+    return this.createProxyTimeEntry(employeeId, dto, actor, interval);
+  }
+
+  private async createProxyTimeEntry(
+    employeeId: string,
+    dto: ProxyClockInDto,
+    identity: JwtUser,
+    interval: { clockIn: Date; clockOut: Date } | null,
+  ): Promise<TimeEntryDto> {
+    const reason = typeof dto.reason === 'string' ? dto.reason.trim() : '';
+    if (reason.length < 5 || reason.length > 1000)
+      throw new BadRequestException('reason must contain 5 to 1000 characters');
+    // Also protect direct service callers. The HTTP DTO rejects these fields
+    // rather than silently accepting a caller-supplied break policy.
+    for (const field of ['breakRules', 'breakMinutes', 'breakOverride']) {
+      if ((dto as unknown as Record<string, unknown>)[field] !== undefined)
+        throw new BadRequestException('Break overrides are not permitted');
+    }
+    let created: TimeEntry & {
+      project: { code: string; name: string } | null;
+      serviceOrder: { orderNo: string; title: string } | null;
+    };
+    try {
+      created = await this.prisma.$transaction(
+        async (tx) => {
+          await this.lockEmployee(tx, employeeId);
+          const { actor, employee } = await assertProxyTarget(
+            tx,
+            identity,
+            employeeId,
+          );
+          const schedule = await this.resolveProxySchedule(tx, employee);
+          const target = await this.resolveProxyBookingTarget(
+            tx,
+            employeeId,
+            dto,
+          );
+          // Read the clock only after waiting for all authority/booking locks.
+          // No client timestamp, identity, GPS or approval field is copied.
+          const clockIn = interval?.clockIn ?? new Date();
+          const clockOut = interval?.clockOut ?? null;
+          if (clockOut) this.assertClosedInterval(clockIn, clockOut);
+          await this.assertProxyCaptureAvailable(
+            tx,
+            employeeId,
+            clockIn,
+            clockOut,
+          );
+          await this.assertNoOverlap(tx, employeeId, clockIn, clockOut);
+          const requiresApproval = requiresSpecialApproval(
+            clockIn,
+            clockOut,
+            schedule.frame,
+          );
+          const row = await tx.timeEntry.create({
+            data: {
+              employeeId,
+              clockIn,
+              clockOut,
+              source: interval ? 'Manual' : 'Pwa',
+              status: clockOut
+                ? requiresApproval
+                  ? 'Pending'
+                  : 'Approved'
+                : 'Open',
+              approvalMode: 'Team',
+              requiresApproval,
+              frameApproverId: null,
+              frameApprovedRevision: null,
+              note: dto.note ?? null,
+              breakRules: schedule.breakRules,
+              ...target,
+            },
+            include: ENTRY_INCLUDE,
+          });
+          const action = interval ? 'ProxyManualCreated' : 'ProxyClockedIn';
+          await this.writeAudit(tx, row, actor.id, action, null, reason);
+          await writeProxyAudit(tx, {
+            actor,
+            employee,
+            resourceKind: 'TimeEntry',
+            resourceId: row.id,
+            action,
+            reason,
+            values: await this.auditSnapshot(tx, row),
+          });
+          return row;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+      );
+    } catch (error) {
+      const failure = error as { code?: string; meta?: { code?: string } };
+      if (
+        this.isUniqueConstraintError(error) ||
+        failure.code === 'P2034' ||
+        ['40P01', '40001', '55P03'].includes(
+          failure.meta?.code ?? failure.code ?? '',
+        )
+      )
+        throw new ConflictException(
+          'Time booking changed; reload before booking',
+        );
+      throw error;
+    }
+    // Both immutable audit writes must commit before observers see the entry.
     this.events.broadcast('time-entry:created', {
       id: created.id,
       employeeId: created.employeeId,
@@ -1481,18 +1622,51 @@ export class TimeEntriesService {
   }
 
   async audit(id: string, user: JwtUser): Promise<TimeEntryAuditDto[]> {
-    await this.installation.requireOwner(user.id);
-    const entry = await this.findOrThrow(id);
-    if (entry.employeeId !== user.id)
-      throw new ForbiddenException('Only your own audit history is available');
-    const rows = await this.prisma.timeEntryAudit.findMany({
-      where: { timeEntryId: id },
-      orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
-    });
-    return rows.map((row) => ({
-      ...row,
-      occurredAt: row.occurredAt.toISOString(),
-    }));
+    return this.prisma.$transaction(
+      async (tx) => {
+        const [actor, settings, entry] = await Promise.all([
+          tx.employee.findUnique({ where: { id: user.id } }),
+          tx.installationSettings.findUnique({ where: { id: 1 } }),
+          tx.timeEntry.findUnique({
+            where: { id },
+            include: { employee: { select: { managerId: true } } },
+          }),
+        ]);
+        if (!actor?.isActive || actor.authVersion !== (user.authVersion ?? 0))
+          throw new ForbiddenException(
+            'Active authorized audit session required',
+          );
+        if (!entry) throw new NotFoundException('Time entry not found');
+        if (settings?.mode === 'Solo') {
+          await this.installation.requireOwner(user.id, tx);
+          if (entry.employeeId !== actor.id)
+            throw new ForbiddenException(
+              'Only your own audit history is available in Solo',
+            );
+        } else if (
+          entry.employeeId !== actor.id &&
+          actor.role !== 'HRAdmin' &&
+          !(actor.role === 'Manager' && entry.employee.managerId === actor.id)
+        ) {
+          throw new ForbiddenException(
+            'Only the beneficiary, current manager or HR may read Team audit history',
+          );
+        }
+        const rows = await tx.timeEntryAudit.findMany({
+          where: { timeEntryId: id },
+          include: { actor: { select: { firstName: true, lastName: true } } },
+          orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+        });
+        return rows.map(({ actor: eventActor, ...row }) => ({
+          ...row,
+          actorName: eventActor
+            ? `${eventActor.firstName} ${eventActor.lastName}`
+            : null,
+          occurredAt: row.occurredAt.toISOString(),
+        }));
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   /**
@@ -1730,6 +1904,119 @@ export class TimeEntriesService {
     }
   }
 
+  private async assertProxyCaptureAvailable(
+    tx: Prisma.TransactionClient,
+    employeeId: string,
+    clockIn: Date,
+    clockOut: Date | null,
+  ): Promise<void> {
+    const lastInstant = clockOut ? new Date(clockOut.getTime() - 1) : clockIn;
+    const [dailyBlock, open] = await Promise.all([
+      tx.timeEntry.findFirst({
+        where: {
+          employeeId,
+          voidedAt: null,
+          bookingDate: {
+            gte: localTodayAsUtcDate(clockIn),
+            lte: localTodayAsUtcDate(lastInstant),
+          },
+        },
+        select: { id: true },
+      }),
+      tx.timeEntry.findFirst({
+        where: { employeeId, clockOut: null, voidedAt: null },
+        select: { id: true },
+      }),
+    ]);
+    if (dailyBlock)
+      throw new ConflictException(
+        'The selected day already has a daily-block booking',
+      );
+    if (open)
+      throw new ConflictException(
+        'There is already an open time entry — clock out first',
+      );
+  }
+
+  /** Resolve and snapshot the beneficiary's live Team schedule on this transaction. */
+  private async resolveProxySchedule(
+    tx: Prisma.TransactionClient,
+    employee: { workScheduleId: string | null },
+  ) {
+    // Schedule edits do not use the booking advisory lock. Row locks keep their
+    // frame/break policy stable while this transaction records its snapshot.
+    await tx.$queryRaw`SELECT id FROM "WorkSchedule" ORDER BY id FOR SHARE`;
+    const schedule = employee.workScheduleId
+      ? await tx.workSchedule.findUnique({
+          where: { id: employee.workScheduleId },
+        })
+      : await tx.workSchedule.findFirst({ where: { isDefault: true } });
+    return {
+      frame: schedule
+        ? toFrameRule(schedule.frameStart, schedule.frameEnd)
+        : DEFAULT_FRAME,
+      breakRules: schedule ? parseBreakRules(schedule.breakRules) : [],
+    };
+  }
+
+  /** Existing project/order rules, evaluated for the beneficiary under booking locks. */
+  private async resolveProxyBookingTarget(
+    tx: Prisma.TransactionClient,
+    employeeId: string,
+    dto: ProxyClockInDto,
+  ): Promise<BookingTarget> {
+    const projectId = dto.projectId ?? null;
+    const serviceOrderId = dto.serviceOrderId ?? null;
+    if (!projectId) {
+      if (serviceOrderId)
+        throw new BadRequestException('serviceOrderId requires a projectId');
+      return {
+        projectId: null,
+        serviceOrderId: null,
+        activity: dto.activity ?? null,
+        billable: dto.billable ?? false,
+      };
+    }
+    const project = await tx.project.findUnique({
+      where: { id: projectId },
+      include: { customer: { select: { isActive: true } } },
+    });
+    if (!project) throw new NotFoundException(`Project ${projectId} not found`);
+    if (!project.isActive)
+      throw new BadRequestException(`Project "${project.code}" is inactive`);
+    if (project.customer && !project.customer.isActive)
+      throw new BadRequestException('The project customer is archived');
+    const assignment = await tx.projectAssignment.findUnique({
+      where: { employeeId_projectId: { employeeId, projectId } },
+    });
+    if (!assignment)
+      throw new ForbiddenException(
+        `Employee is not assigned to project "${project.code}"`,
+      );
+    const order = serviceOrderId
+      ? await tx.serviceOrder.findFirst({
+          where: { id: serviceOrderId, projectId },
+        })
+      : null;
+    if (serviceOrderId && !order)
+      throw new NotFoundException(
+        `Service order ${serviceOrderId} not found in project ${projectId}`,
+      );
+    if (order && !order.isActive)
+      throw new BadRequestException(
+        `Service order "${order.orderNo}" is inactive`,
+      );
+    const target = {
+      projectId,
+      serviceOrderId,
+      activity: dto.activity ?? null,
+      billable:
+        dto.billable ?? order?.defaultBillable ?? project.defaultBillable,
+    };
+    await this.assertTargetStillBookable(tx, target);
+    return target;
+  }
+
   private async withCaptureSummaries(
     rows: TimeEntry[],
   ): Promise<TimeEntryDto[]> {
@@ -1888,6 +2175,7 @@ export class TimeEntriesService {
   ): Promise<void> {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(7261500)`;
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${employeeId}, 0))`;
+    await tx.$queryRaw`SELECT id FROM "Employee" WHERE id = ${employeeId}::uuid FOR UPDATE`;
   }
 
   private isUniqueConstraintError(error: unknown): boolean {

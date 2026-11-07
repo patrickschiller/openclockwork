@@ -155,7 +155,12 @@ export class RequestsController {
     @Body() body: TransitionDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.approve(id, user.id, body.note ?? null);
+    return this.service.approve(
+      id,
+      user.id,
+      body.note ?? null,
+      body.expectedUpdatedAt,
+    );
   }
 
   @Post(':id/reject')
@@ -165,7 +170,12 @@ export class RequestsController {
     @Body() body: TransitionDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.reject(id, user.id, body.note ?? null);
+    return this.service.reject(
+      id,
+      user.id,
+      body.note ?? null,
+      body.expectedUpdatedAt,
+    );
   }
 
   // ----- Vacation workflow -----
@@ -182,6 +192,7 @@ export class RequestsController {
       user.id,
       body.note ?? null,
       !!body.requiresHrConfirmation,
+      body.expectedUpdatedAt,
     );
   }
 
@@ -192,7 +203,12 @@ export class RequestsController {
     @Body() body: TransitionDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.managerReject(id, user.id, body.note ?? null);
+    return this.service.managerReject(
+      id,
+      user.id,
+      body.note ?? null,
+      body.expectedUpdatedAt,
+    );
   }
 
   @Post(':id/hr-confirm')
@@ -202,7 +218,12 @@ export class RequestsController {
     @Body() body: TransitionDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.hrConfirm(id, user.id, body.note ?? null);
+    return this.service.hrConfirm(
+      id,
+      user.id,
+      body.note ?? null,
+      body.expectedUpdatedAt,
+    );
   }
 
   @Post(':id/hr-reject')
@@ -212,7 +233,12 @@ export class RequestsController {
     @Body() body: TransitionWithRequiredNoteDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.hrReject(id, user.id, body.note);
+    return this.service.hrReject(
+      id,
+      user.id,
+      body.note,
+      body.expectedUpdatedAt,
+    );
   }
 
   @Post(':id/substitute/accept')
@@ -222,7 +248,12 @@ export class RequestsController {
     @Body() body: TransitionDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.substituteAccept(id, user.id, body.note ?? null);
+    return this.service.substituteAccept(
+      id,
+      user.id,
+      body.note ?? null,
+      body.expectedUpdatedAt,
+    );
   }
 
   @Post(':id/substitute/decline')
@@ -232,7 +263,12 @@ export class RequestsController {
     @Body() body: TransitionWithRequiredNoteDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.substituteDecline(id, user.id, body.note);
+    return this.service.substituteDecline(
+      id,
+      user.id,
+      body.note,
+      body.expectedUpdatedAt,
+    );
   }
 
   @Post(':id/return')
@@ -242,7 +278,12 @@ export class RequestsController {
     @Body() body: TransitionWithRequiredNoteDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.returnForRevision(id, user.id, body.note);
+    return this.service.returnForRevision(
+      id,
+      user.id,
+      body.note,
+      body.expectedUpdatedAt,
+    );
   }
 
   @Post(':id/cancel')
@@ -252,7 +293,12 @@ export class RequestsController {
     @Body() body: TransitionDto,
     @CurrentUser() user: JwtUser,
   ): Promise<RequestDto> {
-    return this.service.cancel(id, user.id, body.note ?? null);
+    return this.service.cancel(
+      id,
+      user.id,
+      body.note ?? null,
+      body.expectedUpdatedAt,
+    );
   }
 
   // ----- Bulk -----

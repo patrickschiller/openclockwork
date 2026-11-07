@@ -23,6 +23,7 @@ const RESET_SQL = `
     "SoloPolicy",
     "PersonalDay",
     "TimeEntryAudit",
+    "TeamProxyAudit",
     "EmployeeContractPeriodAudit",
     "EmployeeContractPeriod",
     "Customer",

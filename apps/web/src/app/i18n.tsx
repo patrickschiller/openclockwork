@@ -8,6 +8,9 @@ import {
 } from 'react';
 import { soloDe, soloEn } from './solo-i18n';
 import { terminalPinDe, terminalPinEn } from './terminal-pin-i18n';
+import { cockpitDe, cockpitEn } from './cockpit-i18n';
+import { cockpitHistoryDe, cockpitHistoryEn } from './cockpit-history-i18n';
+import { cockpitProxyDe, cockpitProxyEn } from './cockpit-proxy-i18n';
 import { workingTimeDe, workingTimeEn } from './working-time-i18n';
 
 export type Locale = 'de' | 'en';
@@ -18,6 +21,9 @@ const STORAGE_KEY = 'openclockwork.locale';
 
 const de: Catalog = {
   ...workingTimeDe,
+  ...cockpitDe,
+  ...cockpitHistoryDe,
+  ...cockpitProxyDe,
   'requests.appliedBy': 'Angewendet von {actor}',
   'requests.unknownActor': 'Nicht mehr verfügbare Person',
   'frameApproval.ownTitle': 'Rahmenzeit-Genehmigungen für meine Zeitbuchungen',
@@ -802,6 +808,9 @@ const de: Catalog = {
 
 const en: Catalog = {
   ...workingTimeEn,
+  ...cockpitEn,
+  ...cockpitHistoryEn,
+  ...cockpitProxyEn,
   'requests.appliedBy': 'Applied by {actor}',
   'requests.unknownActor': 'Reviewer no longer available',
   'frameApproval.ownTitle': 'Approvals for my out-of-frame time entries',
@@ -1591,7 +1600,7 @@ interface I18nContextValue {
   t: (key: string, variables?: Variables) => string;
   enumLabel: (value: string) => string;
   formatDate: (value: Date | string) => string;
-  formatDateTime: (value: Date | string) => string;
+  formatDateTime: (value: Date | string, timeZone?: string) => string;
 }
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
@@ -1661,7 +1670,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       t,
       enumLabel: (raw) => t(`enum.${raw}`),
       formatDate: (raw) => localizedDate(raw).toLocaleDateString(languageTag),
-      formatDateTime: (raw) => new Date(raw).toLocaleString(languageTag),
+      formatDateTime: (raw, timeZone) =>
+        new Date(raw).toLocaleString(
+          languageTag,
+          timeZone ? { timeZone } : undefined,
+        ),
     };
   }, [locale]);
 
@@ -1682,6 +1695,10 @@ export function useI18n(): I18nContextValue {
     t,
     enumLabel: (raw) => t(`enum.${raw}`),
     formatDate: (raw) => localizedDate(raw).toLocaleDateString(languageTag),
-    formatDateTime: (raw) => new Date(raw).toLocaleString(languageTag),
+    formatDateTime: (raw, timeZone) =>
+      new Date(raw).toLocaleString(
+        languageTag,
+        timeZone ? { timeZone } : undefined,
+      ),
   };
 }

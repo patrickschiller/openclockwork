@@ -622,3 +622,52 @@ describe('out-of-frame time entry approvals', () => {
     },
   );
 });
+
+it('filters completed decisions only when the cockpit explicitly requests pending-only approvals', async () => {
+  mocks.list.mockResolvedValue([
+    approval(),
+    approval({
+      entry: { ...entry, id: 'done' },
+      state: 'Approved',
+      canDecide: false,
+    }),
+    approval({
+      entry: { ...entry, id: 'voided' },
+      state: 'Voided',
+      canDecide: false,
+    }),
+  ]);
+  renderWithProviders(<TimeEntryApprovals scope="review" pendingOnly />);
+  await screen.findByText('Wartet auf Führungskraft');
+  expect(screen.queryByText('Genehmigt')).toBeNull();
+  expect(screen.queryByText('Ungültig')).toBeNull();
+});
+
+it('automatically refreshes cockpit approvals after a stale decision instead of keeping an actionable old stage', async () => {
+  mocks.decide.mockRejectedValue(new Error('409 revision changed'));
+  renderWithProviders(<TimeEntryApprovals scope="review" pendingOnly />);
+  const approve = await screen.findByRole('button', {
+    name: 'Als Führungskraft genehmigen',
+  });
+  mocks.list.mockResolvedValue([
+    approval({ state: 'PendingHr', revision: 8, canDecide: false }),
+  ]);
+  fireEvent.click(approve);
+  expect(await screen.findByText('Wartet auf HR')).toBeTruthy();
+  expect(
+    screen.queryByRole('button', { name: 'Als Führungskraft genehmigen' }),
+  ).toBeNull();
+  expect(screen.getByRole('alert').textContent).toContain(
+    '409 revision changed',
+  );
+  expect(mocks.list.mock.calls.length).toBeGreaterThan(1);
+});
+
+it('uses the declared cockpit timezone for the ordinary approval interval, independently of the viewer zone', async () => {
+  renderWithProviders(
+    <TimeEntryApprovals scope="review" timeZone="Asia/Kathmandu" />,
+  );
+  expect(
+    await screen.findByText(/Anna Example · .*10:45:00.*22:45:00/),
+  ).toBeTruthy();
+});

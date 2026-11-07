@@ -122,6 +122,15 @@ export class UpdateDraftRequestDto extends OmitType(CreateVacationDto, [
 }
 
 export class TransitionDto {
+  @ApiPropertyOptional({
+    format: 'date-time',
+    description:
+      'Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only.',
+  })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  expectedUpdatedAt?: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;
@@ -141,6 +150,15 @@ export class ManagerApproveDto extends TransitionDto {
 }
 
 export class TransitionWithRequiredNoteDto {
+  @ApiPropertyOptional({
+    format: 'date-time',
+    description:
+      'Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only.',
+  })
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  expectedUpdatedAt?: string;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   actorId!: string;

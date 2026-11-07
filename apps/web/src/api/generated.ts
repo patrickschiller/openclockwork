@@ -1716,6 +1716,134 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/team-cockpit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TeamCockpitController_overview'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/team-cockpit/approval-requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TeamCockpitController_approvalRequests'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/team-cockpit/employees/{id}/history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TeamCockpitController_history'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/team-cockpit/employees/{id}/booking-targets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TeamCockpitController_bookingTargets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/team-cockpit/employees/{id}/clock-in': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TeamCockpitController_clockIn'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/team-cockpit/employees/{id}/manual': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TeamCockpitController_manual'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/team-cockpit/employees/{id}/requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TeamCockpitController_request'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/team-cockpit/employees/{id}/absences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TeamCockpitController_absence'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3199,11 +3327,21 @@ export interface components {
       expectedUpdatedAt: string;
     };
     TransitionDto: {
+      /**
+       * Format: date-time
+       * @description Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only.
+       */
+      expectedUpdatedAt?: string;
       /** Format: uuid */
       actorId: string;
       note?: string | null;
     };
     ManagerApproveDto: {
+      /**
+       * Format: date-time
+       * @description Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only.
+       */
+      expectedUpdatedAt?: string;
       /** Format: uuid */
       actorId: string;
       note?: string | null;
@@ -3211,6 +3349,11 @@ export interface components {
       requiresHrConfirmation: boolean;
     };
     TransitionWithRequiredNoteDto: {
+      /**
+       * Format: date-time
+       * @description Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only.
+       */
+      expectedUpdatedAt?: string;
       /** Format: uuid */
       actorId: string;
       note: string;
@@ -3255,6 +3398,230 @@ export interface components {
       to?: string;
       certified?: boolean;
       note?: Record<string, never> | null;
+    };
+    CockpitOpenEntryDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: date-time */
+      clockIn: string;
+      requiresApproval: boolean;
+      projectName: string | null;
+      serviceOrderTitle: string | null;
+    };
+    CockpitCoreWindowDto: {
+      /** Format: date-time */
+      start: string;
+      /** Format: date-time */
+      end: string;
+      label: string | null;
+    };
+    CockpitDayAbsenceDto: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      source: 'Request' | 'Absence';
+      classification: string;
+      /** @enum {string} */
+      status: 'Approved' | 'Recorded';
+      /** @enum {number} */
+      coverage: 0.5 | 1;
+    };
+    CockpitAttendanceDto: {
+      /** Format: uuid */
+      id: string;
+      firstName: string;
+      lastName: string;
+      isActive: boolean;
+      /** @enum {string} */
+      status:
+        | 'Booked'
+        | 'Missing'
+        | 'NoCoreNow'
+        | 'Flexible'
+        | 'Holiday'
+        | 'NonWorkingDay'
+        | 'ApprovedAbsence'
+        | 'PartialAbsenceUnknown'
+        | 'UnknownContract'
+        | 'UnknownSchedule'
+        | 'OutsideEmployment';
+      /** @enum {string} */
+      obligation: 'RequiredNow' | 'Excused' | 'NotRequiredNow' | 'Unknown';
+      /**
+       * @description Independent expectation reason, also when an open booking makes status Booked.
+       * @enum {string}
+       */
+      obligationReason:
+        | 'CoreWindow'
+        | 'OutsideCore'
+        | 'Flexible'
+        | 'Holiday'
+        | 'NonWorkingDay'
+        | 'ApprovedAbsence'
+        | 'PartialDayTimingUnknown'
+        | 'UnknownContract'
+        | 'UnknownSchedule'
+        | 'OutsideEmployment';
+      contractKnown: boolean;
+      scheduleName: string | null;
+      openEntry: components['schemas']['CockpitOpenEntryDto'] | null;
+      coreWindows: components['schemas']['CockpitCoreWindowDto'][];
+      absences: components['schemas']['CockpitDayAbsenceDto'][];
+    };
+    TeamCockpitDto: {
+      /** Format: date-time */
+      generatedAt: string;
+      /** Format: date */
+      today: string;
+      timeZone: string;
+      /**
+       * Format: date-time
+       * @description Next known core-time/day boundary. The client must refresh then, on relevant events, and with a fallback timer.
+       */
+      nextRefreshAt: string;
+      /** @enum {string} */
+      scope: 'Team' | 'Organisation';
+      employees: components['schemas']['CockpitAttendanceDto'][];
+    };
+    CockpitEmployeeDto: {
+      /** Format: uuid */
+      id: string;
+      firstName: string;
+      lastName: string;
+      isActive: boolean;
+    };
+    CockpitProxyEventDto: {
+      /** Format: uuid */
+      id: string;
+      action: string;
+      /** Format: uuid */
+      actorId: string | null;
+      actorName: string | null;
+      /** Format: date-time */
+      at: string;
+      reason: string;
+    };
+    CockpitHistoryItemDto: {
+      /** @enum {string} */
+      kind: 'TimeEntry' | 'Request' | 'Absence';
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      employeeId: string;
+      /** @description Date-only for allDay records, otherwise an exact ISO instant. */
+      from: string;
+      /** @description Inclusive date for allDay; exclusive clock-out instant for time entries; null means still running. */
+      to: string | null;
+      allDay: boolean;
+      classification: string;
+      /** @description Time-entry state (Voided included), recorded absence, or complete request workflow state including Draft/Rejected/Cancelled. */
+      status: string;
+      workflowState: string | null;
+      halfDayStart: boolean;
+      halfDayEnd: boolean;
+      projectName: string | null;
+      serviceOrderTitle: string | null;
+      grossMinutes: number | null;
+      breakMinutes: number | null;
+      netMinutes: number | null;
+      requiresApproval: boolean;
+      /** @description Work/request reason if applicable. Medical absence notes are never included. */
+      reason: string | null;
+      request: components['schemas']['RequestDto'] | null;
+      proxyActions: components['schemas']['CockpitProxyEventDto'][];
+    };
+    CockpitHistoryDto: {
+      employee: components['schemas']['CockpitEmployeeDto'];
+      /** Format: date */
+      from: string;
+      /** Format: date */
+      to: string;
+      timeZone: string;
+      /** Format: date-time */
+      generatedAt: string;
+      items: components['schemas']['CockpitHistoryItemDto'][];
+      nextCursor: string | null;
+    };
+    ProxyClockInDto: {
+      reason: string;
+      /** Format: uuid */
+      projectId?: string | null;
+      /** Format: uuid */
+      serviceOrderId?: string | null;
+      activity?: string | null;
+      billable?: boolean;
+      note?: string | null;
+    };
+    ProxyManualTimeEntryDto: {
+      reason: string;
+      /** Format: uuid */
+      projectId?: string | null;
+      /** Format: uuid */
+      serviceOrderId?: string | null;
+      activity?: string | null;
+      billable?: boolean;
+      note?: string | null;
+      /**
+       * Format: date-time
+       * @description Absolute past instant with UTC Z or explicit offset.
+       */
+      clockIn: string;
+      /**
+       * Format: date-time
+       * @description Absolute instant after clockIn and no later than now.
+       */
+      clockOut: string;
+    };
+    ProxyRequestDto: {
+      /** @enum {string} */
+      type: 'Vacation' | 'HomeOffice' | 'SpecialLeave';
+      /** Format: date-time */
+      from: string;
+      /** Format: date-time */
+      to: string;
+      /** @default false */
+      halfDayStart: boolean;
+      /** @default false */
+      halfDayEnd: boolean;
+      /** Format: uuid */
+      substituteId?: string | null;
+      reason?: string | null;
+      /** @description Operational reason for acting on behalf of the employee. */
+      proxyReason: string;
+    };
+    ProxyAbsenceDto: {
+      /** @enum {string} */
+      kind: 'Sickness' | 'Training' | 'Flextime';
+      /**
+       * Format: date
+       * @example 2026-08-03
+       */
+      from: string;
+      /**
+       * Format: date
+       * @example 2026-08-04
+       */
+      to: string;
+      /** @description Operational reason for recording on behalf of the employee; do not include medical details. */
+      proxyReason: string;
+    };
+    CockpitRecordedAbsenceDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      employeeId: string;
+      /** @enum {string} */
+      kind: 'Sickness' | 'Training' | 'Flextime';
+      /** Format: date */
+      from: string;
+      /** Format: date */
+      to: string;
+      /** @description Proxy recording cannot fabricate a medical certification. */
+      certified: boolean;
+      /** @description No medical notes are accepted by the proxy endpoint. */
+      note: string | null;
+      /** Format: date-time */
+      createdAt: string;
     };
   };
   responses: never;
@@ -6203,6 +6570,193 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  TeamCockpitController_overview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TeamCockpitDto'];
+        };
+      };
+    };
+  };
+  TeamCockpitController_approvalRequests: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RequestDto'][];
+        };
+      };
+    };
+  };
+  TeamCockpitController_history: {
+    parameters: {
+      query: {
+        /** @description Inclusive calendar start in the deployment timezone; at most 1830 days per query. */
+        from: string;
+        to: string;
+        limit?: number;
+        /** @description Opaque keyset cursor from nextCursor; never an authorization token. */
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CockpitHistoryDto'];
+        };
+      };
+    };
+  };
+  TeamCockpitController_bookingTargets: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BookableProjectDto'][];
+        };
+      };
+    };
+  };
+  TeamCockpitController_clockIn: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProxyClockInDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
+      };
+    };
+  };
+  TeamCockpitController_manual: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProxyManualTimeEntryDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'];
+        };
+      };
+    };
+  };
+  TeamCockpitController_request: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProxyRequestDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
+      };
+    };
+  };
+  TeamCockpitController_absence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProxyAbsenceDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CockpitRecordedAbsenceDto'];
+        };
       };
     };
   };

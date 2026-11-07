@@ -26,6 +26,7 @@ import { api, type BulkResult, type RequestDto } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { cn } from '@/lib/utils';
 import { useI18n } from '../app/i18n';
+import { refreshTeamCockpit } from '../components/team-cockpit/cache';
 import { TimeEntryApprovals } from '../components/timeentries/TimeEntryApprovals';
 
 type BulkDialog =
@@ -228,7 +229,7 @@ export function AdminRequestsPage() {
             setBulkOutcome(results);
             setBulkDialog(null);
             clear();
-            qc.invalidateQueries({ queryKey: ['requests'] });
+            void refreshTeamCockpit(qc);
           }}
         />
       )}
@@ -449,7 +450,7 @@ function RequestRow({
   const [note, setNote] = useState('');
   const [requiresHr, setRequiresHr] = useState(false);
 
-  const refresh = () => qc.invalidateQueries({ queryKey: ['requests'] });
+  const refresh = () => refreshTeamCockpit(qc);
 
   const forcedHr =
     request.type === 'TimeAdjustment' && request.requiresApproval;
@@ -613,14 +614,21 @@ function RequestRow({
   );
 }
 
-function AuditTrail({ requestId }: { requestId: string }) {
+export function AuditTrail({
+  requestId,
+  timeZone,
+}: {
+  requestId: string;
+  timeZone?: string;
+}) {
   const { t, enumLabel, formatDate, formatDateTime } = useI18n();
+  const user = useCurrentUser();
   const requestQuery = useQuery({
-    queryKey: ['request', requestId],
+    queryKey: ['request', requestId, user.id, user.role],
     queryFn: () => api.getRequest(requestId),
   });
   const eventsQuery = useQuery({
-    queryKey: ['request-events', requestId],
+    queryKey: ['request-events', requestId, user.id, user.role],
     queryFn: () => api.getRequestEvents(requestId),
   });
 
@@ -636,11 +644,19 @@ function AuditTrail({ requestId }: { requestId: string }) {
       </SheetHeader>
       {requestQuery.data?.type === 'TimeAdjustment' && (
         <div className="mt-4 space-y-3">
-          <TimeAdjustmentDiff request={requestQuery.data} />
-          <RequestTimeEntryAudit requestId={requestId} />
+          <TimeAdjustmentDiff request={requestQuery.data} timeZone={timeZone} />
+          <RequestTimeEntryAudit requestId={requestId} timeZone={timeZone} />
         </div>
       )}
       <div className="mt-4">
+        {(requestQuery.isPending || eventsQuery.isPending) && (
+          <p role="status">{t('common.loading')}</p>
+        )}
+        {(requestQuery.isError || eventsQuery.isError) && (
+          <Alert variant="destructive">
+            <AlertDescription>{t('cockpit.auditFailed')}</AlertDescription>
+          </Alert>
+        )}
         {eventsQuery.data && eventsQuery.data.length > 0 ? (
           <ol className="space-y-3 text-sm">
             {eventsQuery.data.map((ev) => (
@@ -648,7 +664,7 @@ function AuditTrail({ requestId }: { requestId: string }) {
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{enumLabel(ev.kind)}</span>
                   <span className="text-xs text-muted-foreground">
-                    {formatDateTime(ev.at)}
+                    {formatDateTime(ev.at, timeZone)}
                   </span>
                 </div>
                 {ev.note && (
@@ -660,7 +676,9 @@ function AuditTrail({ requestId }: { requestId: string }) {
             ))}
           </ol>
         ) : (
-          <p className="text-sm text-muted-foreground">Keine Events.</p>
+          <p className="text-sm text-muted-foreground">
+            {t('cockpit.noEvents')}
+          </p>
         )}
       </div>
     </>

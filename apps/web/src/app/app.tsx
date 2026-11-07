@@ -75,6 +75,11 @@ const SubstitutePage = lazy(() =>
 const AbsencesPage = lazy(() =>
   import('../routes/AbsencesPage').then((m) => ({ default: m.AbsencesPage })),
 );
+const TeamCockpitPage = lazy(() =>
+  import('../routes/TeamCockpitPage').then((m) => ({
+    default: m.TeamCockpitPage,
+  })),
+);
 const AdminRequestsPage = lazy(() =>
   import('../routes/AdminRequestsPage').then((m) => ({
     default: m.AdminRequestsPage,
@@ -190,6 +195,9 @@ export function App() {
               path="sickness"
               element={<Navigate to="/absences" replace />}
             />
+            {(user.role === 'Manager' || user.role === 'HRAdmin') && (
+              <Route path="team-cockpit" element={<TeamCockpitPage />} />
+            )}
             <Route path="admin/requests" element={<AdminRequestsPage />} />
             {user.role === 'HRAdmin' && (
               <Route path="settings" element={<SoloSettingsPage />} />

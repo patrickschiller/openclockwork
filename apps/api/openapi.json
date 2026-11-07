@@ -4711,6 +4711,337 @@
         },
         "tags": ["erp"]
       }
+    },
+    "/api/team-cockpit": {
+      "get": {
+        "operationId": "TeamCockpitController_overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamCockpitDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
+    },
+    "/api/team-cockpit/approval-requests": {
+      "get": {
+        "operationId": "TeamCockpitController_approvalRequests",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RequestDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
+    },
+    "/api/team-cockpit/employees/{id}/history": {
+      "get": {
+        "operationId": "TeamCockpitController_history",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": true,
+            "in": "query",
+            "description": "Inclusive calendar start in the deployment timezone; at most 1830 days per query.",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 200,
+              "default": 100,
+              "type": "number"
+            }
+          },
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque keyset cursor from nextCursor; never an authorization token.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CockpitHistoryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
+    },
+    "/api/team-cockpit/employees/{id}/booking-targets": {
+      "get": {
+        "operationId": "TeamCockpitController_bookingTargets",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BookableProjectDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
+    },
+    "/api/team-cockpit/employees/{id}/clock-in": {
+      "post": {
+        "operationId": "TeamCockpitController_clockIn",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyClockInDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
+    },
+    "/api/team-cockpit/employees/{id}/manual": {
+      "post": {
+        "operationId": "TeamCockpitController_manual",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyManualTimeEntryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeEntryDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
+    },
+    "/api/team-cockpit/employees/{id}/requests": {
+      "post": {
+        "operationId": "TeamCockpitController_request",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
+    },
+    "/api/team-cockpit/employees/{id}/absences": {
+      "post": {
+        "operationId": "TeamCockpitController_absence",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxyAbsenceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CockpitRecordedAbsenceDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["team-cockpit"]
+      }
     }
   },
   "info": {
@@ -8806,6 +9137,11 @@
       "TransitionDto": {
         "type": "object",
         "properties": {
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only."
+          },
           "actorId": {
             "type": "string",
             "format": "uuid"
@@ -8821,6 +9157,11 @@
       "ManagerApproveDto": {
         "type": "object",
         "properties": {
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only."
+          },
           "actorId": {
             "type": "string",
             "format": "uuid"
@@ -8840,6 +9181,11 @@
       "TransitionWithRequiredNoteDto": {
         "type": "object",
         "properties": {
+          "expectedUpdatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Displayed updatedAt for this decision. When supplied, changed/resubmitted requests are rejected with 409; omitted for legacy clients only."
+          },
           "actorId": {
             "type": "string",
             "format": "uuid"
@@ -8951,6 +9297,610 @@
             "maxLength": 2000
           }
         }
+      },
+      "CockpitOpenEntryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clockIn": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "projectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceOrderTitle": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "clockIn",
+          "requiresApproval",
+          "projectName",
+          "serviceOrderTitle"
+        ]
+      },
+      "CockpitCoreWindowDto": {
+        "type": "object",
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": ["start", "end", "label"]
+      },
+      "CockpitDayAbsenceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["Request", "Absence"]
+          },
+          "classification": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["Approved", "Recorded"]
+          },
+          "coverage": {
+            "type": "number",
+            "enum": [0.5, 1]
+          }
+        },
+        "required": ["id", "source", "classification", "status", "coverage"]
+      },
+      "CockpitAttendanceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Booked",
+              "Missing",
+              "NoCoreNow",
+              "Flexible",
+              "Holiday",
+              "NonWorkingDay",
+              "ApprovedAbsence",
+              "PartialAbsenceUnknown",
+              "UnknownContract",
+              "UnknownSchedule",
+              "OutsideEmployment"
+            ]
+          },
+          "obligation": {
+            "type": "string",
+            "enum": ["RequiredNow", "Excused", "NotRequiredNow", "Unknown"]
+          },
+          "obligationReason": {
+            "type": "string",
+            "enum": [
+              "CoreWindow",
+              "OutsideCore",
+              "Flexible",
+              "Holiday",
+              "NonWorkingDay",
+              "ApprovedAbsence",
+              "PartialDayTimingUnknown",
+              "UnknownContract",
+              "UnknownSchedule",
+              "OutsideEmployment"
+            ],
+            "description": "Independent expectation reason, also when an open booking makes status Booked."
+          },
+          "contractKnown": {
+            "type": "boolean"
+          },
+          "scheduleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "openEntry": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CockpitOpenEntryDto"
+              }
+            ]
+          },
+          "coreWindows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CockpitCoreWindowDto"
+            }
+          },
+          "absences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CockpitDayAbsenceDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "firstName",
+          "lastName",
+          "isActive",
+          "status",
+          "obligation",
+          "obligationReason",
+          "contractKnown",
+          "scheduleName",
+          "openEntry",
+          "coreWindows",
+          "absences"
+        ]
+      },
+      "TeamCockpitDto": {
+        "type": "object",
+        "properties": {
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "today": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "nextRefreshAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Next known core-time/day boundary. The client must refresh then, on relevant events, and with a fallback timer."
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["Team", "Organisation"]
+          },
+          "employees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CockpitAttendanceDto"
+            }
+          }
+        },
+        "required": [
+          "generatedAt",
+          "today",
+          "timeZone",
+          "nextRefreshAt",
+          "scope",
+          "employees"
+        ]
+      },
+      "CockpitEmployeeDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "firstName": {
+            "type": "string"
+          },
+          "lastName": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": ["id", "firstName", "lastName", "isActive"]
+      },
+      "CockpitProxyEventDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "action": {
+            "type": "string"
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "actorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": ["id", "action", "actorId", "actorName", "at", "reason"]
+      },
+      "CockpitHistoryItemDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["TimeEntry", "Request", "Absence"]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "description": "Date-only for allDay records, otherwise an exact ISO instant."
+          },
+          "to": {
+            "type": "string",
+            "nullable": true,
+            "description": "Inclusive date for allDay; exclusive clock-out instant for time entries; null means still running."
+          },
+          "allDay": {
+            "type": "boolean"
+          },
+          "classification": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "Time-entry state (Voided included), recorded absence, or complete request workflow state including Draft/Rejected/Cancelled."
+          },
+          "workflowState": {
+            "type": "string",
+            "nullable": true
+          },
+          "halfDayStart": {
+            "type": "boolean"
+          },
+          "halfDayEnd": {
+            "type": "boolean"
+          },
+          "projectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "serviceOrderTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "grossMinutes": {
+            "type": "number",
+            "nullable": true
+          },
+          "breakMinutes": {
+            "type": "number",
+            "nullable": true
+          },
+          "netMinutes": {
+            "type": "number",
+            "nullable": true
+          },
+          "requiresApproval": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "description": "Work/request reason if applicable. Medical absence notes are never included."
+          },
+          "request": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RequestDto"
+              }
+            ]
+          },
+          "proxyActions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CockpitProxyEventDto"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "employeeId",
+          "from",
+          "to",
+          "allDay",
+          "classification",
+          "status",
+          "workflowState",
+          "halfDayStart",
+          "halfDayEnd",
+          "projectName",
+          "serviceOrderTitle",
+          "grossMinutes",
+          "breakMinutes",
+          "netMinutes",
+          "requiresApproval",
+          "reason",
+          "request",
+          "proxyActions"
+        ]
+      },
+      "CockpitHistoryDto": {
+        "type": "object",
+        "properties": {
+          "employee": {
+            "$ref": "#/components/schemas/CockpitEmployeeDto"
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CockpitHistoryItemDto"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "employee",
+          "from",
+          "to",
+          "timeZone",
+          "generatedAt",
+          "items",
+          "nextCursor"
+        ]
+      },
+      "ProxyClockInDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "serviceOrderId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activity": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "billable": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": true
+          }
+        },
+        "required": ["reason"]
+      },
+      "ProxyManualTimeEntryDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "serviceOrderId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "activity": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true
+          },
+          "billable": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000,
+            "nullable": true
+          },
+          "clockIn": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Absolute past instant with UTC Z or explicit offset."
+          },
+          "clockOut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Absolute instant after clockIn and no later than now."
+          }
+        },
+        "required": ["reason", "clockIn", "clockOut"]
+      },
+      "ProxyRequestDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Vacation", "HomeOffice", "SpecialLeave"]
+          },
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "halfDayStart": {
+            "type": "boolean",
+            "default": false
+          },
+          "halfDayEnd": {
+            "type": "boolean",
+            "default": false
+          },
+          "substituteId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 2000
+          },
+          "proxyReason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000,
+            "description": "Operational reason for acting on behalf of the employee."
+          }
+        },
+        "required": ["type", "from", "to", "proxyReason"]
+      },
+      "ProxyAbsenceDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["Sickness", "Training", "Flextime"]
+          },
+          "from": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-03"
+          },
+          "to": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-08-04"
+          },
+          "proxyReason": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000,
+            "description": "Operational reason for recording on behalf of the employee; do not include medical details."
+          }
+        },
+        "required": ["kind", "from", "to", "proxyReason"]
+      },
+      "CockpitRecordedAbsenceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["Sickness", "Training", "Flextime"]
+          },
+          "from": {
+            "type": "string",
+            "format": "date"
+          },
+          "to": {
+            "type": "string",
+            "format": "date"
+          },
+          "certified": {
+            "type": "boolean",
+            "description": "Proxy recording cannot fabricate a medical certification."
+          },
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "description": "No medical notes are accepted by the proxy endpoint."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "kind",
+          "from",
+          "to",
+          "certified",
+          "note",
+          "createdAt"
+        ]
       }
     }
   }
