@@ -18,6 +18,11 @@ import { Label } from '@/components/ui/label';
 import { api, type RequestDto, type RequestType } from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
+import {
+  formatLocalDateTime,
+  localDateTimeCandidates,
+  utcOffsetLabel,
+} from '../lib/local-date-time';
 
 const TYPES: RequestType[] = [
   'Vacation',
@@ -209,11 +214,95 @@ interface NewRequestFormProps {
   request?: RequestDto;
 }
 
-function isoDateTimeLocalNow(iso?: string): string {
-  const d = iso ? new Date(iso) : new Date();
-  // datetime-local needs YYYY-MM-DDTHH:mm in *local* time
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function useLocalDateTime(originalIso?: string) {
+  const [value, setValue] = useState(() => {
+    const now = new Date();
+    now.setSeconds(0, 0);
+    return formatLocalDateTime(originalIso ?? now.toISOString());
+  });
+  const [chosenIso, setChosenIso] = useState(originalIso ?? '');
+  const candidates = useMemo(() => localDateTimeCandidates(value), [value]);
+  const chosen = candidates.find(
+    (iso) => new Date(iso).getTime() === new Date(chosenIso).getTime(),
+  );
+  // Preserve the exact persisted value until this field is changed, not just
+  // its minute-level local representation. Validation and payload share iso.
+  const iso = chosen
+    ? chosenIso
+    : candidates.length === 1
+      ? candidates[0]
+      : null;
+  return {
+    value,
+    candidates,
+    iso,
+    setChosenIso,
+    change: (next: string) => {
+      setValue(next);
+      setChosenIso('');
+    },
+  };
+}
+
+function LocalDateTimeField({
+  id,
+  label,
+  time,
+}: {
+  id: string;
+  label: string;
+  time: ReturnType<typeof useLocalDateTime>;
+}) {
+  const { t } = useI18n();
+  const ambiguous = time.candidates.length > 1;
+  const invalid = !time.iso;
+  return (
+    <>
+      <Input
+        id={id}
+        type="datetime-local"
+        step="0.001"
+        value={time.value}
+        onChange={(e) => time.change(e.target.value)}
+        aria-invalid={invalid}
+        aria-describedby={ambiguous || invalid ? `${id}-time-help` : undefined}
+      />
+      {ambiguous ? (
+        <div className="space-y-2">
+          <p id={`${id}-time-help`} className="text-xs text-muted-foreground">
+            {t('requests.ambiguousTime', {
+              zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            })}
+          </p>
+          <Label htmlFor={`${id}-occurrence`}>
+            {t('requests.timeOccurrence', { field: label })}
+          </Label>
+          <select
+            id={`${id}-occurrence`}
+            value={time.iso ? new Date(time.iso).toISOString() : ''}
+            onChange={(e) => time.setChosenIso(e.target.value)}
+            aria-invalid={invalid}
+            aria-describedby={`${id}-time-help`}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">{t('requests.chooseOccurrence')}</option>
+            {time.candidates.map((iso, index) => (
+              <option key={iso} value={iso}>
+                {t('requests.timeOccurrenceOption', {
+                  number: index + 1,
+                  offset: utcOffsetLabel(iso),
+                })}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : invalid ? (
+        <p id={`${id}-time-help`} className="text-sm text-destructive">
+          {t('requests.nonexistentTime')}
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 function NewRequestForm({ onClose, request }: NewRequestFormProps) {
@@ -224,10 +313,12 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
   const [type, setType] = useState<RequestType>(request?.type ?? 'Vacation');
   const [from, setFrom] = useState(request?.from.slice(0, 10) ?? today);
   const [to, setTo] = useState(request?.to.slice(0, 10) ?? today);
-  const [fromDt, setFromDt] = useState(() =>
-    isoDateTimeLocalNow(request?.from),
+  const fromTime = useLocalDateTime(
+    request?.type === 'TimeAdjustment' ? request.from : undefined,
   );
-  const [toDt, setToDt] = useState(() => isoDateTimeLocalNow(request?.to));
+  const toTime = useLocalDateTime(
+    request?.type === 'TimeAdjustment' ? request.to : undefined,
+  );
   const [reason, setReason] = useState(request?.reason ?? '');
   const [substituteId, setSubstituteId] = useState<string>(
     request?.substituteId ?? '',
@@ -269,23 +360,35 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
 
   const isTimeAdjustment = type === 'TimeAdjustment';
 
-  const invalidRange = useMemo(() => {
-    if (isTimeAdjustment)
-      return new Date(toDt).getTime() <= new Date(fromDt).getTime();
-    return new Date(to).getTime() < new Date(from).getTime();
-  }, [isTimeAdjustment, from, to, fromDt, toDt]);
+  const unresolvedTime = isTimeAdjustment && (!fromTime.iso || !toTime.iso);
+  const invalidRange = isTimeAdjustment
+    ? !fromTime.iso ||
+      !toTime.iso ||
+      new Date(toTime.iso).getTime() <= new Date(fromTime.iso).getTime()
+    : new Date(to).getTime() < new Date(from).getTime();
 
   const create = useMutation({
     mutationFn: async (saveOnly: boolean) => {
+      const fromIso = isTimeAdjustment
+        ? fromTime.iso
+        : new Date(`${from}T00:00:00.000Z`).toISOString();
+      const toIso = isTimeAdjustment
+        ? toTime.iso
+        : new Date(`${to}T00:00:00.000Z`).toISOString();
+      if (!fromIso || !toIso || invalidRange) {
+        throw new Error(
+          t(
+            isTimeAdjustment
+              ? 'requests.invalidTimeRange'
+              : 'requests.invalidDateRange',
+          ),
+        );
+      }
       if (request) {
         const payload = {
           expectedUpdatedAt: request.updatedAt,
-          from: isTimeAdjustment
-            ? new Date(fromDt).toISOString()
-            : new Date(`${from}T00:00:00.000Z`).toISOString(),
-          to: isTimeAdjustment
-            ? new Date(toDt).toISOString()
-            : new Date(`${to}T00:00:00.000Z`).toISOString(),
+          from: fromIso,
+          to: toIso,
           reason: reason || null,
           substituteId: type === 'Vacation' ? substituteId || null : null,
           halfDayStart: type === 'Vacation' && halfDayStart,
@@ -298,20 +401,14 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
       if (type === 'Vacation') {
         return api.createVacationRequest({
           employeeId,
-          from: new Date(`${from}T00:00:00.000Z`).toISOString(),
-          to: new Date(`${to}T00:00:00.000Z`).toISOString(),
+          from: fromIso,
+          to: toIso,
           substituteId: substituteId || null,
           reason: reason || null,
           halfDayStart,
           halfDayEnd,
         });
       }
-      const fromIso = isTimeAdjustment
-        ? new Date(fromDt).toISOString()
-        : new Date(`${from}T00:00:00.000Z`).toISOString();
-      const toIso = isTimeAdjustment
-        ? new Date(toDt).toISOString()
-        : new Date(`${to}T00:00:00.000Z`).toISOString();
       const created = await api.createRequest({
         employeeId,
         type,
@@ -384,11 +481,10 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
           <div className="space-y-2">
             <Label htmlFor="from">{t('common.from')}</Label>
             {isTimeAdjustment ? (
-              <Input
+              <LocalDateTimeField
                 id="from"
-                type="datetime-local"
-                value={fromDt}
-                onChange={(e) => setFromDt(e.target.value)}
+                label={t('common.from')}
+                time={fromTime}
               />
             ) : (
               <Input
@@ -402,11 +498,10 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
           <div className="space-y-2">
             <Label htmlFor="to">{t('common.to')}</Label>
             {isTimeAdjustment ? (
-              <Input
+              <LocalDateTimeField
                 id="to"
-                type="datetime-local"
-                value={toDt}
-                onChange={(e) => setToDt(e.target.value)}
+                label={t('common.to')}
+                time={toTime}
               />
             ) : (
               <Input
@@ -510,7 +605,7 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
           </Alert>
         )}
 
-        {invalidRange && (
+        {invalidRange && !unresolvedTime && (
           <Alert variant="destructive">
             <AlertDescription>
               {isTimeAdjustment

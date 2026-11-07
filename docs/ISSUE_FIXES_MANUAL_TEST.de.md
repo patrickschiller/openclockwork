@@ -149,6 +149,59 @@ Die Beispieldaten an den freien Testzeitraum anpassen.
 | Zwei verschiedene Entwürfe parallel einreichen, Urlaub reicht nur für einen                  | genau einer erfolgreich; keine Überbuchung des Kontos                                        |
 | Bereits laufende alte Managerentscheidung während Rückgabe + Wiedereinreichung               | alte Entscheidung scheitert mit 409, neue Werte/neuer Freigabezyklus bleiben bestehen        |
 
+### D. Zeitkorrekturen: Sekunden und Herbst-Zeitumstellung (#42-Nachkorrektur)
+
+Den Browser bzw. die Browser-Testumgebung ausdrücklich auf **Europe/Berlin**
+stellen (z. B. DevTools → Sensors → Location/Timezone). Die Maske verwendet wie
+bisher die lokale Browser-Zeitzone. Nur den isolierten synthetischen Teststack
+nutzen, keine vorhandenen Zeitbuchungen überlappen und die Szenarien einzeln
+ausführen; anschließend den jeweiligen Testantrag stornieren oder getrennte
+synthetische Beschäftigte verwenden.
+
+Für präzise Ausgangswerte als Anna über die Netzwerkdetails einen synthetischen
+`POST /api/requests` mit Annas `employeeId`, `type=TimeAdjustment`, einem
+Testgrund und den unten angegebenen `from`-/`to`-Werten anlegen. Der Server
+erwartet ISO-Zeitpunkte, nicht offsetlose Ortszeiten. Als Marc zur Korrektur
+zurückgeben (nicht genehmigen; die Sondergenehmigungs-/HR-Regeln gelten weiter).
+
+| Ausgangsfall | ISO-Anfang → ISO-Ende | Lokale Anzeige Europe/Berlin |
+| --- | --- | --- |
+| Normale Sekunden/Millisekunden | `2026-06-15T06:10:23.456Z` → `2026-06-15T07:20:45.789Z` | 08:10:23.456 → 09:20:45.789 |
+| Erstes Herbst-Vorkommen | `2026-10-25T00:10:23.456Z` → `2026-10-25T00:30:45.789Z` | 02:10:23.456 → 02:30:45.789, jeweils UTC+02:00 |
+| Zweites Herbst-Vorkommen | `2026-10-25T01:10:23.456Z` → `2026-10-25T01:30:45.789Z` | dieselben Ortszeiten, jeweils UTC+01:00 |
+| Über die Rückstellung | `2026-10-25T00:50:23.456Z` → `2026-10-25T01:10:45.789Z` | 02:50:23.456 UTC+02:00 → 02:10:45.789 UTC+01:00 |
+
+1. Je Ausgangsfall Entwurf öffnen, **nur die Begründung ändern**, speichern,
+   wieder öffnen und erneut einreichen. Netzwerk-Payload und Antwort für
+   `PATCH /api/requests/:id` und `POST /api/requests/:id/resubmit` prüfen:
+   `from`/`to` bleiben **exakt** wie in der Tabelle, einschließlich Sekunden,
+   Millisekunden und Vorkommen; gleiche ID. Das rückstellungsübergreifende
+   Intervall bleibt zulässig, obwohl die lokale Enduhrzeit kleiner ist.
+2. Zum Vergleich den konkreten Fehlerfall mit
+   `2026-10-25T01:30:00.000Z` als Anfang und z. B.
+   `2026-10-25T02:30:00.000Z` als Ende prüfen: Bei einer reinen
+   Begründungsänderung darf der Anfang **nicht** nach
+   `2026-10-25T00:30:00.000Z` wechseln.
+3. In einem zurückgegebenen Zeitkorrektur-Entwurf den Anfang auf
+   **25.10.2026 02:30** ändern (Ende z. B. 03:30). Erwartet: verständlicher
+   Zeitzonenhinweis und beschriftetes Feld **Von – Vorkommen**; kein stiller
+   Standardwert. Speichern und Wiedereinreichen bleiben gesperrt, bis explizit
+   gewählt wurde. **1. Vorkommen (UTC+02:00)** sendet
+   `2026-10-25T00:30:00.000Z`, **2. Vorkommen (UTC+01:00)** sendet
+   `2026-10-25T01:30:00.000Z`. Das unveränderte Ende bleibt exakt erhalten.
+4. Dasselbe am Ende prüfen. Anfang 02:50 UTC+02:00, Ende 02:10 UTC+01:00:
+   zulässig. Anfang auf das zweite Vorkommen umstellen: Ende liegt davor,
+   deshalb gesperrt. Erneute Änderung des Ortszeitfelds verwirft eine vorherige
+   Vorkommenswahl und verlangt bei Mehrdeutigkeit eine neue Auswahl.
+5. Ortszeit **29.03.2026 02:30** oder ein leeres Zeitfeld eingeben:
+   verständlicher Fehler; kein API-Aufruf und keine automatische Verschiebung
+   auf 03:30. Ein normaler gültiger Zeitpunkt hebt die Sperre wieder auf,
+   sofern das Ende nach dem Anfang liegt.
+6. Auf Englisch wiederholen: **From/To – occurrence**, **Choose occurrence**,
+   **Occurrence 1 (UTC+02:00)** / **Occurrence 2 (UTC+01:00)** und Erklärung sind
+   übersetzt. Auswahl mit Tab und Pfeiltasten bedienen; Zeitfeld und Auswahl
+   sind mit ihren jeweiligen Labels/Hinweisen verknüpft.
+
 ### Automatisch ausgeführte Gates
 
 Stand: 07.11.2026. Tests verwenden eine eigene synthetische PostgreSQL-16-Instanz
@@ -169,6 +222,38 @@ Ausgeführt mit Node `v26.12.1`, pnpm `9.15.9` (für diesen Worktree über
 | `pnpm nx run web:typecheck --force --skip-nx-cache`, danach `pnpm nx run-many -t typecheck -p api,web,shared,api-e2e`                                                            | **Alle vier Typechecks erfolgreich**                                            |
 | `pnpm verify:api` mit der isolierten Test-`DATABASE_URL`                                                                                                                         | **Erfolgreich**, OpenAPI und generierter Client identisch zur gestagten Fassung |
 | `git diff --check`                                                                                                                                                               | **Erfolgreich**                                                                 |
+
+#### Nachkorrektur des unabhängigen P2-Befunds: Zeit-Roundtrip
+
+Ergänzt am 07.11.2026, gleicher Branch/Worktree. **18 zusätzliche Regressionen**
+(10 UI-Fälle und 8 Zeitauflösungsfälle). Die betroffenen Tests setzen ihre
+Zeitzonen selbst und stellen sie wieder her; die Web-Läufe wurden zusätzlich
+mit `TZ=UTC` gestartet, damit die Berlin-Fälle nicht zufällig von der
+Host-Zeitzone abhängen.
+
+| Gate | Ergebnis |
+| --- | --- |
+| Vier neue reine Begründungs-Roundtrips gegen die unveränderte `RequestsPage.tsx` aus `230dbb0` | **4/4 erwartungsgemäß fehlgeschlagen**: Sekundenverlust, zweites Vorkommen um eine Stunde verschoben bzw. gültiges rückstellungsübergreifendes Intervall gesperrt; danach korrigierte Datei wiederhergestellt |
+| `TZ=UTC pnpm nx test web --run src/routes/RequestsPage.spec.tsx src/lib/local-date-time.spec.ts src/app/i18n.spec.tsx` | **29/29 bestanden** |
+| `TZ=UTC pnpm nx test web --run` (finaler Code) | **208/208 Tests, 34 Dateien bestanden** |
+| `TZ=UTC pnpm nx run-many -t test -p web,shared --run` | Web erfolgreich; **Shared 88/88 aus unverändertem Nx-Cache** |
+| `pnpm nx run-many -t typecheck,lint -p web` | **Erfolgreich; 0 Fehler, nur 2 bestehende Warnungen** in `ThemeProvider.tsx` und `components/ui/alert.tsx`, keine neue Warnung |
+| `pnpm nx build web` (nach beendetem Typecheck) | **Erfolgreich**, einschließlich PWA-Build |
+| `git diff --check` | **Erfolgreich** |
+
+Abgedeckt: erfolgreicher Ablauf Speichern → Wiederöffnen → Wiedereinreichen mit
+neuem Versionswert, exakte Sekunden/Millisekunden, beide Herbst-Vorkommen,
+unverändertes Gegenfeld, explizite DE/EN-Auswahl beider UTC-Offsets, identische
+Validierungs-/Payload-Zeitpunkte, lokal früheres aber tatsächlich späteres Ende,
+veraltete Auswahl nach weiterer Zeitänderung, leere Eingabe und Frühjahrslücke.
+Die Hilfsfunktion wird zusätzlich für UTC, New York und eine halbstündige
+Lord-Howe-Zeitumstellung geprüft.
+
+Nur Web und Anleitung geändert: keine API-, OpenAPI-, Client-Vertrags- oder
+Datenbankänderung. Die bisherigen API-Gates bleiben oben dokumentiert; die
+reguläre PR-CI prüft auch auf diesem Head erneut API-Synchronität und API-E2E.
+Der manuelle Browser-Durchlauf aus Abschnitt D ist eine Anleitung, **kein**
+behauptetes Testergebnis.
 
 Beim kombinierten parallelen Build-/Typecheck-Zwischenlauf entfernte Vite das
 von TypeScript ebenfalls verwendete Web-`dist`-Verzeichnis (`TS6305`). Der
