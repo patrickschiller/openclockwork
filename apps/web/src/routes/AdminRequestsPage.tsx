@@ -621,7 +621,7 @@ export function AuditTrail({
   requestId: string;
   timeZone?: string;
 }) {
-  const { t, enumLabel, formatDate, formatDateTime } = useI18n();
+  const { t, enumLabel, formatDate, formatDateTime, languageTag } = useI18n();
   const user = useCurrentUser();
   const requestQuery = useQuery({
     queryKey: ['request', requestId, user.id, user.role],
@@ -632,13 +632,20 @@ export function AuditTrail({
     queryFn: () => api.getRequestEvents(requestId),
   });
 
+  const rangeDate = (value: string) =>
+    requestQuery.data?.type !== 'TimeAdjustment'
+      ? formatDate(value.slice(0, 10))
+      : timeZone
+        ? new Date(value).toLocaleDateString(languageTag, { timeZone })
+        : formatDate(value);
+
   return (
     <>
       <SheetHeader>
         <SheetTitle>{t('requests.auditHistory')}</SheetTitle>
         <SheetDescription>
           {requestQuery.data
-            ? `${requestQuery.data.employeeName} · ${enumLabel(requestQuery.data.type)} · ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.from : requestQuery.data.from.slice(0, 10))} – ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.to : requestQuery.data.to.slice(0, 10))}`
+            ? `${requestQuery.data.employeeName} · ${enumLabel(requestQuery.data.type)} · ${rangeDate(requestQuery.data.from)} – ${rangeDate(requestQuery.data.to)}`
             : '…'}
         </SheetDescription>
       </SheetHeader>

@@ -1490,14 +1490,14 @@ vorhandenen Daten und benötigt kein erneutes Seeden. Die endgültigen lokal aus
 | `pnpm nx run api-e2e:e2e --runInBand --skip-nx-cache`                                                        | **653/653 Tests, 45 Suites bestanden**, einschließlich aller bisherigen #42/#41/#43/#45-Regressionen                                                                                                                                          |
 | Neue #44-API-Fälle                                                                                           | **238**: 112 Scope/Anwesenheit/History/Approval-Listen/Targets, 30 stellvertretende Zeitbuchungen, 48 Abwesenheits-/Antragsfälle, 48 Versions-/Concurrency-/Autoritäts-/Audit-Fälle                                                           |
 | `pnpm nx run api-e2e:e2e --runInBand --testPathPatterns=cockpit-decision-audit --skip-nx-cache`              | **48/48 bestanden**; unter anderem zwei gleichzeitige Entscheider, ABA-Rückgabe/Resubmit, Authority-Änderung nach Sperrwartezeit, aktuelle statt historische Audit-Rechte                                                                     |
-| `pnpm nx run-many -t test -p web,shared --run --skip-nx-cache`                                               | Web **365/365 Tests in 49 Dateien**, Shared **88/88 in 7 Dateien** bestanden                                                                                                                                                                  |
+| `pnpm nx run-many -t test -p web,shared --run --skip-nx-cache`                                               | Web **366/366 Tests in 49 Dateien**, Shared **88/88 in 7 Dateien** bestanden                                                                                                                                                                  |
 | `pnpm nx run api-e2e:test-ops`                                                                               | **27/27 bestanden**                                                                                                                                                                                                                           |
 | `pnpm nx run-many -t typecheck,lint -p api,web,shared,api-e2e,web-e2e`                                       | **Alle fünf Projekte erfolgreich**; nach Generierung Web/API-E2E/Web-E2E nochmals ohne Nx-Cache. **0 Lintfehler**, nur **15 bestehende Warnungen** (13 in den bisherigen vier Projekten + 2 im bestehenden Browser-Smoke), keine neue Warnung |
 | `pnpm nx run-many -t build -p api,web,shared --skip-nx-cache`                                                | **Alle drei Produktions-Builds bestanden**, nach den Typechecks, ohne `dist`-Rennen                                                                                                                                                           |
 | `pnpm verify:api`                                                                                            | OpenAPI und generierter Client reproduzierbar synchron; Ergebnis vor dem Commit geprüft                                                                                                                                                       |
 | Befüllter echter DB-Upgrade vom akzeptierten #45-Stand                                                       | **27 → 28 Migrationen bestanden**, Sentinel-Werte/Audits erhalten, **0 erfundene Proxy-Audits**, weiterhin keine erfundene Vertragsbestätigung                                                                                                |
 | Docker-Build/Start/Seed des kombinierten Branches                                                            | **API/Web gebaut, API/Web/DB healthy**, genau einmal synthetisch geseedet (9 Demo-Personen); finales Web-Image anschließend nachgebaut                                                                                                        |
-| `COCKPIT_RUNTIME_TEST=1 BASE_URL=http://127.0.0.1:18050 pnpm nx run web-e2e:cockpit-runtime --skip-nx-cache` | **1/1 echter Chromium-Test bestanden**, finaler Lauf **9,4 s**, reale Manager-/HR-/Employee-Aktionen mit Browserzone New York gegen Serverzone Berlin                                                                                         |
+| `COCKPIT_RUNTIME_TEST=1 BASE_URL=http://127.0.0.1:18050 pnpm nx run web-e2e:cockpit-runtime --skip-nx-cache` | **1/1 echter Chromium-Test bestanden**, auf dem abschließenden Docker-Webimage, reale Manager-/HR-/Employee-Aktionen mit Browserzone New York gegen Serverzone Berlin                                                                                         |
 | SQL-Blöcke aus #44 A und E                                                                                   | **Tatsächlich ausgeführt**: Plan, Kernzeit und synthetische Person angelegt; **730** geschlossene Vorjahresbuchungen eingefügt. Kein manueller Browsernachtest dieser SQL-Fixtures behauptet                                                  |
 | `git diff --check`                                                                                           | Vor dem Commit bestanden                                                                                                                                                                                                                      |
 
@@ -1509,13 +1509,18 @@ Der erste tatsächliche Docker-Start zeigte außerdem `EACCES /app/package.json`
 bei einem Quellcheckout mit `umask 077`: das Runtime-Image macht nur den
 root-eigenen Code für den nicht privilegierten App-Benutzer lesbar; keine
 Host-/Datenrechte wurden geändert. Der korrigierte Stack und der finale
-Browserlauf waren erfolgreich.
+Browserlauf waren erfolgreich. Ein abschließender Readback vereinheitlichte
+auch die Datumsüberschrift des Korrekturverlaufs mit der ausgewiesenen
+Serverzeitzone; eine zusätzliche Mitternachtsregression und der vollständige
+Web-Nachlauf (**366 Tests**) sind grün. Beim Zusatztest wurden anschließend
+die projektspezifische Importauflösung und Importreihenfolge korrigiert;
+Types/Lint, beide Zonenregressionen und Web-Produktionsbuild sind erneut grün.
 
 Die bestehende CI bleibt unverändert und prüft auch den kumulativen Upgradepfad
 von `main`. Exakten finalen Head, alle fünf CI-Ergebnisse und deren stabile
 GitHub-URLs nennen PR/Issue-Kommentar; diese Aussagen dürfen nicht auf spätere
 Commits übertragen werden. Menschlicher Gesamtnachtest zu Hause und unabhängige
-Abnahme durch den Parent sind damit nicht vorweggenommen. Kein Merge, Release,
+Abnahme durch unabhängiges Review sind damit nicht vorweggenommen. Kein Merge, Release,
 Tag, Versionsbump oder Deployment.
 
 Lokal zum Ende `all5 stop`; Daten/Attachments bleiben für eine Fortsetzung
