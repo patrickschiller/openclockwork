@@ -666,8 +666,11 @@ SQL
    Aktuellen Stand prüfen, alten Antrag stornieren und einen neuen mit der
    aktuellen Zielversion anlegen. Ziel/Originalrevision sind absichtlich auch
    im Entwurf unveränderlich.
-4. Mit Bernds Token Annas Ziel-ID verwenden; oder `employeeId` im Body fälschen:
-   kein Zugriff. Auswahl liefert ausschließlich eigene berechtigte Ziele.
+4. Mit Bernds Token Annas fremde Ziel-ID verwenden: **403**, kein Zugriff.
+   Ein gefälschtes `employeeId` im Body wird hingegen ignoriert: Maßgeblich ist
+   ausschließlich die JWT-Identität. Mit einem zulässigen eigenen Ziel kann der
+   Antrag deshalb erfolgreich sein; er gehört weiterhin der angemeldeten Person.
+   Auswahl liefert ausschließlich eigene berechtigte Ziele.
    Offene, verworfene, abgelehnte und Solo-Buchungen sind keine zulässigen Ziele.
 5. In einem getrennten Solo-Teststack die bestehenden direkten Owner-Korrekturen
    prüfen: unverändert. Team-Anträge erlauben keinen Umweg an den Solo-Owner-
@@ -703,7 +706,8 @@ gleich. Buchungsaudit zum Antrag:
 | Fall | Erwartung |
 | --- | --- |
 | Kein Login | 401 |
-| Fremde Ziel-ID / gefälschte Mitarbeiteridentität | 403; keine Buchungsänderung |
+| Fremde Ziel-ID | 403; keine Buchungsänderung |
+| Gefälschtes `employeeId` im Body | Ignoriert; JWT-Identität ist maßgeblich. Mit zulässigem eigenem Ziel kann der Antrag erfolgreich sein, bleibt aber der angemeldeten Person zugeordnet |
 | Offenes, verworfenes, abgelehntes oder Solo-Ziel | 409; nicht auswählbar |
 | Ziel-ID ohne Revision oder umgekehrt / negative Revision | 400 |
 | Zielbindung bei Urlaub/Homeoffice/Sonderurlaub | 400 |
