@@ -347,6 +347,22 @@ const de: Catalog = {
     'Für den ausgewählten Tag wurde bereits ein Tagesblock gebucht.',
   'requests.title': 'Anträge',
   'requests.description': 'Urlaub, Home-Office, Sonderurlaub, Zeitkorrekturen',
+  'requests.edit': 'Antrag bearbeiten',
+  'requests.resubmit': 'Erneut einreichen',
+  'enum.Resubmitted': 'Erneut eingereicht',
+  'requests.saveDraft': 'Entwurf speichern',
+  'requests.employee': 'Mitarbeiter/in',
+  'requests.revisionReason': 'Rückgabegrund',
+  'requests.notDraft':
+    'Dieser Antrag ist kein Entwurf mehr. Bitte Übersicht neu laden.',
+  'requests.loadFailed': 'Antrag konnte nicht geladen werden.',
+  'requests.ambiguousTime':
+    'Diese Ortszeit kommt bei der Zeitumstellung in {zone} zweimal vor. Bitte das gewünschte Vorkommen wählen; unveränderte Werte behalten das gespeicherte Vorkommen.',
+  'requests.timeOccurrence': '{field} – Vorkommen',
+  'requests.chooseOccurrence': 'Vorkommen wählen',
+  'requests.timeOccurrenceOption': '{number}. Vorkommen ({offset})',
+  'requests.nonexistentTime':
+    'Bitte eine gültige Ortszeit eingeben. Zeiten in der Lücke der Zeitumstellung existieren nicht.',
   'requests.new': 'Neuer Antrag',
   'requests.own': 'Eigene Anträge',
   'requests.none': 'Noch keine Anträge.',
@@ -1018,6 +1034,22 @@ const en: Catalog = {
   'requests.title': 'Requests',
   'requests.description':
     'Vacation, home office, special leave, time adjustments',
+  'requests.edit': 'Edit request',
+  'requests.resubmit': 'Resubmit',
+  'enum.Resubmitted': 'Resubmitted',
+  'requests.saveDraft': 'Save draft',
+  'requests.employee': 'Employee',
+  'requests.revisionReason': 'Reason for revision',
+  'requests.notDraft':
+    'This request is no longer a draft. Please reload the list.',
+  'requests.loadFailed': 'Could not load request.',
+  'requests.ambiguousTime':
+    'This local time occurs twice when the clocks change in {zone}. Choose the intended occurrence; unchanged values keep the saved occurrence.',
+  'requests.timeOccurrence': '{field} – occurrence',
+  'requests.chooseOccurrence': 'Choose occurrence',
+  'requests.timeOccurrenceOption': 'Occurrence {number} ({offset})',
+  'requests.nonexistentTime':
+    'Enter a valid local time. Times in the clock-change gap do not exist.',
   'requests.new': 'New request',
   'requests.own': 'My requests',
   'requests.none': 'No requests yet.',
