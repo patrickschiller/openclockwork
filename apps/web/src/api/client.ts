@@ -109,6 +109,45 @@ export interface EmployeeDto {
   isActive: boolean;
 }
 
+/** Confirmed, self-contained historical facts; never a live schedule reference. */
+export interface ContractPeriodDto {
+  id: string;
+  employeeId: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  employmentStart: string;
+  employmentEnd: string | null;
+  weeklyHours: number;
+  timeModel: TimeModel;
+  workingDays: number;
+  holidayCalendar: HolidayCalendar;
+  holidayDates: string[];
+  scheduleLabel: string | null;
+  confirmationNote: string;
+  confirmedById: string | null;
+  revision: number;
+  createdAt: string;
+}
+
+type ContractPeriodSupersession =
+  | { supersedesPeriodId: string; expectedRevision: number }
+  | { supersedesPeriodId?: never; expectedRevision?: never };
+
+export type CreateContractPeriodPayload = Pick<
+  ContractPeriodDto,
+  | 'effectiveFrom'
+  | 'effectiveTo'
+  | 'employmentStart'
+  | 'employmentEnd'
+  | 'weeklyHours'
+  | 'timeModel'
+  | 'workingDays'
+  | 'holidayCalendar'
+  | 'holidayDates'
+  | 'scheduleLabel'
+  | 'confirmationNote'
+> & { confirmed: true } & ContractPeriodSupersession;
+
 export interface CreateEmployeePayload {
   personalNo: string;
   firstName: string;
@@ -401,11 +440,28 @@ export interface WorkingTimeReportTotalsDto {
   netMinutes: number;
 }
 
+export interface WorkingTimeComparisonDto {
+  employeeId: string;
+  employeeName: string;
+  targetMinutes: number | null;
+  actualMinutes: number;
+  differenceMinutes: number | null;
+  targetStatus: 'Known' | 'Unknown';
+  unknownDates: string[];
+  reason: 'CONTRACT_HISTORY_GAP' | null;
+  indicator: 'Unknown' | 'Negative' | 'Balanced' | 'Positive' | 'Excess';
+  openEntryCount: number;
+}
+
 export interface WorkingTimeReportDto {
   from: string;
   to: string;
   rows: WorkingTimeReportRowDto[];
   totals: WorkingTimeReportTotalsDto;
+  comparisons: WorkingTimeComparisonDto[];
+  timeZone: string;
+  timeDefinition: 'net_working_time';
+  excessThresholdMinutes: 600;
 }
 
 export interface UpsertProjectPayload {
@@ -980,6 +1036,21 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  contractPeriods: (employeeId: string) =>
+    request<ContractPeriodDto[]>(
+      `/api/employees/${employeeId}/contract-periods`,
+    ),
+  createContractPeriod: (
+    employeeId: string,
+    payload: CreateContractPeriodPayload,
+  ) =>
+    request<ContractPeriodDto>(
+      `/api/employees/${employeeId}/contract-periods`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    ),
   setEmployeePassword: (id: string, password: string) =>
     request<void>(`/api/employees/${id}/password`, {
       method: 'POST',

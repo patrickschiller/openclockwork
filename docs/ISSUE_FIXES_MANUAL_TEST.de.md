@@ -799,3 +799,279 @@ TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
 
 Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #45 und #44 folgen erst
 nach unabhängiger Abnahme; hier noch nicht begonnen.
+
+### Dokumentations-Nachtrag #43 vor Paket #45
+
+Der reine Identitäts-Dokufix auf PR #48 ist
+`53f961164245db69ac91912d3f123961ce846dd8` (eine Datei, +7/−3, kein Code).
+Fremdes Buchungsziel → 403; ein gefälschtes Body-`employeeId` wird ignoriert,
+das JWT ist maßgeblich und ein zulässiges eigenes Ziel kann erfolgreich sein.
+Alle fünf Checks dieses exakten Heads waren grün:
+[CI](https://github.com/patrickschiller/openclockwork/actions/runs/42333159388),
+[DCO](https://github.com/patrickschiller/openclockwork/actions/runs/42333159341).
+Keine erneuten lokalen Volltests für diese reine Textkorrektur.
+
+## Paket #45 – datierter Soll/Ist-Vergleich der Arbeitszeiten
+
+- Issue: <https://github.com/patrickschiller/openclockwork/issues/45>
+- Branch: `feat/45-contract-period-comparison`.
+- Worktree: `/Users/patrickschiller/openclockwork-issue-45`.
+- Basis: `53f961164245db69ac91912d3f123961ce846dd8` (Paket #43 inklusive
+  JWT-Identitäts-Dokukorrektur). Kumulativ #42 + #41 + #43 + #45.
+- PR-Ziel bleibt `main`, damit alle CI-Gates laufen. Abhängigkeit und spätere
+  Merge-Reihenfolge: **PR #46 → #47 → #48 → dieser PR**. Nicht selbst mergen.
+- Additive Migration `20261107050000_employee_contract_periods`:
+  bestätigte, selbständige Vertrags-/Arbeitstage-/Feiertagssnapshots und Audit.
+  **Keine** Rückdatierung der aktuellen Stammdaten für Bestandsmitarbeiter.
+  Lücken ergeben `targetMinutes: null`, `differenceMinutes: null` und die
+  betroffenen `unknownDates` – niemals ein scheinbar korrektes Null-Soll.
+
+### Fachliche Definitionen und Grenzen
+
+- Der inklusive gewählte Zeitraum gilt gleichzeitig für Liste, Soll und Ist.
+  Kalendergrenzen sowie angezeigte/exportierte Uhrzeiten verwenden die
+  ausgewiesene Server-Zeitzone, hier `Europe/Berlin`, unabhängig vom Browser;
+  Sekunden und DST werden als echte Zeitdauern ausgewertet.
+- Ist = geschlossene Buchungen `Pending` oder `Approved`, netto nach der beim
+  Erfassen gespeicherten Pausenregel. `Pending` zählt ausdrücklich **vorläufig**.
+  Laufende, abgelehnte oder entwertete Buchungen zählen nicht. Übernachtungen
+  werden an lokalen Tages-/Zeitraumgrenzen anteilig zerlegt. Künstliche
+  Schnittgrenzen erhalten keine fremde Standortbeobachtung. Capture-Gruppen
+  behalten ihren gemeinsamen Pausenabzug, auch wenn Teile außerhalb liegen.
+- Soll = bestätigte Wochenstunden gleichmäßig auf die bestätigten Arbeitstage,
+  je Tag gemäß bestehender Domain-Regel auf ganze Minuten gerundet.
+  Beschäftigungsbeginn/-ende, freie Wochentage und Snapshot-Feiertage reduzieren
+  das Soll. Genehmigter Urlaub/Sonderurlaub sowie erfasste Krankheit/Fortbildung
+  reduzieren das Tages-Soll (Halbtage anteilig), **ohne** Ist-Gutschrift.
+  Überlappungen werden pro Tag maximal einmal berücksichtigt. Doppelte
+  Halbtagsmarkierungen ergeben nicht künstlich einen ganzen freien Tag.
+  Homeoffice und Freizeitausgleich sind hier keine zusätzliche Soll-Befreiung.
+- Differenz = **Ist − Soll ausschließlich dieses Zeitraums**, kein kumuliertes
+  Zeitkonto und kein Eröffnungssaldo. Text und Farbe unterscheiden unter Soll,
+  ausgeglichen, über Soll sowie „Prüfung empfohlen“ ab **+10 h**. Diese feste
+  Zeitraum-Prüfschwelle ist keine gesetzliche Grenze oder Rechtsbewertung.
+- HR bestätigt Vertragsperioden ausdrücklich. Der Stammdateneditor und mutable
+  Arbeitszeitpläne bleiben operative Einstellungen; ihre spätere Änderung
+  schreibt bestätigte Snapshots **nicht** um. Eine wirksame Vertragsänderung
+  muss HR über einen neuen bestätigten Zeitraum hinzufügen. Eine explizite,
+  revisionsgeprüfte Ablösung beendet nur die ausgewählte Vorperiode am Vortag;
+  deren übrige Fakten bleiben samt Audit erhalten. Kein Überschreiben/Löschen
+  bestätigter Fakten über diese API.
+- Führungskräfte sehen sich selbst und unmittelbar zugeordnete Beschäftigte,
+  HR organisationsweit (auch historische/inaktive Personen). Unberechtigte
+  ausgewählte IDs werden serverseitig verweigert, nicht still ausgefiltert.
+  PDF bleibt HR vorbehalten; PDF-Funktionsausbau gehört zum späteren Paket #44.
+
+### A. Eigenständiges lokales Setup und synthetische Prüfdaten
+
+Die Voraussetzungen aus [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md)
+verwenden, aber einen **eigenen** Stack auf Port `18045` starten. Keine bestehende
+Datenbank, `.env` oder Produktivdaten verwenden:
+
+```bash
+git fetch origin
+git worktree add ../openclockwork-45-manual origin/feat/45-contract-period-comparison
+cd ../openclockwork-45-manual
+cat > /tmp/openclockwork-45-compose.yml <<'YAML'
+services:
+  api:
+    image: openclockwork-api:issue45-local
+  web:
+    image: openclockwork-web:issue45-local
+YAML
+
+dc45() {
+  TEST_WEB_PORT=18045 docker compose --env-file /dev/null \
+    -p openclockwork-issue45 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-45-compose.yml "$@"
+}
+dc45 build
+dc45 up -d --wait
+dc45 exec -T -e NODE_ENV=development \
+  -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
+  api node --import tsx prisma/seed.ts
+```
+
+Oberfläche <http://localhost:18045>. Seed nur einmal auf der leeren Datenbank;
+synthetische Rollen/Passwort wie bei #42: Hannah Roth (HR), Marc Becker (Manager),
+Stefanie Weiss (fremdes Team), Anna Müller (Employee), Passwort `openclockwork`.
+Der Demo-Seed bestätigt ausschließlich ausdrücklich synthetische Vertragsdaten
+ab 1. Januar des Seed-Jahres. Er behauptet keine älteren Fakten und schreibt
+bereits bestehende Vertragsperioden bei einem erneuten Seed nicht um.
+
+Für reproduzierbare Zahlen unabhängig von sonstigen Seed-Buchungen zwei
+**neue** synthetische Mitarbeiter ohne bestätigte Historie und fünf geschlossene
+Testbuchungen anlegen. Diesen SQL-Block nur im eben angelegten Teststack ausführen,
+auf einer frischen Instanz genau einmal. Keine vorhandenen Buchungen ändern:
+
+```bash
+dc45 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test <<'SQL'
+BEGIN;
+INSERT INTO "Employee" ("id","personalNo","firstName","lastName","email",
+  "passwordHash","role","timeModel","weeklyHours","annualLeaveDays","startDate",
+  "holidayCalendar","managerId","updatedAt")
+SELECT v.id::uuid,v.no,v.first_name,'Nachtest45',v.email,h."passwordHash",
+  'Employee',v.model::"TimeModel",v.hours,30,DATE '2026-01-01','NONE',m."id",NOW()
+FROM (VALUES
+  ('00000000-0000-4000-8000-000000004501','MANUAL45-A','Vollzeit','manual45.a@openclockwork.test','Vollzeit',40),
+  ('00000000-0000-4000-8000-000000004502','MANUAL45-B','Teilzeit','manual45.b@openclockwork.test','Teilzeit',20)
+) AS v(id,no,first_name,email,model,hours)
+JOIN "Employee" h ON h."email"='hannah.roth@openclockwork.test'
+JOIN "Employee" m ON m."email"='marc.becker@openclockwork.test';
+INSERT INTO "TimeEntry" ("id","employeeId","clockIn","clockOut","source",
+  "status","requiresApproval","breakRules","note","updatedAt")
+SELECT gen_random_uuid(),'00000000-0000-4000-8000-000000004501'::uuid,
+  (v.day::date + TIME '08:00') AT TIME ZONE 'Europe/Berlin' AT TIME ZONE 'UTC',
+  (v.day::date + v.finish::time) AT TIME ZONE 'Europe/Berlin' AT TIME ZONE 'UTC',
+  'Manual','Approved',false,'[{"afterMinutes":360,"breakMinutes":30}]'::jsonb,
+  'Synthetic #45 numeric fixture',NOW()
+FROM (VALUES ('2026-11-16','16:30'),('2026-11-17','16:30'),
+  ('2026-11-18','16:30'),('2026-11-19','16:30'),('2026-11-20','14:30')) AS v(day,finish);
+COMMIT;
+SQL
+```
+
+Erwartung: A hat 40,5 h Anwesenheit, 2,5 h Pause, **38 h netto**. B hat
+**0 h**. Die Testbuchungen liegen nicht auf den Seed-Mitarbeiter-IDs.
+
+### B. Unbekannte Historie → explizite HR-Bestätigung → Soll/Ist
+
+1. Als HR **Arbeitszeiten → Benutzerdefiniert**, `16.11.2026` bis `20.11.2026`
+   und die beiden Nachtest45-Personen auswählen. Beide stehen in der
+   Vergleichstabelle, auch B ohne Buchungen. A: Ist `38 h`, B: `0 h`.
+   Bei beiden Soll/Differenz `—`, Text zur fehlenden bestätigten Historie und
+   konkrete unbekannte Tage. Kein grüner „ausgeglichen“-Eindruck.
+2. Unter **Mitarbeiter → A bearbeiten → Bestätigte Vertragszeiträume** öffnen.
+   Vorausgefüllte Profildaten sind ausdrücklich **unbestätigter Entwurf**.
+   Zeitraum ab `2026-01-01`, offenes Ende, Beschäftigungsbeginn `2026-01-01`,
+   40 Wochenstunden, Mo–Fr, Kalender `NONE`, keine Zusatzfeiertage und
+   Notiz „Synthetischer Vertrag Nachtest45“ wählen. Explizite HR-Bestätigung
+   setzen und bestätigen. Read-only-Historie mit HR-ID, Zeitpunkt und Revision 0.
+   Für B analog 20 Wochenstunden, Mo–Fr, `Teilzeit` bestätigen.
+3. Bericht erneut öffnen/aktualisieren, unveränderten Zeitraum/Personen prüfen:
+
+   | Person | Soll | Ist netto | Differenz | Text |
+   | --- | ---: | ---: | ---: | --- |
+   | A Vollzeit | 40 h | 38 h | −2 h | Unter Soll |
+   | B Teilzeit | 20 h | 0 h | −20 h | Unter Soll |
+
+4. Woche/Monat/Benutzerdefiniert umschalten: angezeigte Grenzen und tatsächlich
+   abgefragte API-Parameter müssen übereinstimmen. Die gleichen Personenfilter
+   gelten für die Vergleichs- und Buchungstabelle. Sprache Englisch prüfen:
+   „Target/actual comparison“, „Below target“, „Unknown“ und lokalisierte Zahlen;
+   im Deutschen Dezimalkomma. Tastatur/Screenreader erkennt die Einordnung ohne Farbe.
+5. Als Marc dieselben Personen auswählen: Zahlen identisch. Stefanie darf diese
+   beiden fremden IDs weder in ihrer Auswahl sehen noch direkt per API abfragen.
+   Ein normaler Employee kann die Admin-Auswertung nicht aufrufen. HR kann
+   beide Teams lesen. Ein gefälschtes Body-`employeeId` erweitert keinen Zugriff;
+   JWT und serverseitige Zuordnung bestimmen die Berechtigung.
+
+### C. Wirksame Vertragsänderung und unveränderliche alte Planwerte
+
+1. In A's Vertragspflege die bestehende Periode ausdrücklich **ablösen**,
+   Beginn `2026-11-18`, 20 Wochenstunden/Mo–Fr, alle anderen Fakten unverändert,
+   Notiz und Bestätigung setzen. Erwartung: alte Periode endet am `17.11.`,
+   Revision 1, alte 40 h bleiben erhalten; neue Periode hat 20 h und Revision 0.
+2. Bericht `16.–20.11.`: Soll `2×8 + 3×4 = 28 h`, Ist `38 h`, Differenz **+10 h**,
+   Text „Prüfung empfohlen (ab +10 h)“. Der Hinweis ist keine Rechts-/Saldoaussage.
+   `16.–17.11.` bleibt Soll `16 h`; kein rückwirkender 20-h-Vertrag.
+3. Jetzt nur operative Profilwerte (z. B. 12 h/Woche, anderes Startdatum/Plan)
+   und danach den zugewiesenen Arbeitszeitplan (Arbeitstage) ändern.
+   Bericht erneut abfragen: bestätigtes Soll bleibt **28 h**, Historie/Fakten
+   bleiben unverändert. Der Hilfetext erklärt, dass HR für echte Änderungen
+   einen datierten Vertragszeitraum bestätigen muss.
+4. Neue Periode aus Schritt 1 wiederum ab `19.11.` ablösen, 20 h/Mo–Fr,
+   Zusatzfeiertag `2026-11-19`. Bericht: Soll `16 + 4 + 0 + 4 = 24 h`,
+   Ist `38 h`, Differenz **+14 h**. Kein zusätzlicher Ist-Feiertagskredit.
+5. Optional Beschäftigungsgrenzen an einer weiteren frischen Testperson:
+   bestätigter Zeitraum `16.–20.11.`, Beschäftigung nur `18.–19.11.`,
+   40 h/Mo–Fr/NONE. Soll **16 h**, ohne Buchungen Ist 0 und Differenz −16 h.
+   Ohne deckende Bestätigung außerhalb des Vertragszeitraums bleibt Soll
+   unbekannt – auch wenn aktuelle Profilwerte eine andere Historie nahelegen.
+
+### D. Abwesenheiten, Halbtage, Übernachtungen und Negativtests
+
+Für Urlaub/Sonderurlaub separate freie Termine/Testpersonen verwenden und die
+bestehenden Manager-/HR-Abläufe wirklich abschließen, keine Pending-Anträge als
+Genehmigung interpretieren. Vergleich jeweils für eine Mo–Fr-Woche ohne weitere
+Feiertage mit bestätigten 40 h/Mo–Fr-Vertragsdaten:
+
+| Konstellation | Erwartetes Soll | Ist-Verhalten |
+| --- | ---: | --- |
+| Keine Abwesenheit | 40 h | nur Netto-Buchungen |
+| Ein ganzer genehmigter Urlaubstag | 32 h | keine Urlaubsgutschrift |
+| Ein genehmigter halber Urlaubstag | 36 h | keine Halbtagsgutschrift |
+| Derselbe Tag zugleich mit ganzer Krankheit/Fortbildung | 32 h | nicht nochmals reduzieren |
+| Genehmigter ganzer Sonderurlaubstag | 32 h | keine Sonderurlaubsgutschrift |
+| Nur beantragter/zurückgegebener/abgelehnter Urlaub | 40 h | keine Befreiung |
+| Homeoffice oder Freizeitausgleich | 40 h | keine zusätzliche Befreiung |
+| Ein freier Samstag/Sonntag außerhalb der Arbeitsmaske | 0 h für diesen Tag | tatsächliche Arbeit bleibt Ist |
+
+Überlappende Halbtagsdatensätze sind über normale Antragserfassung ggf. bereits
+fachlich verhindert; die API-Regression prüft zusätzlich Legacy-Überlappungen
+mit max. Tagesabdeckung statt doppelter Gutschrift.
+
+- Geschlossene Buchung von Vorabend 23:00 bis Folgetag 02:00 ohne Pausenregel:
+  Tagesfilter des Folgetags enthält **2 h** (nicht 0 oder 3 h).
+- Herbstumstellung Berlin `2026-10-25T00:30:00Z` bis
+  `2026-10-25T02:30:00Z`: **2 h** trotz mehrfacher 02-Uhr-Stunde.
+  Teilintervallfilter muss echte Zeitanteile erfassen. Gemeinsame Capture-Gruppe
+  erhält ihren Pausenabzug nur einmal und bei Ausschnitten anteilig.
+- Laufende Buchung: Zähler „Offene Buchungen (nicht enthalten)“ steigt, keine
+  laufenden Minuten ins Ist. Rejected/voided ebenfalls nicht enthalten.
+  Geschlossenes Pending zählt nur mit dem sichtbaren Vorläufig-Hinweis.
+- Vertrag ohne ausdrückliche Bestätigung/mit leerer Notiz, unmöglichem Datum,
+  Ende vor Beginn, ungültiger Wochenmaske oder >24 h je Arbeitstag: **400**,
+  keine Periode/kein Audit. Ein unverknüpfter überlappender Zeitraum: **409**.
+- Ablösen in zwei Browser-Tabs mit derselben Revision: genau eine Änderung
+  erfolgreich, die zweite **409**. Nach Neuladen stimmen Endgrenzen und Fakten;
+  keine doppelten Perioden. Fremde Perioden-ID als Ablöseziel: **409**.
+- Manager/Employee lesen oder bestätigen `/api/employees/:id/contract-periods`:
+  **403**, unabhängig vom Body. HR-Historie ist kein allgemeiner Mitarbeiterzugang.
+- Manager fordert `/api/reports/working-times?from=2026-11-16&to=2026-11-20&employeeId=<fremde-ID>`
+  oder gemischte erlaubte/fremde `employeeIds` an: **403**, auch bei 0 Buchungen.
+  Manager-PDF-Aufruf: **403**; hier kein stiller Export aller Personaldaten.
+- Bestehende #42-Draft-Sekunden-/DST-Roundtrips sowie #41/#43-Genehmigungen
+  weiter anhand ihrer vorherigen Abschnitte prüfen; Solo-Verhalten unverändert.
+
+### E. Tatsächlich ausgeführte Gates
+
+Der manuelle Docker-/Browser-Ablauf oben ist eine Nachtestanleitung und wird
+**nicht** als hier ausgeführt behauptet. Die folgenden automatisierten Prüfungen
+laufen mit **Node 20.20.2**, **pnpm 9.15.9**, `TZ=Europe/Berlin` auf dem isolierten
+Worktree; keine Produktivdaten oder vorhandenen Teststacks werden benutzt.
+
+| Gate | Tatsächliches Ergebnis |
+| --- | --- |
+| `pnpm nx run api-e2e:e2e --runInBand --skip-nx-cache` | **415/415 Tests in 41 Suites bestanden** (finale API-Fassung) |
+| Neue API-Regressionen | **33 Vertragsfälle + 16 Vergleichsfälle** (im finalen Volltest): echte datierte Fakten, Nullbuchungen, Teilzeit/Arbeitsmaske, Feiertage, Genehmigungs-/Halbtagsunion, Beschäftigungsgrenzen, Historienlücken, unveränderte Snapshots nach Profil-/Planänderung, Scope/Session/Solo-Wechsel, Rennen/Stale/Audit-Rollback, Netto-/Capture-Gruppen, Mitternacht/DST/Sekunden und physische Standortgrenzen |
+| `pnpm nx test web --run --skip-nx-cache` | **267/267 Tests, 37 Dateien bestanden**, inklusive #42-Sekunden-/Fold-Roundtrip, #41/#43-Oberfläche und Berichts-/CSV-Zeitzone unabhängig vom Browser |
+| `pnpm nx test shared --run --skip-nx-cache` | **88/88 Tests, 7 Dateien bestanden** |
+| `pnpm nx run api-e2e:test-ops` | **27/27 Operator-/Datenbankziel-Tests bestanden** |
+| `pnpm nx run-many -t typecheck -p api,web,shared,api-e2e` | **Alle vier erfolgreich**; Web separat erzwungen, API/API-E2E nach letzten Änderungen erneut geprüft |
+| `pnpm nx run-many -t lint -p api,web,shared,api-e2e` | **0 Fehler**, ausschließlich **13 bestehende Warnungen**, keine neue Warnung |
+| `pnpm nx run-many -t build -p api,web,shared --skip-nx-cache` | **Alle drei Produktions-Builds bestanden**, einschließlich Web-PWA; API nach letzten Serviceänderungen separat nachgebaut |
+| `pnpm verify:api` | **Bestanden**, OpenAPI und generierter Client reproduzierbar identisch zur gestagten Fassung |
+| Realer DB-Upgrade von befülltem #43-Stand (26 → 27 Migrationen) | **Bestanden**; Sentinel-Daten/Audits erhalten, bestehende Beschäftigte haben weiterhin **0 erfundene Vertragsperioden / 0 erfundene HR-Audits** |
+| Demo-Seed zweimal auf separater leerer Testdatenbank | **Bestanden**, nach beiden Läufen **9 Vertragsperioden / 9 Audits**, kein Überschreiben |
+| SQL-Fixture aus Abschnitt A auf dieser separaten Testdatenbank | **Ausgeführt**: zwei Mitarbeiter und fünf Buchungen erfolgreich eingefügt; kein manueller Browsernachtest daraus abgeleitet |
+| `git diff --check` | **Bestanden** |
+
+Die neue Migration ist additiv; keine alten Migrationen, Versionsnummern, Tags,
+Releases oder Deployments geändert. CI-Links und exakter finaler Head stehen im
+PR und abschließenden Issue-Kommentar, damit spätere Folgezweige diese Evidenz
+nicht einem anderen Commit zuschreiben.
+
+Frühe Prüfläufe fanden einen ungültigen Mehrfach-Open-Testaufbau (durch den
+bestehenden DB-Unique-Index korrekt verhindert), einen zwischenzeitlichen
+Payload-TypeScriptfehler und eine exakte Float-Gleichheitsannahme im bestehenden
+Mitternachts-Snapshot-Test (eine ULP Differenz). Korrigiert sind der Aufbau,
+der Payload-Typ und eine Toleranz unter einer Mikrosekunde, nicht die fachlichen
+Status-/Berechtigungsprüfungen. Lokale HTTP-Ausreißer (502/403/Loopback-Timeout)
+bei häufig neu geöffneten Supertest-Ports führten zur expliziten, einmaligen
+Loopback-Listener-Lebensdauer pro Suite; keine Retries oder schwächeren
+HTTP-Assertions. Die vollständigen Nachläufe mit diesem Listener waren grün.
+Builds und Typechecks liefen getrennt, ohne `dist`-Rennen.
+
+Stoppen ohne Datenverlust: `dc45 stop`. Zum Fortsetzen `dc45 up -d --wait`;
+kein erneuter Seed und kein `down -v`.

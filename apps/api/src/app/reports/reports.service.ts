@@ -1,10 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import { InstallationService } from '../installation/installation.service';
 import { calculateCaptureSummaries } from '../time-entries/capture-summary';
 import {
   type WorkingTimeReportEmployeeDto,
+  type WorkingTimeReportRowDto,
   type WorkingTimeReportDto,
   type WorkingTimeReportQueryDto,
   type WorkingTimePdfQueryDto,
@@ -13,6 +18,10 @@ import {
   type SoloReportRowDto,
 } from './reports.dto';
 import { renderWorkingTimePdf } from './working-time-pdf';
+import {
+  compareWorkingTime,
+  EXCESS_THRESHOLD_MINUTES,
+} from './working-time-comparison';
 
 const DAY_MS = 86_400_000;
 const MAX_REPORT_DAYS = 366;
@@ -271,25 +280,82 @@ export class ReportsService {
     );
   }
 
-  async workingTimeEmployees(): Promise<WorkingTimeReportEmployeeDto[]> {
-    return this.prisma.employee.findMany({
-      select: { id: true, firstName: true, lastName: true },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
+  async workingTimeEmployees(
+    actorId: string,
+  ): Promise<WorkingTimeReportEmployeeDto[]> {
+    return this.prisma.$transaction(
+      (tx) => this.scopedEmployees(actorId, undefined, tx),
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   async workingTimes(
+    actorId: string,
     query: WorkingTimeReportQueryDto,
   ): Promise<WorkingTimeReportDto> {
-    return this.prisma.$transaction((tx) => this.buildWorkingTimes(query, tx), {
-      isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-    });
+    return this.prisma.$transaction(
+      (tx) => this.buildWorkingTimes(actorId, query, tx),
+      {
+        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
+      },
+    );
   }
 
-  async workingTimesPdf(query: WorkingTimePdfQueryDto): Promise<Buffer> {
+  /** Re-read the active server-side actor inside the report snapshot. */
+  private async scopedEmployees(
+    actorId: string,
+    selectedIds: string[] | undefined,
+    tx: Prisma.TransactionClient,
+    hrOnly = false,
+  ): Promise<WorkingTimeReportEmployeeDto[]> {
+    const settings = await tx.installationSettings.findUnique({
+      where: { id: 1 },
+    });
+    if (settings?.mode === 'Solo')
+      throw new ForbiddenException('Team reports are disabled in Solo mode');
+    const actor = await tx.employee.findUnique({
+      where: { id: actorId },
+      select: { id: true, role: true, isActive: true },
+    });
+    if (
+      !actor?.isActive ||
+      !['HRAdmin', 'Manager'].includes(actor.role) ||
+      (hrOnly && actor.role !== 'HRAdmin')
+    ) {
+      throw new ForbiddenException(
+        'Working-time reports require an active authorized actor',
+      );
+    }
+    const scope: Prisma.EmployeeWhereInput =
+      actor.role === 'HRAdmin'
+        ? {}
+        : { OR: [{ id: actor.id }, { managerId: actor.id }] };
+    const employees = await tx.employee.findMany({
+      where: { ...scope, ...(selectedIds ? { id: { in: selectedIds } } : {}) },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }, { id: 'asc' }],
+    });
+    // Validate IDs independently of time entries: even an empty foreign report
+    // is forbidden, and mixtures never silently drop inaccessible employees.
+    if (selectedIds && employees.length !== selectedIds.length) {
+      if (actor.role === 'Manager')
+        throw new ForbiddenException(
+          'Employee selection is outside your report scope',
+        );
+      throw new BadRequestException('One or more employees do not exist');
+    }
+    return employees;
+  }
+
+  async workingTimesPdf(
+    actorId: string,
+    query: WorkingTimePdfQueryDto,
+  ): Promise<Buffer> {
     const input = await this.prisma.$transaction(
       async (tx) => {
+        await this.scopedEmployees(actorId, undefined, tx, true);
         const report = await this.buildWorkingTimes(
+          actorId,
           { ...query, includeLocations: 'false' },
           tx,
         );
@@ -300,7 +366,8 @@ export class ReportsService {
           ? [query.employeeId]
           : query.employeeIds;
         const periodEntries: Prisma.TimeEntryWhereInput = {
-          clockIn: { gte: from, lt: to },
+          clockIn: { lt: to },
+          OR: [{ clockOut: { gt: from } }, { clockOut: null }],
           voidedAt: null,
           status: { not: 'Rejected' },
         };
@@ -345,6 +412,7 @@ export class ReportsService {
   }
 
   private async buildWorkingTimes(
+    actorId: string,
     query: WorkingTimeReportQueryDto,
     tx: Prisma.TransactionClient,
   ): Promise<WorkingTimeReportDto> {
@@ -373,19 +441,83 @@ export class ReportsService {
       to.date.getDate() + 1,
     );
 
-    const entries = await tx.timeEntry.findMany({
-      where: {
-        employeeId:
-          query.employeeId ??
-          (query.employeeIds ? { in: query.employeeIds } : undefined),
-        clockIn: { gte: from.date, lt: toExclusive },
-        clockOut: { not: null },
-        status: { not: 'Rejected' },
-        voidedAt: null,
-      },
-      orderBy: [{ clockIn: 'asc' }, { employeeId: 'asc' }],
-      include: { employee: { select: { firstName: true, lastName: true } } },
-    });
+    const employees = await this.scopedEmployees(
+      actorId,
+      query.employeeId ? [query.employeeId] : query.employeeIds,
+      tx,
+    );
+    const employeeIds = employees.map((employee) => employee.id);
+    // Query by interval overlap, not booking start date. Open timers never
+    // contribute provisional minutes to this closed-entry period comparison.
+    const [entries, contracts, requests, absences, openCounts] =
+      await Promise.all([
+        tx.timeEntry.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            clockIn: { lt: toExclusive },
+            clockOut: { gt: from.date },
+            status: { in: ['Pending', 'Approved'] },
+            voidedAt: null,
+          },
+          orderBy: [{ clockIn: 'asc' }, { employeeId: 'asc' }, { id: 'asc' }],
+          include: {
+            employee: { select: { firstName: true, lastName: true } },
+          },
+        }),
+        tx.employeeContractPeriod.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            effectiveFrom: { lte: new Date(`${query.to}T00:00:00.000Z`) },
+            OR: [
+              { effectiveTo: null },
+              { effectiveTo: { gte: new Date(`${query.from}T00:00:00.000Z`) } },
+            ],
+          },
+          orderBy: [
+            { effectiveFrom: 'desc' },
+            { revision: 'desc' },
+            { createdAt: 'desc' },
+            { id: 'desc' },
+          ],
+        }),
+        tx.request.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            type: { in: ['Vacation', 'SpecialLeave'] },
+            workflowState: 'Approved',
+            cancelledAt: null,
+            from: {
+              lt: new Date(
+                Date.UTC(
+                  to.date.getFullYear(),
+                  to.date.getMonth(),
+                  to.date.getDate() + 1,
+                ),
+              ),
+            },
+            to: { gte: new Date(`${query.from}T00:00:00.000Z`) },
+          },
+        }),
+        tx.absence.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            kind: { in: ['Sickness', 'Training'] },
+            from: { lte: new Date(`${query.to}T00:00:00.000Z`) },
+            to: { gte: new Date(`${query.from}T00:00:00.000Z`) },
+          },
+        }),
+        tx.timeEntry.groupBy({
+          by: ['employeeId'],
+          where: {
+            employeeId: { in: employeeIds },
+            clockIn: { lt: toExclusive },
+            clockOut: null,
+            status: { not: 'Rejected' },
+            voidedAt: null,
+          },
+          _count: { _all: true },
+        }),
+      ]);
 
     const groupIds = [
       ...new Set(
@@ -402,7 +534,7 @@ export class ReportsService {
               in: [...new Set(entries.map((entry) => entry.employeeId))],
             },
             voidedAt: null,
-            status: { not: 'Rejected' },
+            status: { in: ['Pending', 'Approved'] },
             clockOut: { not: null },
           },
         })
@@ -412,48 +544,112 @@ export class ReportsService {
         [...entries, ...siblings].map((entry) => [entry.id, entry]),
       ).values(),
     ]);
-    const rows = entries.flatMap((entry) => {
+    const rows: WorkingTimeReportRowDto[] = [];
+    for (const entry of entries) {
       const summary = summaries.get(entry.id);
-      if (!summary) return [];
-      // Reports retain the precision of their timestamps while keeping the
-      // captured break rules and capture-group allocation used by accounts.
-      const grossMinutes =
-        ((entry.clockOut as Date).getTime() - entry.clockIn.getTime()) / 60_000;
-      return [
-        {
+      if (!entry.clockOut || !summary) continue;
+      const duration = entry.clockOut.getTime() - entry.clockIn.getTime();
+      if (duration <= 0) continue;
+      const clippedEnd = Math.min(
+        entry.clockOut.getTime(),
+        toExclusive.getTime(),
+      );
+      let cursor = new Date(
+        Math.max(entry.clockIn.getTime(), from.date.getTime()),
+      );
+      while (cursor.getTime() < clippedEnd) {
+        const midnight = new Date(
+          cursor.getFullYear(),
+          cursor.getMonth(),
+          cursor.getDate() + 1,
+        );
+        const rowEnd = Math.min(clippedEnd, midnight.getTime());
+        const ratio = (rowEnd - cursor.getTime()) / duration;
+        // Keep exact timestamp minutes, including historical ungrouped entries,
+        // while taking captured break deductions from the complete group.
+        const grossMinutes = (rowEnd - cursor.getTime()) / 60_000;
+        const breakMinutes = summary.breakMinutes * ratio;
+        rows.push({
           id: entry.id,
           employeeId: entry.employeeId,
           employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
-          date: localDate(entry.clockIn),
-          clockIn: entry.clockIn.toISOString(),
-          clockOut: (entry.clockOut as Date).toISOString(),
+          date: localDate(cursor),
+          clockIn: cursor.toISOString(),
+          clockOut: new Date(rowEnd).toISOString(),
           status: entry.status,
           ...(includeLocations
             ? {
-                clockInLocation: reportLocation(
-                  entry.terminalLocationLabel,
-                  entry.latitude,
-                  entry.longitude,
-                  entry.accuracyMeters,
-                ),
-                clockOutLocation: reportLocation(
-                  entry.clockOutTerminalLocationLabel,
-                  entry.clockOutLatitude,
-                  entry.clockOutLongitude,
-                  entry.clockOutAccuracyMeters,
-                ),
+                // Synthetic midnight/period edges are not physical clock
+                // events and must not inherit an unrelated GPS observation.
+                clockInLocation:
+                  cursor.getTime() === entry.clockIn.getTime()
+                    ? reportLocation(
+                        entry.terminalLocationLabel,
+                        entry.latitude,
+                        entry.longitude,
+                        entry.accuracyMeters,
+                      )
+                    : null,
+                clockOutLocation:
+                  rowEnd === entry.clockOut.getTime()
+                    ? reportLocation(
+                        entry.clockOutTerminalLocationLabel,
+                        entry.clockOutLatitude,
+                        entry.clockOutLongitude,
+                        entry.clockOutAccuracyMeters,
+                      )
+                    : null,
               }
             : {}),
-          ...summary,
           grossMinutes,
-          netMinutes: grossMinutes - summary.breakMinutes,
-        },
-      ];
-    });
+          breakMinutes,
+          netMinutes: grossMinutes - breakMinutes,
+        });
+        cursor = new Date(rowEnd);
+      }
+    }
+    // Splitting a long entry must not move its later days ahead of another
+    // employee's earlier booking rows.
+    rows.sort(
+      (left, right) =>
+        left.clockIn.localeCompare(right.clockIn) ||
+        left.employeeId.localeCompare(right.employeeId) ||
+        left.id.localeCompare(right.id),
+    );
+    const actualByEmployee = new Map<string, number>();
+    for (const row of rows) {
+      actualByEmployee.set(
+        row.employeeId,
+        (actualByEmployee.get(row.employeeId) ?? 0) + row.netMinutes,
+      );
+    }
+    const openByEmployee = new Map(
+      openCounts.map((row) => [row.employeeId, row._count._all]),
+    );
+    const comparisons = employees.map((employee) =>
+      compareWorkingTime({
+        employeeId: employee.id,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        from: query.from,
+        to: query.to,
+        snapshots: contracts.filter(
+          (period) => period.employeeId === employee.id,
+        ),
+        excused: [...requests, ...absences].filter(
+          (range) => range.employeeId === employee.id,
+        ),
+        actualMinutes: actualByEmployee.get(employee.id) ?? 0,
+        openEntryCount: openByEmployee.get(employee.id) ?? 0,
+      }),
+    );
 
     return {
       from: query.from,
       to: query.to,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      timeDefinition: 'net_working_time',
+      excessThresholdMinutes: EXCESS_THRESHOLD_MINUTES,
+      comparisons,
       rows,
       totals: rows.reduce(
         (totals, row) => ({

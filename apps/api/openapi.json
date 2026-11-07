@@ -988,6 +988,83 @@
         "tags": ["employees"]
       }
     },
+    "/api/employees/{id}/contract-periods": {
+      "get": {
+        "operationId": "ContractPeriodsController_list",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmployeeContractPeriodDto"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["employees"]
+      },
+      "post": {
+        "operationId": "ContractPeriodsController_confirm",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmContractPeriodDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeContractPeriodDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": ["employees"]
+      }
+    },
     "/api/work-schedules": {
       "get": {
         "operationId": "WorkSchedulesController_list",
@@ -1860,7 +1937,7 @@
             "name": "employeeIds",
             "required": false,
             "in": "query",
-            "description": "Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId.",
+            "description": "Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees in the actor’s scope (HR: all; Manager: self and direct reports); cannot be combined with employeeId.",
             "schema": {
               "type": "array",
               "items": {
@@ -1935,7 +2012,7 @@
             "name": "employeeIds",
             "required": false,
             "in": "query",
-            "description": "Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId.",
+            "description": "Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees in the actor’s scope (HR: all; Manager: self and direct reports); cannot be combined with employeeId.",
             "schema": {
               "type": "array",
               "items": {
@@ -5764,6 +5841,206 @@
         },
         "required": ["password"]
       },
+      "EmployeeContractPeriodDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "employmentStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "employmentEnd": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "weeklyHours": {
+            "type": "number"
+          },
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ]
+          },
+          "workingDays": {
+            "type": "number"
+          },
+          "holidayCalendar": {
+            "type": "string"
+          },
+          "holidayDates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scheduleLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "confirmationNote": {
+            "type": "string"
+          },
+          "confirmedById": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "revision": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "employeeId",
+          "effectiveFrom",
+          "effectiveTo",
+          "employmentStart",
+          "employmentEnd",
+          "weeklyHours",
+          "timeModel",
+          "workingDays",
+          "holidayCalendar",
+          "holidayDates",
+          "scheduleLabel",
+          "confirmationNote",
+          "confirmedById",
+          "revision",
+          "createdAt"
+        ]
+      },
+      "ConfirmContractPeriodDto": {
+        "type": "object",
+        "properties": {
+          "effectiveFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "effectiveTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "employmentStart": {
+            "type": "string",
+            "format": "date"
+          },
+          "employmentEnd": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "weeklyHours": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 168
+          },
+          "timeModel": {
+            "type": "string",
+            "enum": [
+              "Teilzeit",
+              "Vollzeit",
+              "Vertrauensarbeitszeit",
+              "Gleitzeit"
+            ]
+          },
+          "workingDays": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 127,
+            "description": "Immutable weekday mask: Mon=1, Tue=2, ..., Sun=64. Equal daily target, rounded to whole minutes."
+          },
+          "holidayCalendar": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "DE-BW",
+              "DE-BY",
+              "DE-BE",
+              "DE-BB",
+              "DE-HB",
+              "DE-HH",
+              "DE-HE",
+              "DE-MV",
+              "DE-NI",
+              "DE-NW",
+              "DE-RP",
+              "DE-SL",
+              "DE-SN",
+              "DE-ST",
+              "DE-SH",
+              "DE-TH"
+            ]
+          },
+          "holidayDates": {
+            "description": "Explicit non-working dates, supplementing the snapshot calendar.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scheduleLabel": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 120
+          },
+          "confirmationNote": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 1000,
+            "description": "HR source/confirmation explanation. No automatic historical inference."
+          },
+          "confirmed": {
+            "type": "boolean",
+            "enum": [true],
+            "description": "Explicit confirmation that these dated facts are known, not inferred from the current employee profile."
+          },
+          "supersedesPeriodId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Explicitly close this prior period on the day before effectiveFrom; no other facts are changed."
+          },
+          "expectedRevision": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "effectiveFrom",
+          "employmentStart",
+          "weeklyHours",
+          "timeModel",
+          "workingDays",
+          "holidayCalendar",
+          "holidayDates",
+          "confirmationNote",
+          "confirmed"
+        ]
+      },
       "BreakRuleDto": {
         "type": "object",
         "properties": {
@@ -6321,6 +6598,69 @@
         },
         "required": ["id", "firstName", "lastName"]
       },
+      "WorkingTimeComparisonDto": {
+        "type": "object",
+        "properties": {
+          "employeeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeeName": {
+            "type": "string"
+          },
+          "targetMinutes": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0
+          },
+          "actualMinutes": {
+            "type": "number",
+            "minimum": 0
+          },
+          "differenceMinutes": {
+            "type": "number",
+            "nullable": true
+          },
+          "targetStatus": {
+            "type": "string",
+            "enum": ["Known", "Unknown"]
+          },
+          "unknownDates": {
+            "description": "Calendar dates lacking a confirmed contract snapshot, including non-working dates.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["CONTRACT_HISTORY_GAP"],
+            "nullable": true
+          },
+          "indicator": {
+            "type": "string",
+            "enum": ["Unknown", "Negative", "Balanced", "Positive", "Excess"],
+            "description": "Selected-period review indicator only; not a legal limit or a carried overtime balance. Excess means difference >= 600 minutes."
+          },
+          "openEntryCount": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Non-voided, non-rejected open entries started before the period end; excluded from actual minutes."
+          }
+        },
+        "required": [
+          "employeeId",
+          "employeeName",
+          "targetMinutes",
+          "actualMinutes",
+          "differenceMinutes",
+          "targetStatus",
+          "unknownDates",
+          "reason",
+          "indicator",
+          "openEntryCount"
+        ]
+      },
       "WorkingTimeReportLocationDto": {
         "type": "object",
         "properties": {
@@ -6376,7 +6716,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["Open", "Pending", "Approved"]
+            "enum": ["Pending", "Approved"]
           },
           "grossMinutes": {
             "type": "number",
@@ -6451,6 +6791,24 @@
             "type": "string",
             "format": "date"
           },
+          "timeZone": {
+            "type": "string"
+          },
+          "timeDefinition": {
+            "type": "string",
+            "enum": ["net_working_time"]
+          },
+          "excessThresholdMinutes": {
+            "type": "number",
+            "enum": [600],
+            "description": "Period-review threshold, not a statutory working-time limit."
+          },
+          "comparisons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingTimeComparisonDto"
+            }
+          },
           "rows": {
             "type": "array",
             "items": {
@@ -6461,7 +6819,16 @@
             "$ref": "#/components/schemas/WorkingTimeReportTotalsDto"
           }
         },
-        "required": ["from", "to", "rows", "totals"]
+        "required": [
+          "from",
+          "to",
+          "timeZone",
+          "timeDefinition",
+          "excessThresholdMinutes",
+          "comparisons",
+          "rows",
+          "totals"
+        ]
       },
       "TimeSummaryDto": {
         "type": "object",
