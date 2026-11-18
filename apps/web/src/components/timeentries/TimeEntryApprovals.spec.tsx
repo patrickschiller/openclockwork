@@ -585,4 +585,40 @@ describe('out-of-frame time entry approvals', () => {
     expect(await screen.findByText('Approved by manager')).toBeDefined();
     expect(screen.getByText('Client visit')).toBeDefined();
   });
+  it.each([
+    [
+      'de',
+      'Durch Korrekturantrag geändert',
+      'Zugehöriger Antrag: correction-request',
+    ],
+    [
+      'en',
+      'Changed by correction request',
+      'Related request: correction-request',
+    ],
+  ])(
+    'labels linked request corrections without presenting them as an old approval (%s)',
+    async (locale, label, reference) => {
+      storedLocale = locale;
+      mocks.history.mockResolvedValue([
+        {
+          id: 'correction-event',
+          actorId: 'hr',
+          actorName: 'HR Example',
+          action: 'FrameRequestCorrected',
+          reason: 'Changed booking',
+          occurredAt: '2026-05-05T12:00:00Z',
+          requestId: 'correction-request',
+        },
+      ]);
+      renderPanel();
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: locale === 'de' ? 'Genehmigungsverlauf' : 'Approval history',
+        }),
+      );
+      expect(await screen.findByText(label)).toBeDefined();
+      expect(screen.getByText(reference)).toBeDefined();
+    },
+  );
 });

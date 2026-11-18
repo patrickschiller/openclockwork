@@ -18,6 +18,10 @@ import {
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { JwtUser } from '../auth/jwt.strategy';
+import {
+  TimeEntryDto,
+  TimeEntryAuditDto,
+} from '../time-entries/time-entries.dto';
 import { RequestsService } from './requests.service';
 import {
   BulkApproveDto,
@@ -62,6 +66,29 @@ export class RequestsController {
       },
       user.id,
     );
+  }
+
+  @Get('time-adjustment-targets')
+  @ApiOkResponse({ type: TimeEntryDto, isArray: true })
+  timeAdjustmentTargets(
+    @CurrentUser() user: JwtUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<TimeEntryDto[]> {
+    return this.service.timeAdjustmentTargets(
+      user.id,
+      from ? new Date(from) : undefined,
+      to ? new Date(to) : undefined,
+    );
+  }
+
+  @Get(':id/time-entry-audit')
+  @ApiOkResponse({ type: TimeEntryAuditDto, isArray: true })
+  timeEntryAudit(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TimeEntryAuditDto[]> {
+    return this.service.timeEntryAudit(id, user.id);
   }
 
   @Get(':id')

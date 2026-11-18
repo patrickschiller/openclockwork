@@ -206,6 +206,7 @@ export class TimeEntryApprovalsService {
       });
       return events.map((event) => ({
         id: event.id,
+        requestId: event.requestId,
         actorId: event.actorId,
         action: event.action,
         reason: event.reason,

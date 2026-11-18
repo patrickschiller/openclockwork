@@ -298,6 +298,9 @@ function ApprovalHistory({ entryId }: { entryId: string }) {
                   {formatDateTime(event.occurredAt)}
                 </time>
               </p>
+              {event.requestId && (
+                <p>{t('requests.relatedRequest', { id: event.requestId })}</p>
+              )}
               {event.reason && (
                 <p className="whitespace-pre-wrap">{event.reason}</p>
               )}

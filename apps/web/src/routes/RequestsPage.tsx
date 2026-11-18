@@ -15,7 +15,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, type RequestDto, type RequestType } from '../api/client';
+import {
+  api,
+  type RequestDto,
+  type RequestType,
+  type TimeAdjustmentTargetDto,
+} from '../api/client';
 import { useCurrentUser } from '../app/auth';
 import { useI18n } from '../app/i18n';
 import {
@@ -49,6 +54,22 @@ function formatRange(
   return `${f.toLocaleDateString(locale, { timeZone: 'UTC' })} – ${t.toLocaleDateString(locale, { timeZone: 'UTC' })}`;
 }
 
+function correctionInstant(iso: string, locale: string): string {
+  // Supported by our browsers/Node 20, but absent from the app's older
+  // Intl library declarations. Keep the extension local, not a config change.
+  const options: Intl.DateTimeFormatOptions & { fractionalSecondDigits: 3 } = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+    hourCycle: 'h23',
+  };
+  return `${new Date(iso).toLocaleString(locale, options)} (${utcOffsetLabel(iso)})`;
+}
+
 function minutesBetween(fromIso: string, toIso: string): number {
   const ms = new Date(toIso).getTime() - new Date(fromIso).getTime();
   return Math.max(0, Math.round(ms / 60_000));
@@ -61,6 +82,7 @@ export function RequestsPage() {
   const qc = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
 
   const requests = useQuery({
     queryKey: ['requests', { employeeId }],
@@ -156,6 +178,24 @@ export function RequestsPage() {
                       </Badge>
                     )}
                   </div>
+                  {r.type === 'TimeAdjustment' && (
+                    <div className="w-full space-y-2">
+                      <TimeAdjustmentDiff request={r} />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-expanded={historyId === r.id}
+                        onClick={() =>
+                          setHistoryId(historyId === r.id ? null : r.id)
+                        }
+                      >
+                        {t('requests.bookingHistory')}
+                      </Button>
+                      {historyId === r.id && (
+                        <RequestTimeEntryAudit requestId={r.id} />
+                      )}
+                    </div>
+                  )}
                   {r.type === 'SpecialLeave' && (
                     <AttachmentsList requestId={r.id} />
                   )}
@@ -237,6 +277,10 @@ function useLocalDateTime(originalIso?: string) {
     candidates,
     iso,
     setChosenIso,
+    reset: (iso: string) => {
+      setValue(formatLocalDateTime(iso));
+      setChosenIso(iso);
+    },
     change: (next: string) => {
       setValue(next);
       setChosenIso('');
@@ -307,7 +351,7 @@ function LocalDateTimeField({
 
 function NewRequestForm({ onClose, request }: NewRequestFormProps) {
   const user = useCurrentUser();
-  const { t, enumLabel } = useI18n();
+  const { t, enumLabel, languageTag } = useI18n();
   const employeeId = user.id;
   const today = isoDateOnly(new Date());
   const [type, setType] = useState<RequestType>(request?.type ?? 'Vacation');
@@ -319,6 +363,28 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
   const toTime = useLocalDateTime(
     request?.type === 'TimeAdjustment' ? request.to : undefined,
   );
+  const [adjustmentMode, setAdjustmentMode] = useState(
+    request?.targetTimeEntryId ? 'correction' : 'missing',
+  );
+  // Capture the selected version, not a pointer into a refetchable query.
+  // Draft requests always retain their immutable persisted ID and revision.
+  const [selectedTarget, setSelectedTarget] =
+    useState<TimeAdjustmentTargetDto | null>(null);
+  const targetId = request ? request.targetTimeEntryId : selectedTarget?.id;
+  const targetRevision = request
+    ? request.expectedTargetRevision
+    : selectedTarget?.revision;
+  const targetBefore = request ? request.targetTimeEntryBefore : selectedTarget;
+  const isCorrection =
+    type === 'TimeAdjustment' && adjustmentMode === 'correction';
+  const targets = useQuery({
+    queryKey: ['time-adjustment-targets', employeeId],
+    queryFn: () => api.timeAdjustmentTargets(),
+    enabled: isCorrection && !request,
+  });
+  const missingTarget =
+    isCorrection &&
+    (!targetId || targetRevision == null || !targetBefore?.clockOut);
   const [reason, setReason] = useState(request?.reason ?? '');
   const [substituteId, setSubstituteId] = useState<string>(
     request?.substituteId ?? '',
@@ -375,6 +441,14 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
       const toIso = isTimeAdjustment
         ? toTime.iso
         : new Date(`${to}T00:00:00.000Z`).toISOString();
+      if (missingTarget) throw new Error(t('requests.targetRequired'));
+      const targetFields =
+        isCorrection && targetId && targetRevision != null
+          ? {
+              targetTimeEntryId: targetId,
+              expectedTargetRevision: targetRevision,
+            }
+          : {};
       if (!fromIso || !toIso || invalidRange) {
         throw new Error(
           t(
@@ -387,6 +461,12 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
       if (request) {
         const payload = {
           expectedUpdatedAt: request.updatedAt,
+          ...(isTimeAdjustment
+            ? {
+                targetTimeEntryId: request.targetTimeEntryId ?? null,
+                expectedTargetRevision: request.expectedTargetRevision ?? null,
+              }
+            : {}),
           from: fromIso,
           to: toIso,
           reason: reason || null,
@@ -410,6 +490,7 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
         });
       }
       const created = await api.createRequest({
+        ...targetFields,
         employeeId,
         type,
         from: fromIso,
@@ -424,6 +505,16 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
       return created;
     },
     onSuccess: () => onClose(),
+    onError: (e) =>
+      setError(e instanceof Error ? e.message : t('requests.submitFailed')),
+  });
+
+  const cancelStaleRequest = useMutation({
+    mutationFn: () => {
+      if (!request) throw new Error(t('requests.loadFailed'));
+      return api.cancelRequest(request.id, user.id);
+    },
+    onSuccess: onClose,
     onError: (e) =>
       setError(e instanceof Error ? e.message : t('requests.submitFailed')),
   });
@@ -477,6 +568,95 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
             ))}
           </select>
         </div>
+        {isTimeAdjustment && (
+          <div className="space-y-2">
+            <Label htmlFor="adjustment-mode">
+              {t('requests.adjustmentMode')}
+            </Label>
+            <select
+              id="adjustment-mode"
+              value={adjustmentMode}
+              disabled={!!request}
+              onChange={(event) => {
+                setAdjustmentMode(event.target.value);
+                setSelectedTarget(null);
+              }}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="missing">{t('requests.missingBooking')}</option>
+              <option value="correction">{t('requests.correctBooking')}</option>
+            </select>
+            {isCorrection && (
+              <>
+                <Label htmlFor="target-booking">
+                  {t('requests.targetBooking')}
+                </Label>
+                <select
+                  id="target-booking"
+                  value={targetId ?? ''}
+                  disabled={!!request || targets.isPending || targets.isError}
+                  onChange={(event) => {
+                    const target =
+                      targets.data?.find(
+                        (entry) => entry.id === event.target.value,
+                      ) ?? null;
+                    setSelectedTarget(target);
+                    if (target?.clockOut) {
+                      fromTime.reset(target.clockIn);
+                      toTime.reset(target.clockOut);
+                    }
+                  }}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">{t('requests.chooseTarget')}</option>
+                  {request && targetId ? (
+                    <option value={targetId}>
+                      {t('requests.targetReference', {
+                        id: targetId,
+                        revision: targetRevision ?? '—',
+                      })}
+                    </option>
+                  ) : (
+                    targets.data?.map((entry) => (
+                      <option key={entry.id} value={entry.id}>
+                        {entry.id} ·{' '}
+                        {correctionInstant(entry.clockIn, languageTag)} –{' '}
+                        {entry.clockOut
+                          ? correctionInstant(entry.clockOut, languageTag)
+                          : ''}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {!request && targets.isPending && (
+                  <p role="status">{t('common.loading')}</p>
+                )}
+                {!request && targets.isError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {t('requests.targetsFailed')}
+                    </AlertDescription>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void targets.refetch()}
+                    >
+                      {t('requests.retry')}
+                    </Button>
+                  </Alert>
+                )}
+                {!request && targets.isSuccess && targets.data.length === 0 && (
+                  <p>{t('requests.targetsEmpty')}</p>
+                )}
+                {missingTarget && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('requests.targetRequired')}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label htmlFor="from">{t('common.from')}</Label>
@@ -513,6 +693,23 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
             )}
           </div>
         </div>
+        {isTimeAdjustment && (!isCorrection || targetId) && (
+          <TimeAdjustmentDiff
+            request={{
+              targetTimeEntryId: isCorrection ? targetId : null,
+              expectedTargetRevision: isCorrection ? targetRevision : null,
+              targetTimeEntryBefore:
+                isCorrection && targetBefore?.clockOut
+                  ? {
+                      clockIn: targetBefore.clockIn,
+                      clockOut: targetBefore.clockOut,
+                    }
+                  : null,
+              from: fromTime.iso,
+              to: toTime.iso,
+            }}
+          />
+        )}
         <div className="space-y-2">
           <Label htmlFor="reason">{t('requests.reasonOptional')}</Label>
           <Input
@@ -617,7 +814,22 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
 
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error}
+              {isCorrection && request && (
+                <div className="mt-2 space-y-2">
+                  <p>{t('requests.staleTargetHint')}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={cancelStaleRequest.isPending}
+                    onClick={() => cancelStaleRequest.mutate()}
+                  >
+                    {t('requests.cancelStale')}
+                  </Button>
+                </div>
+              )}
+            </AlertDescription>
           </Alert>
         )}
       </div>
@@ -631,6 +843,7 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
             disabled={
               create.isPending ||
               invalidRange ||
+              missingTarget ||
               request.workflowState !== 'Draft'
             }
             onClick={() => {
@@ -646,6 +859,7 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
             create.isPending ||
             insufficientVacation ||
             invalidRange ||
+            missingTarget ||
             (!!request && request.workflowState !== 'Draft')
           }
           onClick={() => {
@@ -699,4 +913,199 @@ function AttachmentsList({ requestId }: { requestId: string }) {
       ))}
     </ul>
   );
+}
+
+/** Always use the trusted request snapshot, never the latest target entry. */
+export function TimeAdjustmentDiff({
+  request,
+}: {
+  request: {
+    targetTimeEntryId?: string | null;
+    expectedTargetRevision?: number | null;
+    targetTimeEntryBefore?: { clockIn: string; clockOut: string } | null;
+    from: string | null;
+    to: string | null;
+  };
+}) {
+  const { t, languageTag } = useI18n();
+  const before = request.targetTimeEntryBefore;
+  const valid =
+    !!request.from &&
+    !!request.to &&
+    new Date(request.to).getTime() > new Date(request.from).getTime();
+  const seconds = (from: string, to: string) =>
+    (new Date(to).getTime() - new Date(from).getTime()) / 1000;
+  const number = (n: number) =>
+    new Intl.NumberFormat(languageTag, {
+      maximumFractionDigits: 3,
+    }).format(n);
+  const range = (from: string, to: string) => (
+    <>
+      <time dateTime={from} title={from}>
+        {correctionInstant(from, languageTag)}
+      </time>{' '}
+      →{' '}
+      <time dateTime={to} title={to}>
+        {correctionInstant(to, languageTag)}
+      </time>
+    </>
+  );
+  return (
+    <section
+      className="space-y-2 rounded-md border p-3 text-sm"
+      aria-label={t(
+        request.targetTimeEntryId
+          ? 'requests.correctBooking'
+          : 'requests.missingBooking',
+      )}
+    >
+      <p className="font-medium">
+        {t(
+          request.targetTimeEntryId
+            ? 'requests.correctBooking'
+            : 'requests.missingBooking',
+        )}
+      </p>
+      {request.targetTimeEntryId && (
+        <>
+          <p>
+            {t('requests.targetReference', {
+              id: request.targetTimeEntryId,
+              revision: request.expectedTargetRevision ?? '—',
+            })}
+          </p>
+          <p className="text-muted-foreground">
+            {t('requests.correctionHint')}
+          </p>
+          {before && (
+            <p>
+              <strong>{t('requests.before')}: </strong>
+              {range(before.clockIn, before.clockOut)}
+            </p>
+          )}
+        </>
+      )}
+      {request.from && request.to && (
+        <p>
+          <strong>{t('requests.proposed')}: </strong>
+          {range(request.from, request.to)}
+        </p>
+      )}
+      {valid &&
+        request.from &&
+        request.to &&
+        (before ? (
+          <p>
+            {t('requests.grossDuration', {
+              before: number(seconds(before.clockIn, before.clockOut)),
+              after: number(seconds(request.from, request.to)),
+              delta: number(
+                seconds(request.from, request.to) -
+                  seconds(before.clockIn, before.clockOut),
+              ),
+            })}
+          </p>
+        ) : (
+          <p>
+            {t('requests.grossProposed', {
+              duration: number(seconds(request.from, request.to)),
+            })}
+          </p>
+        ))}
+    </section>
+  );
+}
+
+export function RequestTimeEntryAudit({ requestId }: { requestId: string }) {
+  const { id: actorId } = useCurrentUser();
+  const { t, formatDateTime } = useI18n();
+  const audit = useQuery({
+    queryKey: ['request-time-entry-audit', requestId, actorId],
+    queryFn: () => api.requestTimeEntryAudit(requestId),
+  });
+  return (
+    <section
+      className="space-y-2 text-sm"
+      aria-label={t('requests.bookingHistory')}
+    >
+      {audit.isPending && <p role="status">{t('common.loading')}</p>}
+      {audit.isError && (
+        <Alert variant="destructive">
+          <AlertDescription>{t('requests.auditFailed')}</AlertDescription>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void audit.refetch()}
+          >
+            {t('requests.retry')}
+          </Button>
+        </Alert>
+      )}
+      {audit.isSuccess && audit.data.length === 0 && (
+        <p>{t('requests.auditEmpty')}</p>
+      )}
+      {audit.data && (
+        <ol className="space-y-2">
+          {audit.data.map((event) => {
+            const before = auditRange(event.before);
+            const after = auditRange(event.after);
+            return (
+              <li key={event.id} className="rounded-md border p-3">
+                <p>
+                  {t(
+                    event.action === 'RequestMissingBookingAdded'
+                      ? 'requests.auditMissingAdded'
+                      : 'requests.auditApplied',
+                    {
+                      id: event.timeEntryId,
+                      requestId: event.requestId ?? requestId,
+                    },
+                  )}
+                </p>
+                <p>
+                  {t('requests.appliedBy', {
+                    actor:
+                      event.actorName ??
+                      event.actorId ??
+                      t('requests.unknownActor'),
+                  })}
+                </p>
+                <time dateTime={event.occurredAt}>
+                  {formatDateTime(event.occurredAt)}
+                </time>
+                {after && (
+                  <TimeAdjustmentDiff
+                    request={{
+                      targetTimeEntryId: before ? event.timeEntryId : null,
+                      expectedTargetRevision: before?.revision,
+                      targetTimeEntryBefore: before,
+                      from: after.clockIn,
+                      to: after.clockOut,
+                    }}
+                  />
+                )}
+                {event.reason && <p>{event.reason}</p>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+function auditRange(
+  value: unknown,
+): { clockIn: string; clockOut: string; revision?: number } | null {
+  if (!value || typeof value !== 'object') return null;
+  const snapshot = value as Record<string, unknown>;
+  return typeof snapshot.clockIn === 'string' &&
+    typeof snapshot.clockOut === 'string'
+    ? {
+        clockIn: snapshot.clockIn,
+        clockOut: snapshot.clockOut,
+        revision:
+          typeof snapshot.revision === 'number' ? snapshot.revision : undefined,
+      }
+    : null;
 }

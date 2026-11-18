@@ -16,6 +16,8 @@ type Catalog = Record<string, string>;
 const STORAGE_KEY = 'openclockwork.locale';
 
 const de: Catalog = {
+  'requests.appliedBy': 'Angewendet von {actor}',
+  'requests.unknownActor': 'Nicht mehr verfügbare Person',
   'frameApproval.ownTitle': 'Rahmenzeit-Genehmigungen für meine Zeitbuchungen',
   'frameApproval.title': 'Zeitbuchungen',
   'frameApproval.chain':
@@ -73,6 +75,7 @@ const de: Catalog = {
     'Diese Zeitbuchung ist nicht mehr gültig und kann nicht genehmigt werden. Der Verlauf bleibt einsehbar.',
   'frameApproval.event.FrameSegmentCreated':
     'Buchungssegment nach Änderung neu angelegt',
+  'frameApproval.event.FrameRequestCorrected': 'Durch Korrekturantrag geändert',
   'frameApproval.event.FrameManagerApproved': 'Von Führungskraft genehmigt',
   'frameApproval.event.FrameManagerRejected': 'Von Führungskraft abgelehnt',
   'frameApproval.event.FrameHrConfirmed': 'Von HR bestätigt',
@@ -133,6 +136,33 @@ const de: Catalog = {
   'requests.attachmentLabel': 'Beleg (optional, max 10 MB)',
   'requests.balanceHint':
     '{remaining} Tage verfügbar ({total} gesamt − {approved} genehmigt − {pending} eingereicht).',
+  'requests.cancelStale': 'Diesen Antrag stornieren',
+  'requests.adjustmentMode': 'Art der Zeitkorrektur',
+  'requests.missingBooking': 'Fehlende Buchung nachtragen',
+  'requests.correctBooking': 'Bestehende Buchung korrigieren',
+  'requests.targetBooking': 'Zu korrigierende Buchung',
+  'requests.chooseTarget': 'Buchung auswählen',
+  'requests.targetsEmpty':
+    'Keine abgeschlossenen Team-Buchungen für eine Korrektur verfügbar.',
+  'requests.targetsFailed': 'Buchungen konnten nicht geladen werden.',
+  'requests.targetRequired': 'Bitte eine zu korrigierende Buchung auswählen.',
+  'requests.correctionHint':
+    'Korrigiert nur diese Buchung mit derselben ID. Es entsteht keine doppelte Buchung; andere Buchungen des Tages bleiben unverändert.',
+  'requests.targetReference': 'Buchung {id} · Revision {revision}',
+  'requests.before': 'Vorher',
+  'requests.proposed': 'Vorgeschlagen',
+  'requests.grossDuration': 'Bruttodauer: {before} s → {after} s (Δ {delta} s)',
+  'requests.grossProposed': 'Vorgeschlagene Bruttodauer: {duration} s',
+  'requests.staleTargetHint':
+    'Ist die Buchung inzwischen geändert, diesen Antrag abbrechen und einen neuen Korrekturantrag mit der aktuellen Buchung erstellen. Ziel und Revision dieses Entwurfs bleiben unverändert.',
+  'requests.auditFailed': 'Buchungsverlauf konnte nicht geladen werden.',
+  'requests.auditEmpty': 'Noch keine Buchungsänderung durch diesen Antrag.',
+  'requests.auditApplied': 'Buchung {id} durch Antrag {requestId} korrigiert',
+  'requests.auditMissingAdded':
+    'Fehlende Buchung {id} durch Antrag {requestId} ergänzt',
+  'requests.relatedRequest': 'Zugehöriger Antrag: {id}',
+  'requests.retry': 'Erneut laden',
+  'requests.bookingHistory': 'Buchungsänderung im Verlauf',
   'requests.timeAdjustmentPolicy':
     'Genehmigungen richten sich nach deinem Arbeitszeitplan. Zeiten außerhalb des konfigurierten Rahmens benötigen eine zusätzliche Genehmigung vor der HR-Bestätigung.',
   'requests.invalidTimeRange': '"Bis" muss nach "Von" liegen.',
@@ -769,6 +799,8 @@ const de: Catalog = {
 };
 
 const en: Catalog = {
+  'requests.appliedBy': 'Applied by {actor}',
+  'requests.unknownActor': 'Reviewer no longer available',
   'frameApproval.ownTitle': 'Approvals for my out-of-frame time entries',
   'frameApproval.title': 'Time entries',
   'frameApproval.chain':
@@ -821,6 +853,7 @@ const en: Catalog = {
     'This time entry is no longer valid and cannot be approved. Its history remains available.',
   'frameApproval.event.FrameSegmentCreated':
     'Entry segment created after a change',
+  'frameApproval.event.FrameRequestCorrected': 'Changed by correction request',
   'frameApproval.event.FrameManagerApproved': 'Approved by manager',
   'frameApproval.event.FrameManagerRejected': 'Rejected by manager',
   'frameApproval.event.FrameHrConfirmed': 'Confirmed by HR',
@@ -881,6 +914,34 @@ const en: Catalog = {
   'requests.attachmentLabel': 'Attachment (optional, max 10 MB)',
   'requests.balanceHint':
     '{remaining} days available ({total} total − {approved} approved − {pending} submitted).',
+  'requests.cancelStale': 'Cancel this request',
+  'requests.adjustmentMode': 'Time adjustment mode',
+  'requests.missingBooking': 'Add missing booking',
+  'requests.correctBooking': 'Correct existing booking',
+  'requests.targetBooking': 'Booking to correct',
+  'requests.chooseTarget': 'Choose booking',
+  'requests.targetsEmpty':
+    'No closed Team bookings are available for correction.',
+  'requests.targetsFailed': 'Bookings could not be loaded.',
+  'requests.targetRequired': 'Choose a booking to correct.',
+  'requests.correctionHint':
+    'Corrects only this booking, retaining its ID. No duplicate is created; other bookings on that day remain unchanged.',
+  'requests.targetReference': 'Booking {id} · revision {revision}',
+  'requests.before': 'Before',
+  'requests.proposed': 'Proposed',
+  'requests.grossDuration':
+    'Gross duration: {before} s → {after} s (Δ {delta} s)',
+  'requests.grossProposed': 'Proposed gross duration: {duration} s',
+  'requests.staleTargetHint':
+    'If the booking has changed, cancel this request and create a new correction request using the current booking. This draft’s target and revision remain unchanged.',
+  'requests.auditFailed': 'Booking history could not be loaded.',
+  'requests.auditEmpty': 'No booking change from this request yet.',
+  'requests.auditApplied': 'Booking {id} corrected by request {requestId}',
+  'requests.auditMissingAdded':
+    'Missing booking {id} added by request {requestId}',
+  'requests.relatedRequest': 'Related request: {id}',
+  'requests.retry': 'Retry',
+  'requests.bookingHistory': 'Booking change history',
   'requests.timeAdjustmentPolicy':
     'Approvals follow your work schedule. Time outside its configured frame requires additional approval before HR confirmation.',
   'requests.invalidTimeRange': '"To" must be after "From".',

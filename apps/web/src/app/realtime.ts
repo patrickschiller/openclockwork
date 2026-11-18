@@ -64,6 +64,7 @@ export function useRealtimeInvalidation() {
 
       const onTransition = () => {
         qc.invalidateQueries({ queryKey: ['requests'] });
+        qc.invalidateQueries({ queryKey: ['request-time-entry-audit'] });
         qc.invalidateQueries({ queryKey: ['vacation-balance'] });
         qc.invalidateQueries({ queryKey: ['account'] });
       };
@@ -73,6 +74,7 @@ export function useRealtimeInvalidation() {
         qc.invalidateQueries({ queryKey: ['solo-summary'] });
         qc.invalidateQueries({ queryKey: ['solo-hints'] });
         qc.invalidateQueries({ queryKey: ['time-entries'] });
+        qc.invalidateQueries({ queryKey: ['time-adjustment-targets'] });
         qc.invalidateQueries({ queryKey: ['time-entry-approvals'] });
         qc.invalidateQueries({ queryKey: ['time-entry-approval-history'] });
         qc.invalidateQueries({ queryKey: ['account'] });

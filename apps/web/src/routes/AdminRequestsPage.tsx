@@ -1,3 +1,4 @@
+import { TimeAdjustmentDiff, RequestTimeEntryAudit } from './RequestsPage';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -529,6 +530,8 @@ function RequestRow({
         </div>
       </div>
 
+      {isTimeAdjustment && <TimeAdjustmentDiff request={request} />}
+
       {((role === 'Manager' && inManagerInbox) ||
         (role === 'HRAdmin' && (inHrInbox || inManagerInbox))) && (
         <div className="rounded-md border bg-muted/30 p-3">
@@ -631,6 +634,12 @@ function AuditTrail({ requestId }: { requestId: string }) {
             : '…'}
         </SheetDescription>
       </SheetHeader>
+      {requestQuery.data?.type === 'TimeAdjustment' && (
+        <div className="mt-4 space-y-3">
+          <TimeAdjustmentDiff request={requestQuery.data} />
+          <RequestTimeEntryAudit requestId={requestId} />
+        </div>
+      )}
       <div className="mt-4">
         {eventsQuery.data && eventsQuery.data.length > 0 ? (
           <ol className="space-y-3 text-sm">

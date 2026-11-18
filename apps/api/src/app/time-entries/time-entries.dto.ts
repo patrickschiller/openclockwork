@@ -649,6 +649,10 @@ export class SwitchProjectDto extends ClockInDto {
 }
 
 export class TimeEntryAuditDto {
+  @ApiPropertyOptional({ type: String, nullable: true })
+  actorName?: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  requestId!: string | null;
   @ApiProperty({ format: 'uuid' })
   id!: string;
 

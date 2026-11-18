@@ -3,6 +3,8 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
+  IsInt,
+  Min,
   IsEnum,
   IsISO8601,
   IsOptional,
@@ -10,7 +12,7 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
-import type { Request } from '@prisma/client';
+import type { Request, Prisma } from '@prisma/client';
 
 const REQUEST_TYPES = [
   'Vacation',
@@ -20,6 +22,17 @@ const REQUEST_TYPES = [
 ] as const;
 
 export class CreateRequestDto {
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  targetTimeEntryId?: string | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedTargetRevision?: number | null;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
@@ -44,6 +57,17 @@ export class CreateRequestDto {
 }
 
 export class CreateVacationDto {
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  targetTimeEntryId?: string | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true, minimum: 0 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedTargetRevision?: number | null;
+
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   employeeId!: string;
@@ -176,6 +200,19 @@ export interface BulkResult {
 }
 
 export class RequestDto {
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' })
+  targetTimeEntryId!: string | null;
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  expectedTargetRevision!: number | null;
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    additionalProperties: true,
+    description:
+      'Immutable server-captured original time-entry values, including id, revision, clockIn, clockOut and break-policy snapshot.',
+  })
+  targetTimeEntryBefore!: Prisma.JsonValue | null;
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
   @ApiProperty({ format: 'uuid' })
@@ -229,6 +266,9 @@ export function toRequestDto(
 ): RequestDto {
   return {
     id: r.id,
+    targetTimeEntryId: r.targetTimeEntryId,
+    expectedTargetRevision: r.expectedTargetRevision,
+    targetTimeEntryBefore: r.targetTimeEntryBefore,
     employeeId: r.employeeId,
     employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
     updatedAt: r.updatedAt.toISOString(),

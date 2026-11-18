@@ -1316,6 +1316,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/requests/time-adjustment-targets': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['RequestsController_timeAdjustmentTargets'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/requests/{id}/time-entry-audit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['RequestsController_timeEntryAudit'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/requests/{id}': {
     parameters: {
       query?: never;
@@ -2415,6 +2447,8 @@ export interface components {
       canDecide: boolean;
     };
     TimeEntryApprovalEventDto: {
+      /** Format: uuid */
+      requestId: string | null;
       id: string;
       /** Format: uuid */
       actorId: string | null;
@@ -2600,6 +2634,9 @@ export interface components {
       second: components['schemas']['TimeEntryDto'];
     };
     TimeEntryAuditDto: {
+      actorName?: string | null;
+      /** Format: uuid */
+      requestId: string | null;
       /** Format: uuid */
       id: string;
       /** Format: uuid */
@@ -2915,6 +2952,13 @@ export interface components {
     };
     RequestDto: {
       /** Format: uuid */
+      targetTimeEntryId: string | null;
+      expectedTargetRevision: number | null;
+      /** @description Immutable server-captured original time-entry values, including id, revision, clockIn, clockOut and break-policy snapshot. */
+      targetTimeEntryBefore: {
+        [key: string]: unknown;
+      } | null;
+      /** Format: uuid */
       id: string;
       /** Format: uuid */
       employeeId: string;
@@ -2954,6 +2998,9 @@ export interface components {
     };
     CreateRequestDto: {
       /** Format: uuid */
+      targetTimeEntryId?: string | null;
+      expectedTargetRevision?: number | null;
+      /** Format: uuid */
       employeeId: string;
       /** @enum {string} */
       type: 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeAdjustment';
@@ -2970,6 +3017,9 @@ export interface components {
       reason?: string | null;
     };
     CreateVacationDto: {
+      /** Format: uuid */
+      targetTimeEntryId?: string | null;
+      expectedTargetRevision?: number | null;
       /** Format: uuid */
       employeeId: string;
       /** Format: date-time */
@@ -2991,6 +3041,9 @@ export interface components {
       halfDayEnd: boolean;
     };
     UpdateDraftRequestDto: {
+      /** Format: uuid */
+      targetTimeEntryId?: string | null;
+      expectedTargetRevision?: number | null;
       /** Format: date-time */
       from: string;
       /** Format: date-time */
@@ -5314,6 +5367,49 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['RequestDto'];
+        };
+      };
+    };
+  };
+  RequestsController_timeAdjustmentTargets: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryDto'][];
+        };
+      };
+    };
+  };
+  RequestsController_timeEntryAudit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryAuditDto'][];
         };
       };
     };
