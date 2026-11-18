@@ -536,6 +536,48 @@ async function main() {
     });
   }
 
+  // Demo-only, explicitly known synthetic contract history. Never infer a
+  // production employee's past from mutable profile values, and never rewrite
+  // a previously confirmed demo period on repeated seed runs.
+  for (const person of created) {
+    if (
+      await prisma.employeeContractPeriod.count({
+        where: { employeeId: person.id },
+      })
+    )
+      continue;
+    const snapshot = await prisma.employee.findUniqueOrThrow({
+      where: { id: person.id },
+      include: { workSchedule: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      const period = await tx.employeeContractPeriod.create({
+        data: {
+          employeeId: person.id,
+          effectiveFrom: new Date(Date.UTC(year, 0, 1)),
+          employmentStart: snapshot.startDate,
+          weeklyHours: snapshot.weeklyHours,
+          timeModel: snapshot.timeModel,
+          workingDays: snapshot.workSchedule?.workingDays ?? 31,
+          holidayCalendar: snapshot.holidayCalendar,
+          holidayDates: snapshot.holidayDates,
+          scheduleLabel: snapshot.workSchedule?.name ?? 'Synthetic Mon–Fri',
+          confirmationNote:
+            'Synthetic demo contract facts explicitly established by the demo seed for the current year; not inferred production history.',
+          confirmedById: hr.id,
+        },
+      });
+      await tx.employeeContractPeriodAudit.create({
+        data: {
+          periodId: period.id,
+          actorId: hr.id,
+          action: 'Confirmed',
+          after: JSON.parse(JSON.stringify(period)) as Prisma.InputJsonObject,
+        },
+      });
+    });
+  }
+
   // Projects with service orders + booking assignments (Epic 5). Two active
   // projects and one deactivated one so the admin UI and the booking selector
   // show both states.

@@ -195,10 +195,12 @@ export function App() {
               <Route path="settings" element={<SoloSettingsPage />} />
             )}
             <Route path="admin/projects" element={<AdminProjectsPage />} />
-            <Route
-              path="admin/working-times"
-              element={<AdminWorkingTimesPage />}
-            />
+            {(user.role === 'Manager' || user.role === 'HRAdmin') && (
+              <Route
+                path="admin/working-times"
+                element={<AdminWorkingTimesPage />}
+              />
+            )}
             <Route path="admin/schedules" element={<AdminSchedulesPage />} />
             <Route path="admin/employees" element={<AdminEmployeesPage />} />
             <Route

@@ -1,8 +1,23 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import type { WorkingTimeReportDto } from '../api/client';
 import { renderWithProviders } from '../test-utils';
 
+let selectedLocale = 'de';
+const currentUser = vi.hoisted(() => ({
+  id: 'hr-1',
+  email: 'hr@test.local',
+  firstName: 'Hannah',
+  lastName: 'HR',
+  role: 'HRAdmin' as 'HRAdmin' | 'Manager' | 'Employee',
+  themePreference: 'System',
+}));
 const employeesMock = vi.fn();
 const workingTimeReportMock = vi.fn();
 const downloadAuthenticatedMock = vi.fn();
@@ -16,20 +31,28 @@ vi.mock('../api/client', () => ({
   },
 }));
 
-vi.mock('../app/auth', () => ({
-  useCurrentUser: () => ({
-    id: 'hr-1',
-    email: 'hr@test.local',
-    firstName: 'Hannah',
-    lastName: 'HR',
-    role: 'HRAdmin',
-    themePreference: 'System',
-  }),
-}));
+vi.mock('../app/auth', () => ({ useCurrentUser: () => currentUser }));
 
 const report: WorkingTimeReportDto = {
   from: '2026-08-01',
   to: '2026-08-31',
+  timeZone: 'Europe/Berlin',
+  timeDefinition: 'net_working_time',
+  excessThresholdMinutes: 600,
+  comparisons: [
+    {
+      employeeId: 'employee-1',
+      employeeName: 'Dora Direct',
+      targetMinutes: 480,
+      actualMinutes: 450,
+      differenceMinutes: -30,
+      targetStatus: 'Known',
+      unknownDates: [],
+      reason: null,
+      indicator: 'Negative',
+      openEntryCount: 0,
+    },
+  ],
   rows: [
     {
       id: 'entry-1',
@@ -61,6 +84,16 @@ const report: WorkingTimeReportDto = {
 
 describe('AdminWorkingTimesPage', () => {
   beforeEach(() => {
+    currentUser.role = 'HRAdmin';
+    selectedLocale = 'de';
+    vi.spyOn(window, 'localStorage', 'get').mockReturnValue({
+      getItem: () => selectedLocale,
+      setItem: () => undefined,
+      clear: () => undefined,
+      removeItem: () => undefined,
+      key: () => null,
+      length: 0,
+    });
     employeesMock.mockReset().mockResolvedValue([
       {
         id: 'employee-1',
@@ -401,6 +434,246 @@ describe('AdminWorkingTimesPage', () => {
     expect(url.searchParams.get('includeLocations')).toBe('true');
   });
 
+  it('shows all textual comparison states, locale hours, missing history and zero-actual employees', async () => {
+    const { AdminWorkingTimesPage } = await import('./AdminWorkingTimesPage');
+    workingTimeReportMock.mockResolvedValue({
+      ...report,
+      comparisons: [
+        report.comparisons[0],
+        {
+          ...report.comparisons[0],
+          employeeId: 'zero',
+          employeeName: 'Zero Actual',
+          actualMinutes: 0,
+          targetMinutes: 0,
+          differenceMinutes: 0,
+          indicator: 'Balanced',
+        },
+        {
+          ...report.comparisons[0],
+          employeeId: 'positive',
+          employeeName: 'Positive Actual',
+          differenceMinutes: 30,
+          indicator: 'Positive',
+        },
+        {
+          ...report.comparisons[0],
+          employeeId: 'excess',
+          employeeName: 'Excess Actual',
+          differenceMinutes: 600,
+          indicator: 'Excess',
+        },
+        {
+          ...report.comparisons[0],
+          employeeId: 'gap',
+          employeeName: 'History Gap',
+          targetStatus: 'Unknown',
+          targetMinutes: null,
+          differenceMinutes: null,
+          actualMinutes: 0,
+          indicator: 'Unknown',
+          unknownDates: ['2026-08-12'],
+          reason: 'CONTRACT_HISTORY_GAP',
+          openEntryCount: 2,
+        },
+      ],
+    });
+    renderWithProviders(<AdminWorkingTimesPage />);
+    const table = within(
+      await screen.findByRole('table', { name: 'Soll/Ist-Vergleich' }),
+    );
+    expect(table.getByText('-0,5 h')).toBeTruthy();
+    expect(table.getByText('+0,5 h')).toBeTruthy();
+    expect(table.getByText('+10 h')).toBeTruthy();
+    for (const label of [
+      'Unter Soll',
+      'Ausgeglichen',
+      'Über Soll',
+      'Prüfung empfohlen (ab +10 h)',
+      'Unbekannt',
+    ]) {
+      expect(table.getByText(label)).toBeTruthy();
+    }
+    const zero = within(table.getByRole('row', { name: /Zero Actual/ }));
+    expect(zero.getAllByText('0 h')).toHaveLength(2);
+    const unknown = within(table.getByRole('row', { name: /History Gap/ }));
+    expect(unknown.getAllByText('—')).toHaveLength(2);
+    expect(unknown.getByText('0 h')).toBeTruthy();
+    expect(unknown.getByText(/Bestätigte Vertragshistorie fehlt/)).toBeTruthy();
+    expect(unknown.getByText(/12.8.2026/)).toBeTruthy();
+    expect(unknown.getByText('2')).toBeTruthy();
+    expect(screen.getByText(/Zeitzone: Europe\/Berlin/)).toBeTruthy();
+    expect(
+      screen.getByText(/Abgeschlossene Buchungen mit Status/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/kein fortgeschriebenes Überstundenkonto/),
+    ).toBeTruthy();
+    expect(screen.getByText(/weder eine gesetzliche Grenze/)).toBeTruthy();
+  });
+
+  it('uses server-scoped team endpoints for Managers and hides HR-only PDF controls', async () => {
+    const { AdminWorkingTimesPage } = await import('./AdminWorkingTimesPage');
+    currentUser.role = 'Manager';
+    renderWithProviders(<AdminWorkingTimesPage />);
+    await screen.findByRole('table', { name: 'Soll/Ist-Vergleich' });
+    expect(employeesMock).toHaveBeenCalledOnce();
+    expect(workingTimeReportMock).toHaveBeenCalled();
+    expect(screen.getByText(/Server begrenzt die Auswahl/)).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'PDF herunterladen' }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'CSV herunterladen' }),
+    ).toBeTruthy();
+    expect(downloadAuthenticatedMock).not.toHaveBeenCalled();
+  });
+
+  it('denies ordinary employees before loading any report or employee choices', async () => {
+    const { AdminWorkingTimesPage } = await import('./AdminWorkingTimesPage');
+    currentUser.role = 'Employee';
+    renderWithProviders(<AdminWorkingTimesPage />);
+    expect(
+      screen.getByText(/Führungskräften und HR-Admins vorbehalten/),
+    ).toBeTruthy();
+    expect(employeesMock).not.toHaveBeenCalled();
+    expect(workingTimeReportMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps week, month and custom periods consistent between comparison and detail queries', async () => {
+    const { AdminWorkingTimesPage } = await import('./AdminWorkingTimesPage');
+    workingTimeReportMock.mockImplementation((from, to) =>
+      Promise.resolve({ ...report, from, to }),
+    );
+    renderWithProviders(<AdminWorkingTimesPage />);
+    await screen.findByRole('table', { name: 'Soll/Ist-Vergleich' });
+    fireEvent.change(screen.getByLabelText('Zeitraum'), {
+      target: { value: 'week' },
+    });
+    await waitFor(() =>
+      expect(
+        (screen.getByLabelText('Zeitraum') as HTMLSelectElement).value,
+      ).toBe('week'),
+    );
+    const from = (screen.getByLabelText('Von') as HTMLInputElement).value;
+    const to = (screen.getByLabelText('Bis') as HTMLInputElement).value;
+    expect(new Date(from + 'T00:00:00Z').getUTCDay()).toBe(1);
+    expect((Date.parse(to) - Date.parse(from)) / 86400000).toBe(6);
+    await waitFor(() =>
+      expect(workingTimeReportMock.mock.calls.at(-1)?.slice(0, 2)).toEqual([
+        from,
+        to,
+      ]),
+    );
+    fireEvent.change(screen.getByLabelText('Zeitraum'), {
+      target: { value: 'month' },
+    });
+    expect((screen.getByLabelText('Von') as HTMLInputElement).value).toMatch(
+      /-01$/,
+    );
+    fireEvent.change(screen.getByLabelText('Von'), {
+      target: { value: '2026-08-01' },
+    });
+    fireEvent.change(screen.getByLabelText('Bis'), {
+      target: { value: '2026-08-31' },
+    });
+    await waitFor(() =>
+      expect(workingTimeReportMock.mock.calls.at(-1)?.slice(0, 2)).toEqual([
+        '2026-08-01',
+        '2026-08-31',
+      ]),
+    );
+    expect((screen.getByLabelText('Zeitraum') as HTMLSelectElement).value).toBe(
+      'custom',
+    );
+    expect(await screen.findByText(/1.8.2026 – 31.8.2026/)).toBeTruthy();
+  });
+
+  it('shows empty comparisons and retains the existing empty-entry state', async () => {
+    const { AdminWorkingTimesPage } = await import('./AdminWorkingTimesPage');
+    workingTimeReportMock.mockResolvedValue({
+      ...report,
+      rows: [],
+      comparisons: [],
+    });
+    renderWithProviders(<AdminWorkingTimesPage />);
+    expect(
+      await screen.findByText(
+        'Keine Mitarbeiter:innen für die gewählte Auswahl vorhanden.',
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Keine Buchungen im gewählten Zeitraum.'),
+    ).toBeTruthy();
+  });
+
+  it('renders the comparison and unknown explanation in English', async () => {
+    const { AdminWorkingTimesPage } = await import('./AdminWorkingTimesPage');
+    selectedLocale = 'en';
+    workingTimeReportMock.mockResolvedValue({
+      ...report,
+      comparisons: [
+        {
+          ...report.comparisons[0],
+          indicator: 'Unknown',
+          targetStatus: 'Unknown',
+          targetMinutes: null,
+          differenceMinutes: null,
+          reason: 'CONTRACT_HISTORY_GAP',
+          unknownDates: ['2026-08-12'],
+        },
+      ],
+    });
+    renderWithProviders(<AdminWorkingTimesPage />);
+    const table = within(
+      await screen.findByRole('table', { name: 'Target/actual comparison' }),
+    );
+    expect(table.getByText('7.5 h')).toBeTruthy();
+    expect(table.getByText('Unknown')).toBeTruthy();
+    expect(
+      table.getByText(/Confirmed contract history is missing/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/not a carried-forward overtime account/),
+    ).toBeTruthy();
+    expect(screen.getByText(/neither a statutory limit/)).toBeTruthy();
+  });
+
+  it('renders and exports clock times in the declared report timezone, independent of the viewer timezone', async () => {
+    const previousZone = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      const { AdminWorkingTimesPage } = await import('./AdminWorkingTimesPage');
+      renderWithProviders(<AdminWorkingTimesPage />);
+      expect(await screen.findByText('09:00')).toBeTruthy();
+      expect(screen.getByText('17:00')).toBeTruthy();
+      const { workingTimeReportToCsv } =
+        await import('./AdminWorkingTimesPage');
+      const csv = workingTimeReportToCsv(
+        report,
+        {
+          date: 'Date',
+          employee: 'Employee',
+          start: 'Start',
+          clockInLocation: 'In location',
+          end: 'End',
+          clockOutLocation: 'Out location',
+          gross: 'Gross',
+          break: 'Break',
+          net: 'Net',
+          status: 'Status',
+          total: 'Total',
+        },
+        'de-DE',
+        (status) => status,
+      );
+      expect(csv).toContain('2026-08-10;Dora Direct;09:00;17:00;');
+      expect(screen.queryByText('03:00')).toBeNull();
+    } finally {
+      if (previousZone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousZone;
+    }
+  });
   it('creates an Excel-friendly CSV containing the filtered rows and totals', async () => {
     const { workingTimeReportToCsv } = await import('./AdminWorkingTimesPage');
     const csv = workingTimeReportToCsv(

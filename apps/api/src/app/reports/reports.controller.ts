@@ -54,17 +54,22 @@ export class ReportsController {
   }
 
   @Get('working-times/employees')
+  @Roles('Manager', 'HRAdmin')
   @ApiOkResponse({ type: [WorkingTimeReportEmployeeDto] })
-  workingTimeEmployees(): Promise<WorkingTimeReportEmployeeDto[]> {
-    return this.reports.workingTimeEmployees();
+  workingTimeEmployees(
+    @CurrentUser() user: JwtUser,
+  ): Promise<WorkingTimeReportEmployeeDto[]> {
+    return this.reports.workingTimeEmployees(user.id);
   }
 
   @Get('working-times')
+  @Roles('Manager', 'HRAdmin')
   @ApiOkResponse({ type: WorkingTimeReportDto })
   workingTimes(
+    @CurrentUser() user: JwtUser,
     @Query() query: WorkingTimeReportQueryDto,
   ): Promise<WorkingTimeReportDto> {
-    return this.reports.workingTimes(query);
+    return this.reports.workingTimes(user.id, query);
   }
 
   @Get('working-times.pdf')
@@ -76,10 +81,11 @@ export class ReportsController {
     },
   })
   async workingTimesPdf(
+    @CurrentUser() user: JwtUser,
     @Query() query: WorkingTimePdfQueryDto,
     @Res() response: Response,
   ): Promise<void> {
-    const pdf = await this.reports.workingTimesPdf(query);
+    const pdf = await this.reports.workingTimesPdf(user.id, query);
     response.setHeader('Content-Type', 'application/pdf');
     response.setHeader(
       'Content-Disposition',

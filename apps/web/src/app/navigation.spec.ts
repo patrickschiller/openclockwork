@@ -23,9 +23,14 @@ describe('role-aware navigation', () => {
       ),
     ).toBe(false);
   });
-  it('always exposes working-time reports to HR admins only', () => {
+  it('exposes working-time reports to Managers and HR admins, not employees', () => {
     expect(
       visibleNavItems('Manager').some(
+        (item) => item.to === '/admin/working-times',
+      ),
+    ).toBe(true);
+    expect(
+      visibleNavItems('Employee').some(
         (item) => item.to === '/admin/working-times',
       ),
     ).toBe(false);

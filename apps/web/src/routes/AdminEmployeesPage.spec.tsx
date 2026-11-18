@@ -6,11 +6,15 @@ import { AdminEmployeesPage } from './AdminEmployeesPage';
 const createEmployee = vi.fn();
 const updateEmployee = vi.fn();
 const employees = vi.fn();
+const contractPeriods = vi.fn();
+const createContractPeriod = vi.fn();
 vi.mock('../api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../api/client')>()),
   api: {
     employees: (...args: unknown[]) => employees(...args),
     workSchedules: async () => [],
+    contractPeriods: (...args: unknown[]) => contractPeriods(...args),
+    createContractPeriod: (...args: unknown[]) => createContractPeriod(...args),
     createEmployee: (...args: unknown[]) => createEmployee(...args),
     updateEmployee: (...args: unknown[]) => updateEmployee(...args),
   },
@@ -38,7 +42,9 @@ const employee = {
 };
 
 beforeEach(() => {
-  employees.mockResolvedValue([]);
+  employees.mockReset().mockResolvedValue([]);
+  contractPeriods.mockReset().mockResolvedValue([]);
+  createContractPeriod.mockReset();
   createEmployee.mockReset().mockResolvedValue(employee);
   updateEmployee.mockReset().mockResolvedValue(employee);
 });
@@ -46,6 +52,10 @@ beforeEach(() => {
 it('creates an employee without a Germany-specific calendar and saves custom dates', async () => {
   renderWithProviders(<AdminEmployeesPage />);
   fireEvent.click(screen.getByRole('button', { name: 'Neu anlegen' }));
+  expect(
+    screen.queryByRole('region', { name: 'Bestätigte Vertragszeiträume' }),
+  ).toBeNull();
+  expect(contractPeriods).not.toHaveBeenCalled();
   expect(
     (screen.getByLabelText('Feiertagskalender') as HTMLSelectElement).value,
   ).toBe('NONE');
@@ -74,12 +84,19 @@ it('creates an employee without a Germany-specific calendar and saves custom dat
       }),
     ),
   );
+  expect(createContractPeriod).not.toHaveBeenCalled();
 });
 
 it('updates both the preset calendar and custom dates instead of dropping calendar changes', async () => {
   employees.mockResolvedValue([employee]);
   renderWithProviders(<AdminEmployeesPage />);
   fireEvent.click(await screen.findByRole('button', { name: 'Bearbeiten' }));
+  expect(
+    screen.getByRole('region', { name: 'Bestätigte Vertragszeiträume' }),
+  ).toBeTruthy();
+  await waitFor(() =>
+    expect(contractPeriods).toHaveBeenCalledWith(employee.id),
+  );
   fireEvent.change(screen.getByLabelText('Feiertagskalender'), {
     target: { value: 'DE-BY' },
   });
@@ -102,4 +119,5 @@ it('updates both the preset calendar and custom dates instead of dropping calend
       }),
     ),
   );
+  expect(createContractPeriod).not.toHaveBeenCalled();
 });

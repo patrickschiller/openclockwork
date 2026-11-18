@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { soloDe, soloEn } from './solo-i18n';
 import { terminalPinDe, terminalPinEn } from './terminal-pin-i18n';
+import { workingTimeDe, workingTimeEn } from './working-time-i18n';
 
 export type Locale = 'de' | 'en';
 type Variables = Record<string, string | number>;
@@ -16,6 +17,7 @@ type Catalog = Record<string, string>;
 const STORAGE_KEY = 'openclockwork.locale';
 
 const de: Catalog = {
+  ...workingTimeDe,
   'requests.appliedBy': 'Angewendet von {actor}',
   'requests.unknownActor': 'Nicht mehr verfügbare Person',
   'frameApproval.ownTitle': 'Rahmenzeit-Genehmigungen für meine Zeitbuchungen',
@@ -799,6 +801,7 @@ const de: Catalog = {
 };
 
 const en: Catalog = {
+  ...workingTimeEn,
   'requests.appliedBy': 'Applied by {actor}',
   'requests.unknownActor': 'Reviewer no longer available',
   'frameApproval.ownTitle': 'Approvals for my out-of-frame time entries',

@@ -30,7 +30,7 @@ export class WorkingTimeReportQueryDto {
   @ApiPropertyOptional({
     type: [String],
     description:
-      'Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId.',
+      'Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees in the actor’s scope (HR: all; Manager: self and direct reports); cannot be combined with employeeId.',
   })
   @IsOptional()
   @Transform(({ value }) => (Array.isArray(value) ? value : [value]))
@@ -101,7 +101,7 @@ export class WorkingTimeReportRowDto {
   @ApiProperty({ format: 'date-time' })
   clockOut!: string;
 
-  @ApiProperty({ enum: ['Open', 'Pending', 'Approved'] })
+  @ApiProperty({ enum: ['Pending', 'Approved'] })
   status!: string;
 
   @ApiProperty({ minimum: 0 })
@@ -131,12 +131,71 @@ export class WorkingTimeReportTotalsDto {
   netMinutes!: number;
 }
 
+export class WorkingTimeComparisonDto {
+  @ApiProperty({ format: 'uuid' })
+  employeeId!: string;
+
+  @ApiProperty()
+  employeeName!: string;
+
+  @ApiProperty({ type: Number, nullable: true, minimum: 0 })
+  targetMinutes!: number | null;
+
+  @ApiProperty({ minimum: 0 })
+  actualMinutes!: number;
+
+  @ApiProperty({ type: Number, nullable: true })
+  differenceMinutes!: number | null;
+
+  @ApiProperty({ enum: ['Known', 'Unknown'] })
+  targetStatus!: 'Known' | 'Unknown';
+
+  @ApiProperty({
+    type: [String],
+    description:
+      'Calendar dates lacking a confirmed contract snapshot, including non-working dates.',
+  })
+  unknownDates!: string[];
+
+  @ApiProperty({ type: String, enum: ['CONTRACT_HISTORY_GAP'], nullable: true })
+  reason!: 'CONTRACT_HISTORY_GAP' | null;
+
+  @ApiProperty({
+    enum: ['Unknown', 'Negative', 'Balanced', 'Positive', 'Excess'],
+    description:
+      'Selected-period review indicator only; not a legal limit or a carried overtime balance. Excess means difference >= 600 minutes.',
+  })
+  indicator!: 'Unknown' | 'Negative' | 'Balanced' | 'Positive' | 'Excess';
+
+  @ApiProperty({
+    minimum: 0,
+    description:
+      'Non-voided, non-rejected open entries started before the period end; excluded from actual minutes.',
+  })
+  openEntryCount!: number;
+}
+
 export class WorkingTimeReportDto {
   @ApiProperty({ format: 'date' })
   from!: string;
 
   @ApiProperty({ format: 'date' })
   to!: string;
+
+  @ApiProperty()
+  timeZone!: string;
+
+  @ApiProperty({ enum: ['net_working_time'] })
+  timeDefinition!: 'net_working_time';
+
+  @ApiProperty({
+    enum: [600],
+    description: 'Period-review threshold, not a statutory working-time limit.',
+  })
+  excessThresholdMinutes!: 600;
+
+  @ApiProperty({ type: [WorkingTimeComparisonDto] })
+  comparisons!: WorkingTimeComparisonDto[];
 
   @ApiProperty({ type: [WorkingTimeReportRowDto] })
   rows!: WorkingTimeReportRowDto[];

@@ -142,6 +142,24 @@ try {
       'Inserted upgrade sentinels for employees, policies, time entry, and terminal.',
     );
   } else {
+    const unknownContractHistory = await client.query(
+      `SELECT COUNT(*)::int AS count FROM "EmployeeContractPeriod"
+       WHERE "employeeId" IN ($1, $2)`,
+      [employeeId, fallbackEmployeeId],
+    );
+    assert.equal(
+      unknownContractHistory.rows[0].count,
+      0,
+      'Legacy employees must have unknown contract history, not fabricated retrospective snapshots.',
+    );
+    const unknownContractAudit = await client.query(
+      `SELECT COUNT(*)::int AS count FROM "EmployeeContractPeriodAudit"`,
+    );
+    assert.equal(
+      unknownContractAudit.rows[0].count,
+      0,
+      'Migration must not invent HR confirmations or actors.',
+    );
     const legacyCorrection = await client.query(
       `SELECT "targetTimeEntryId", "expectedTargetRevision", "targetTimeEntryBefore",
         "workflowState"::text, "type"::text,

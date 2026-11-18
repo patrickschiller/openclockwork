@@ -23,6 +23,8 @@ const RESET_SQL = `
     "SoloPolicy",
     "PersonalDay",
     "TimeEntryAudit",
+    "EmployeeContractPeriodAudit",
+    "EmployeeContractPeriod",
     "Customer",
     "TerminalAuditEvent",
     "TerminalBookingGrant",
@@ -63,7 +65,10 @@ export async function createTestApp(): Promise<TestContext> {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
-  await app.init();
+  // Keep one loopback listener for the suite instead of opening/closing an
+  // ephemeral server for every supertest call (including concurrent requests).
+  // app.close() below owns its lifetime; all HTTP assertions remain unchanged.
+  await app.listen(0, '127.0.0.1');
 
   const prisma = app.get(PrismaService);
   const http = request.agent(app.getHttpServer());

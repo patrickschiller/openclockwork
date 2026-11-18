@@ -388,6 +388,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/employees/{id}/contract-periods': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['ContractPeriodsController_list'];
+    put?: never;
+    post: operations['ContractPeriodsController_confirm'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/work-schedules': {
     parameters: {
       query?: never;
@@ -2142,6 +2158,91 @@ export interface components {
     SetPasswordDto: {
       password: string;
     };
+    EmployeeContractPeriodDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      employeeId: string;
+      /** Format: date */
+      effectiveFrom: string;
+      /** Format: date */
+      effectiveTo: string | null;
+      /** Format: date */
+      employmentStart: string;
+      /** Format: date */
+      employmentEnd: string | null;
+      weeklyHours: number;
+      /** @enum {string} */
+      timeModel:
+        | 'Teilzeit'
+        | 'Vollzeit'
+        | 'Vertrauensarbeitszeit'
+        | 'Gleitzeit';
+      workingDays: number;
+      holidayCalendar: string;
+      holidayDates: string[];
+      scheduleLabel: string | null;
+      confirmationNote: string;
+      /** Format: uuid */
+      confirmedById: string | null;
+      revision: number;
+      /** Format: date-time */
+      createdAt: string;
+    };
+    ConfirmContractPeriodDto: {
+      /** Format: date */
+      effectiveFrom: string;
+      /** Format: date */
+      effectiveTo?: string | null;
+      /** Format: date */
+      employmentStart: string;
+      /** Format: date */
+      employmentEnd?: string | null;
+      weeklyHours: number;
+      /** @enum {string} */
+      timeModel:
+        | 'Teilzeit'
+        | 'Vollzeit'
+        | 'Vertrauensarbeitszeit'
+        | 'Gleitzeit';
+      /** @description Immutable weekday mask: Mon=1, Tue=2, ..., Sun=64. Equal daily target, rounded to whole minutes. */
+      workingDays: number;
+      /** @enum {string} */
+      holidayCalendar:
+        | 'NONE'
+        | 'DE-BW'
+        | 'DE-BY'
+        | 'DE-BE'
+        | 'DE-BB'
+        | 'DE-HB'
+        | 'DE-HH'
+        | 'DE-HE'
+        | 'DE-MV'
+        | 'DE-NI'
+        | 'DE-NW'
+        | 'DE-RP'
+        | 'DE-SL'
+        | 'DE-SN'
+        | 'DE-ST'
+        | 'DE-SH'
+        | 'DE-TH';
+      /** @description Explicit non-working dates, supplementing the snapshot calendar. */
+      holidayDates: string[];
+      scheduleLabel?: string | null;
+      /** @description HR source/confirmation explanation. No automatic historical inference. */
+      confirmationNote: string;
+      /**
+       * @description Explicit confirmation that these dated facts are known, not inferred from the current employee profile.
+       * @enum {boolean}
+       */
+      confirmed: true;
+      /**
+       * Format: uuid
+       * @description Explicitly close this prior period on the day before effectiveFrom; no other facts are changed.
+       */
+      supersedesPeriodId?: string;
+      expectedRevision?: number;
+    };
     BreakRuleDto: {
       /** @description Inclusive attendance threshold in minutes. */
       afterMinutes: number;
@@ -2318,6 +2419,27 @@ export interface components {
       firstName: string;
       lastName: string;
     };
+    WorkingTimeComparisonDto: {
+      /** Format: uuid */
+      employeeId: string;
+      employeeName: string;
+      targetMinutes: number | null;
+      actualMinutes: number;
+      differenceMinutes: number | null;
+      /** @enum {string} */
+      targetStatus: 'Known' | 'Unknown';
+      /** @description Calendar dates lacking a confirmed contract snapshot, including non-working dates. */
+      unknownDates: string[];
+      /** @enum {string|null} */
+      reason: 'CONTRACT_HISTORY_GAP' | null;
+      /**
+       * @description Selected-period review indicator only; not a legal limit or a carried overtime balance. Excess means difference >= 600 minutes.
+       * @enum {string}
+       */
+      indicator: 'Unknown' | 'Negative' | 'Balanced' | 'Positive' | 'Excess';
+      /** @description Non-voided, non-rejected open entries started before the period end; excluded from actual minutes. */
+      openEntryCount: number;
+    };
     WorkingTimeReportLocationDto: {
       label: string | null;
       latitude: number | null;
@@ -2337,7 +2459,7 @@ export interface components {
       /** Format: date-time */
       clockOut: string;
       /** @enum {string} */
-      status: 'Open' | 'Pending' | 'Approved';
+      status: 'Pending' | 'Approved';
       grossMinutes: number;
       breakMinutes: number;
       netMinutes: number;
@@ -2358,6 +2480,15 @@ export interface components {
       from: string;
       /** Format: date */
       to: string;
+      timeZone: string;
+      /** @enum {string} */
+      timeDefinition: 'net_working_time';
+      /**
+       * @description Period-review threshold, not a statutory working-time limit.
+       * @enum {number}
+       */
+      excessThresholdMinutes: 600;
+      comparisons: components['schemas']['WorkingTimeComparisonDto'][];
       rows: components['schemas']['WorkingTimeReportRowDto'][];
       totals: components['schemas']['WorkingTimeReportTotalsDto'];
     };
@@ -3829,6 +3960,52 @@ export interface operations {
       };
     };
   };
+  ContractPeriodsController_list: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EmployeeContractPeriodDto'][];
+        };
+      };
+    };
+  };
+  ContractPeriodsController_confirm: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConfirmContractPeriodDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EmployeeContractPeriodDto'];
+        };
+      };
+    };
+  };
   WorkSchedulesController_list: {
     parameters: {
       query?: never;
@@ -4336,7 +4513,7 @@ export interface operations {
         from: string;
         to: string;
         employeeId?: string;
-        /** @description Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId. */
+        /** @description Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees in the actor’s scope (HR: all; Manager: self and direct reports); cannot be combined with employeeId. */
         employeeIds?: string[];
         includeLocations?: boolean;
       };
@@ -4362,7 +4539,7 @@ export interface operations {
         from: string;
         to: string;
         employeeId?: string;
-        /** @description Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees; cannot be combined with employeeId. */
+        /** @description Repeat employeeIds for a subset (maximum 200). Omit both employee filters for all employees in the actor’s scope (HR: all; Manager: self and direct reports); cannot be combined with employeeId. */
         employeeIds?: string[];
         locale?: 'de' | 'en';
       };

@@ -94,7 +94,7 @@ export const navItems: NavItem[] = [
     to: '/admin/working-times',
     labelKey: 'nav.workingTimes',
     icon: FileBarChart,
-    roles: ['HRAdmin'],
+    roles: ['Manager', 'HRAdmin'],
     showInBottomNav: false,
   },
   {

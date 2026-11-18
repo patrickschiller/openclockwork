@@ -225,11 +225,15 @@ describe('International calendars and configurable break policies', () => {
     // their historical whole-minute policy. Both use the captured deduction.
     const reportGrossMinutes =
       ((persisted.clockOut as Date).getTime() - clockIn.getTime()) / 60_000;
-    expect(report.body.totals).toEqual({
-      grossMinutes: reportGrossMinutes,
-      breakMinutes: 20,
-      netMinutes: reportGrossMinutes - 20,
-    });
+    // The period report now splits an overnight entry at local midnight.
+    // Summing proportional fragments can differ by one floating-point ULP;
+    // verify sub-microsecond precision, not an incidental addition order.
+    expect(report.body.totals.grossMinutes).toBeCloseTo(reportGrossMinutes, 8);
+    expect(report.body.totals.breakMinutes).toBeCloseTo(20, 8);
+    expect(report.body.totals.netMinutes).toBeCloseTo(
+      reportGrossMinutes - 20,
+      8,
+    );
     const exported = await ctx.http
       .get('/api/erp/timeentries')
       .set('X-API-Key', process.env.ERP_API_KEY ?? 'e2e-erp-key')
