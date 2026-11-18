@@ -1,13 +1,14 @@
 # OpenClockwork Features
 
-OpenClockwork 2.2.0 provides **Solo** personal work tracking and **Team** time and
+OpenClockwork 2.2.1 provides **Solo** personal work tracking and **Team** time and
 attendance in one responsive, self-hosted application. Both keep deployment,
 data, and configuration under the operator's control, with German and English UI.
 
-Version 2.2.0 adds HR working-time PDF exports for one, selected, or all employees,
-including inactive employees with historical bookings. It retains the PIN tablet
-terminals and audit introduced in 2.1.0 and personnel-data access restrictions
-introduced in 2.0.1. RFID is planned separately. See the
+Version 2.2.1 adds the Team cockpit, effective-dated contract periods, a
+working-time target/actual comparison and new booking approval and correction
+workflows. HR can also export working-time data as CSV or PDF for one,
+selected or all employees, including inactive employees with historical
+bookings. See the
 [German legal context and export limitations](docs/WORKING_TIME_EXPORTS.de.md).
 
 This page describes implemented capabilities, not a guarantee that every rule,
@@ -88,9 +89,9 @@ keeps its original approval mode. Access changes immediately; when today already
 contains effective work or time off, the accounting mode starts on the next
 working-timezone calendar date. See [the mode guide](docs/OPERATING_MODES.md).
 
-Solo customer management and personal billable reports are not Team screens in
-2.2.0. Preserving records across a switch does not make every mode-specific
-workflow available in both modes.
+Solo customer management and personal billable reports are available in Solo
+mode. The Team screens for employee approvals, terminals and organisation
+reporting are available in Team mode.
 
 ## Mobile PWA
 
@@ -206,14 +207,33 @@ Employee submits
 - Manager and HR inboxes from desktop and mobile navigation
 - Substitute acceptance and rejection
 - Manager approval, rejection, and return for correction
+- Editing and resubmitting returned requests with their original history and
+  attachments
 - HR confirmation and rejection
 - Bulk approval and rejection
 - Request cancellation
 - Complete workflow-event history
-- Special approval for bookings and corrections outside configured frames
+- Manager approval followed by required HR confirmation for closed bookings
+  outside configured frames
+- Corrections to specific existing bookings update the same booking on final
+  approval and retain the prior and new values in its audit history
 - Local-filesystem or Azure Blob attachments for supported request types
 - Daily-target blocks bypass the workflow only when HR enables the employee and
   all schedule, holiday, absence, conflict, frame, and break checks pass
+
+## Team cockpit
+
+Managers see their current direct reports and HR sees the organisation. The
+cockpit shows today's booking status, applicable core-time windows and approved
+absences. It marks unclear obligations when contract or schedule facts are
+missing. A running timer records clock activity. Physical presence is unverified.
+
+Managers and HR can review booking and correction approvals, start a timer or
+add completed time, and record eligible absences or submit requests on an
+employee's behalf within their scope. The history and calendar show bookings,
+requests, absences and recorded actions for the selected employee and period.
+Actions taken on an employee's behalf record the actor, employee, time, values
+and reason. Existing approval requirements apply to those actions.
 
 ## HR and administration (Team)
 
@@ -254,6 +274,9 @@ bookings, and customer-facing activity reports in one administrative workflow.
 - Detailed evaluations filtered by period, employee, project, and order
 - Customer-facing activity report and CSV export
 - Project-independent HR working-time report for all closed, non-rejected entries
+- Week, month or custom comparison of recorded provisional net time with the
+  target from HR-confirmed contract periods. The report includes employees
+  without bookings and flags dates with missing contract facts.
 - Direct PDF download for individual employees or a bulk selection, with separate
   employee sections, personnel numbers, explicit timezone, full timestamps,
   booking-day/period totals, approval state, and warnings for open timers

@@ -1,3 +1,73 @@
+# OpenClockwork v2.2.1
+
+## Requests and approvals in Team mode
+
+- Employees can reopen, edit, save and resubmit returned requests. The draft
+  retains its ID, attachments, history and the reason it was returned. Editing
+  only the reason preserves the original timestamps, including at daylight-saving
+  transitions. [PR #46](https://github.com/patrickschiller/openclockwork/pull/46)
+- A closed time booking outside its permitted working frame requires approval
+  first from the employee's currently assigned manager and then from HR.
+  Employees and reviewers can see the next stage and decision history. If no
+  eligible manager is assigned, HR must correct the assignment before approval
+  can proceed. [PR #47](https://github.com/patrickschiller/openclockwork/pull/47)
+- Employees can request a correction to a specific existing booking and
+  reviewers can see the proposed changes. Final approval updates that booking
+  in place, retaining its ID and recording the before/after values. Revision and
+  overlap checks protect the booking if its data changed during review.
+  [PR #48](https://github.com/patrickschiller/openclockwork/pull/48)
+
+## Working-time comparison and Team cockpit
+
+- The working-time report compares contractual target with recorded net
+  working time for a selected week, month or custom period. It includes
+  employees with zero recorded hours. HR confirms effective-dated contract
+  periods and the working-day and holiday rules used in the calculation. Gaps
+  in confirmed history leave target and difference unknown. Completed pending
+  bookings count towards the provisional actual total. The difference covers
+  the selected period and excludes carried balances.
+  [PR #49](https://github.com/patrickschiller/openclockwork/pull/49)
+- The Team cockpit gives managers access to their current direct reports and
+  HR an organisation-wide view. It shows today's booking status and known
+  core-time obligations, brings both booking approval workflows together, and
+  offers employee history and a calendar. A running booking records clock
+  activity. Physical presence is unverified.
+- Managers and HR can start a timer, record a past interval or record
+  permitted absences and requests on behalf of an employee in scope. The
+  audit records the acting person, employee, action, values and reason.
+  Normal approval rules still apply. Use the organisation's access and
+  retention controls for employee histories and include only operationally
+  necessary information in reasons.
+  [PR #50](https://github.com/patrickschiller/openclockwork/pull/50)
+
+## Upgrading from 2.2.0
+
+- Take a consistent backup and apply four additive migrations. They add review
+  markers for existing bookings, references and snapshots for targeted
+  corrections, confirmed contract periods and proxy audit history. Existing
+  pending outside-frame bookings start at manager review. The upgrade leaves
+  historical contract facts for HR to confirm and records proxy audit events
+  from actual actions. Keep the database, attachment volumes, credentials and
+  working timezone. Production uses its existing data without a seed or reset.
+- Use matching API and web images. When updating them separately, deploy the
+  API and migrations first, check that `/api/health` reports `2.2.1`, then
+  deploy the matching web image and reopen browser or PWA tabs. PIN installations
+  keep their existing Compose overlay so its migration service reapplies
+  runtime grants. Follow the
+  [upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v2.2.1/UPGRADING.md).
+- Review the [updated API contract](https://github.com/patrickschiller/openclockwork/blob/v2.2.1/apps/api/openapi.json)
+  for booking approvals, request revisions, working-time comparisons and
+  cockpit operations. The existing HR working-time CSV/PDF exports and
+  QR/PIN tablet workflows remain available.
+
+## Docker images
+
+- `ghcr.io/patrickschiller/openclockwork-api:2.2.1`
+- `ghcr.io/patrickschiller/openclockwork-web:2.2.1`
+
+Use the same pinned release or verified image digests in production. The
+release workflow also publishes the `latest` image tags.
+
 # OpenClockwork v2.2.0
 
 ## Working-time PDFs for HR
