@@ -14,10 +14,17 @@ import {
   ApiOkResponse,
   ApiCreatedResponse,
   ApiTags,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { JwtUser } from '../auth/jwt.strategy';
+import { TimeEntryApprovalsService } from './time-entry-approvals.service';
+import {
+  DecideTimeEntryApprovalDto,
+  TimeEntryApprovalDto,
+  TimeEntryApprovalEventDto,
+} from './time-entry-approvals.dto';
 import { TimeEntriesService } from './time-entries.service';
 import {
   BookProjectRangeDto,
@@ -40,7 +47,10 @@ import {
 @ApiTags('time-entries')
 @Controller('timeentries')
 export class TimeEntriesController {
-  constructor(private readonly entries: TimeEntriesService) {}
+  constructor(
+    private readonly entries: TimeEntriesService,
+    private readonly approvals: TimeEntryApprovalsService,
+  ) {}
 
   @Get()
   @ApiOkResponse({ type: TimeEntryDto, isArray: true })
@@ -58,6 +68,41 @@ export class TimeEntriesController {
       from ? new Date(from) : undefined,
       to ? new Date(to) : undefined,
     );
+  }
+
+  @Get('approvals')
+  @ApiQuery({ name: 'scope', required: false, enum: ['own', 'review'] })
+  @ApiOkResponse({ type: TimeEntryApprovalDto, isArray: true })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  approvalList(
+    @CurrentUser() user: JwtUser,
+    @Query('scope') scope?: string,
+  ): Promise<TimeEntryApprovalDto[]> {
+    return this.approvals.list(user.id, scope);
+  }
+
+  @Get(':id/approval-history')
+  @ApiOkResponse({ type: TimeEntryApprovalEventDto, isArray: true })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  approvalHistory(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TimeEntryApprovalEventDto[]> {
+    return this.approvals.history(id, user);
+  }
+
+  @Post(':id/approval')
+  @ApiCreatedResponse({ type: TimeEntryApprovalDto })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  decideApproval(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: DecideTimeEntryApprovalDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<TimeEntryApprovalDto> {
+    return this.approvals.decide(id, dto, user);
   }
 
   @Post('clock-in')

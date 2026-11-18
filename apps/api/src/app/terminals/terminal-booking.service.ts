@@ -105,6 +105,8 @@ export async function bookTerminalTime(
         revision: { increment: 1 },
         status: requires ? 'Pending' : 'Approved',
         requiresApproval: requires,
+        frameApproverId: null,
+        frameApprovedRevision: null,
         clockOutLatitude: position?.latitude ?? null,
         clockOutLongitude: position?.longitude ?? null,
         clockOutAccuracyMeters: position?.accuracyMeters ?? null,

@@ -676,6 +676,54 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/timeentries/approvals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TimeEntriesController_approvalList'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/{id}/approval-history': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations['TimeEntriesController_approvalHistory'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/timeentries/{id}/approval': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['TimeEntriesController_decideApproval'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/timeentries/clock-in': {
     parameters: {
       query?: never;
@@ -2347,6 +2395,42 @@ export interface components {
       serviceOrderTitle: string | null;
       activity: string | null;
       summary: components['schemas']['TimeSummaryDto'] | null;
+    };
+    TimeEntryApprovalDto: {
+      entry: components['schemas']['TimeEntryDto'];
+      revision: number;
+      employeeName: string;
+      /** Format: uuid */
+      managerId: string | null;
+      managerName: string | null;
+      /** @enum {string} */
+      state:
+        | 'Open'
+        | 'BlockedManager'
+        | 'PendingManager'
+        | 'PendingHr'
+        | 'Approved'
+        | 'Rejected'
+        | 'Voided';
+      canDecide: boolean;
+    };
+    TimeEntryApprovalEventDto: {
+      id: string;
+      /** Format: uuid */
+      actorId: string | null;
+      actorName: string | null;
+      action: string;
+      reason: string | null;
+      /** Format: date-time */
+      occurredAt: string;
+    };
+    DecideTimeEntryApprovalDto: {
+      revision: number;
+      /** @enum {string} */
+      stage: 'Manager' | 'HR';
+      /** @enum {string} */
+      outcome: 'Approve' | 'Reject';
+      note?: string;
     };
     ClockInDto: {
       note?: string | null;
@@ -4265,6 +4349,73 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['TimeEntryDto'][];
+        };
+      };
+    };
+  };
+  TimeEntriesController_approvalList: {
+    parameters: {
+      query?: {
+        scope?: 'own' | 'review';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryApprovalDto'][];
+        };
+      };
+    };
+  };
+  TimeEntriesController_approvalHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryApprovalEventDto'][];
+        };
+      };
+    };
+  };
+  TimeEntriesController_decideApproval: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DecideTimeEntryApprovalDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TimeEntryApprovalDto'];
         };
       };
     };

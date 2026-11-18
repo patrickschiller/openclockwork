@@ -3,6 +3,8 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 
 const timeEntriesMock = vi.fn().mockResolvedValue([]);
+const timeEntryApprovalsMock = vi.fn().mockResolvedValue([]);
+const approvalHistoryMock = vi.fn().mockResolvedValue([]);
 const clockInMock = vi.fn();
 const clockOutMock = vi.fn();
 const dailyBlockOptionMock = vi.fn();
@@ -16,6 +18,9 @@ const violationsMock = vi.fn().mockResolvedValue([]);
 vi.mock('../api/client', () => ({
   api: {
     timeEntries: (...args: unknown[]) => timeEntriesMock(...args),
+    timeEntryApprovals: (...args: unknown[]) => timeEntryApprovalsMock(...args),
+    timeEntryApprovalHistory: (...args: unknown[]) =>
+      approvalHistoryMock(...args),
     clockIn: (...args: unknown[]) => clockInMock(...args),
     clockOut: (...args: unknown[]) => clockOutMock(...args),
     dailyBlockOption: (...args: unknown[]) => dailyBlockOptionMock(...args),
@@ -89,6 +94,8 @@ const PROJECTS = [
 describe('BookingPage', () => {
   beforeEach(() => {
     timeEntriesMock.mockClear().mockResolvedValue([]);
+    timeEntryApprovalsMock.mockClear().mockResolvedValue([]);
+    approvalHistoryMock.mockClear().mockResolvedValue([]);
     clockInMock
       .mockClear()
       .mockResolvedValue(entryFixture({ clockOut: null, status: 'Open' }));
@@ -111,6 +118,49 @@ describe('BookingPage', () => {
     bookProjectRangeMock.mockClear();
     violationsMock.mockClear().mockResolvedValue([]);
     onlineState = true;
+  });
+
+  it('makes own approval status, next reviewer and history discoverable beside bookings', async () => {
+    timeEntryApprovalsMock.mockResolvedValue([
+      {
+        entry: entryFixture({ requiresApproval: true }),
+        revision: 4,
+        employeeName: 'Test User',
+        managerId: 'manager-1',
+        managerName: 'Maria Manager',
+        state: 'PendingManager',
+        canDecide: false,
+      },
+    ]);
+    approvalHistoryMock.mockResolvedValue([
+      {
+        id: 'history-1',
+        actorId: 'manager-1',
+        actorName: 'Maria Manager',
+        action: 'FrameApprovalInvalidated',
+        reason: 'Zeitraum geändert',
+        occurredAt: '2026-05-04T16:00:00Z',
+      },
+    ]);
+    const { BookingPage } = await import('./BookingPage');
+    renderWithProviders(<BookingPage />);
+    expect(
+      await screen.findByText(
+        'Rahmenzeit-Genehmigungen für meine Zeitbuchungen',
+      ),
+    ).toBeDefined();
+    expect(await screen.findByText('Wartet auf Führungskraft')).toBeDefined();
+    expect(
+      screen.getByText(/Nächster Schritt: Maria Manager/).textContent,
+    ).toContain('Genehmigungen → Zeitbuchungen');
+    expect(timeEntryApprovalsMock).toHaveBeenCalledWith('own');
+    expect(
+      screen.queryByRole('button', { name: 'Als Führungskraft genehmigen' }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Genehmigungsverlauf' }),
+    );
+    expect(await screen.findByText('Zeitraum geändert')).toBeDefined();
   });
 
   it('renders the "not clocked in" state when there is no open entry', async () => {
