@@ -25,6 +25,45 @@ Compose from managing their deletion, but this does not protect against manual
 volume removal, pruning unused volumes, Docker data loss or host failure. Do
 not replace a populated installation's volume with a new name during an upgrade.
 
+## Required for 2.2.1
+
+Take a consistent backup and deploy matching 2.2.1 API and web images. Preserve
+the existing mode, PostgreSQL and attachment volumes, credentials and working
+timezone. Follow each applicable section below when skipping an older release.
+
+### Four forward migrations
+
+| Migration | Effect |
+| --- | --- |
+| `20261107031000_time_entry_frame_approval` | Adds nullable review markers. Existing pending Team bookings outside their permitted frame start at the manager stage. Existing final approvals and their history are preserved. |
+| `20261107040000_targeted_time_corrections` | Adds optional links between a correction request, the booking it targets and the resulting audit event. Existing requests for missing bookings retain their original behaviour. |
+| `20261107050000_employee_contract_periods` | Adds confirmed contract periods and their audit history. HR confirms the applicable facts for each period. A gap leaves the reported target and difference unknown. |
+| `20261107060000_team_proxy_audit` | Adds auditable actions taken on behalf of an employee. The history starts with actions actually recorded by the upgraded application. |
+
+Follow the [deployment procedure](#1-prepare-and-back-up) below so
+`prisma migrate deploy` runs before the API serves requests. Retain every
+applied migration. Production upgrades require no seed or database reset.
+For PIN deployments, include the existing overlay so its migration service
+reapplies runtime grants. Recheck any custom database roles for access to the
+new tables.
+
+### Check Team workflows after deployment
+
+- Confirm pending outside-frame bookings appear for the assigned manager and
+  then for HR. Resolve missing or inactive manager assignments before approval.
+- Open an existing returned draft and verify its reason, attachments and
+  history. Sample a correction to a specific booking in a backed-up
+  non-production installation and verify the booking ID is preserved.
+- HR confirms known contract periods under **Employees**. Check prefilled
+  values against contract records before confirmation. Verify **Working Times**
+  shows provisional net actual time and flags dates where the target is unknown.
+- Check **Team cockpit** with separate HR and manager accounts. The latter
+  should see only current direct reports. Review the organisation's access and
+  retention policies for records of actions performed on an employee's behalf.
+- Reopen browser/PWA tabs. Verify an existing working-time CSV/PDF export and
+  the configured terminal methods. Custom clients can use the
+  [updated OpenAPI contract](apps/api/openapi.json).
+
 ## Required for 2.2.0
 
 Version 2.2.0 adds HR working-time PDF exports for one, selected, or all
@@ -109,7 +148,7 @@ existing installations is recommended. From 2.0.0,
 this update adds no database migrations and requires no seed or reset.
 Keep the existing data, volumes, configuration and working timezone, take a
 consistent backup, and deploy matching API/web versions. These access changes
-also apply when upgrading directly to 2.2.0; follow the additional requirements
+also apply when upgrading directly to 2.2.1. Follow the additional requirements
 above and the deployment procedure below.
 
 Custom API clients must handle `401` and `403` responses and the scoped
@@ -413,7 +452,7 @@ runs in a non-production runtime; the API retains its production runtime.
 ## 2. Select and pull the release
 
 Set `OPENCLOCKWORK_VERSION` in `.env.prod` to the exact version from the GitHub
-Release, **`2.2.0` for this upgrade**, only after preserving the old configuration
+Release, **`2.2.1` for this upgrade**, only after preserving the old configuration
 in the backup set. Pin matching API/web versions or verified digests. Do not use
 `latest`, a mutable `:local` image, or a source-build override for an unattended
 production upgrade. Keep the same PostgreSQL major version; a PostgreSQL major
@@ -440,7 +479,7 @@ migrations and runtime grants; the API waits for its successful completion.
 Prisma records applied migrations in `_prisma_migrations` and skips them on
 subsequent starts. Production startup never seeds or resets the database.
 If API/web are deployed independently, deploy the API first, wait for its
-health endpoint to report `2.2.0`, then deploy the matching web image. The web
+health endpoint to report `2.2.1`, then deploy the matching web image. The web
 startup version check is not a promise of zero-downtime mixed-version operation;
 keep additional writers paused until verification completes.
 
@@ -477,7 +516,7 @@ oc run --rm --no-deps -T migrate ./node_modules/.bin/prisma migrate status
 The PIN runtime role deliberately has no access to `_prisma_migrations`; do not
 broaden its permissions to run this maintenance check from the API container.
 
-Confirm `2.2.0` through the public web/proxy health route as well as the
+Confirm `2.2.1` through the public web/proxy health route as well as the
 container check. Sign in and verify the actual deployed mode, a known employee,
 an existing time entry, historic break totals, leave balances and configured
 attachment storage. A 1.4.0 upgrade must still be Team unless an administrator

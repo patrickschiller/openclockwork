@@ -70,7 +70,8 @@ Audit-Rechte oder Rollentrennung unsicher sind. Das optionale
 `docker-compose.terminal-pin.yml` trennt Migrationsjob und API-Start; es setzt
 `MIGRATION_DATABASE_URL`, Runtime-Passwort und unabhängige PIN-/Audit-Secrets
 voraus. Mit der Produktions-Compose-Datei und passenden API-/Web-Images ab
-Version 2.1.0 kombinieren; `OPENCLOCKWORK_VERSION=2.1.0` setzen. Das Overlay
+Version 2.1.0 kombinieren. Für Release 2.2.1 gilt
+`OPENCLOCKWORK_VERSION=2.2.1`. Das Overlay
 ersetzt den Migrationsstart in der API durch den getrennten Job. `DATABASE_URL`
 verwendet danach den Runtime-Benutzer mit demselben Passwort, das
 `TERMINAL_RUNTIME_DB_PASSWORD` für die Rolleneinrichtung bereitstellt.

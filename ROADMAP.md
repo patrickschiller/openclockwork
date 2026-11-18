@@ -1,9 +1,11 @@
 # OpenClockwork Roadmap
 
 OpenClockwork is a public, Apache-2.0 self-hosted application for personal work
-and Team time and attendance. Version **2.2.0** adds HR working-time PDF exports
-for one or several employees, building on PIN tablet terminals from 2.1.0,
-Solo/Team workflows from 2.0 and the access-control fixes from 2.0.1.
+and Team time and attendance. Version **2.2.1** adds a manager cockpit and
+contractual target versus actual working times. It also improves returned
+requests, existing-entry corrections and approval of out-of-frame bookings.
+HR working-time PDFs from 2.2.0 and PIN tablet terminals from 2.1.0 remain part
+of Team mode.
 Customer invoicing and coding-agent usage accounting remain
 future work; a billable time flag does not mean those features already exist.
 
@@ -16,7 +18,7 @@ boundaries, and [README.md](README.md) for release installation.
 
 | Stage | Scope                                               | Status / dependency                     |
 | ----- | --------------------------------------------------- | --------------------------------------- |
-| 1     | Country-neutral configuration and defaults          | Included in 1.4.0; retained in 2.2.0    |
+| 1     | Country-neutral configuration and defaults          | Included in 1.4.0; retained in 2.2.1    |
 | 2     | Complete personal Solo workflow alongside Team      | Included in 2.0.0                       |
 | 3     | QR/PIN tablet terminals and HR authentication audit | Included in 2.1.0; Team only            |
 | 4     | Optional RFID terminal extension                    | Planned separately after PIN acceptance |
@@ -179,7 +181,7 @@ customer invoice from tracked work and follow it through payment or correction.
 [CAUR — Coding Agent Usage Record](https://github.com/patrickschiller/caur)
 defines a vendor-neutral usage record for a completed or interrupted coding-agent
 run. It is a separate specification project, not an invoice format or pricing
-catalogue, and is not imported by OpenClockwork 2.2.0. A future integration should
+catalogue, and is not imported by OpenClockwork 2.2.1. A future integration should
 consume explicitly supported schema versions and provide attribution, review,
 and billing around them. Its design should follow the
 [CAUR specification](https://github.com/patrickschiller/caur/blob/main/SPEC.md)

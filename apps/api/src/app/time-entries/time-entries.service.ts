@@ -25,7 +25,10 @@ import {
 } from '../work-schedules/work-schedules.service';
 import { ProjectsService } from '../projects/projects.service';
 import { InstallationService } from '../installation/installation.service';
-import { calculateCaptureSummaries } from './capture-summary';
+import {
+  calculateCaptureSummaries,
+  loadCaptureSummaries,
+} from './capture-summary';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { assertProxyTarget, writeProxyAudit } from '../team-cockpit/team-scope';
 import type {
@@ -2020,18 +2023,7 @@ export class TimeEntriesService {
   private async withCaptureSummaries(
     rows: TimeEntry[],
   ): Promise<TimeEntryDto[]> {
-    const groups = rows
-      .filter((row) => row.captureGroupId)
-      .map((row) => ({
-        employeeId: row.employeeId,
-        captureGroupId: row.captureGroupId,
-      }));
-    const siblings = groups.length
-      ? await this.prisma.timeEntry.findMany({ where: { OR: groups } })
-      : [];
-    const summaries = calculateCaptureSummaries([
-      ...new Map([...rows, ...siblings].map((row) => [row.id, row])).values(),
-    ]);
+    const summaries = await loadCaptureSummaries(this.prisma, rows);
     return rows.map((row) => ({
       ...toTimeEntryDto(row),
       summary: summaries.get(row.id) ?? null,

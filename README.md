@@ -14,18 +14,20 @@
   <a href="https://github.com/patrickschiller/openclockwork/releases/latest"><img src="https://img.shields.io/github/v/release/patrickschiller/openclockwork" alt="Latest GitHub release"></a>
 </p>
 
-OpenClockwork 2.2.0 provides two operating modes in one open-source application.
+OpenClockwork 2.2.1 provides two operating modes in one open-source application.
 **Solo** helps an independent professional track personal work, organise customer
 projects, and produce timesheets without inventing an HR department. **Team**
 supports employee attendance, work schedules, leave, approvals, and tablet
 terminals. Both use the same self-hosted PostgreSQL, API, and responsive PWA.
 
-**New in 2.2.0:** HR can download working-time PDFs alongside CSV for one,
-selected, or all employees, including inactive employees with historical
-bookings. Reports show full timestamps, break deductions, net work, status,
-and totals, with a separate section per person. Read the
-[German legal context and export limitations](docs/WORKING_TIME_EXPORTS.de.md).
-PIN tablet terminals from 2.1.0 and the access-control fixes from 2.0.1 are retained.
+**New in 2.2.1.** The Team cockpit brings together booking status, approval
+queues, employee history and audited actions on behalf of employees. Team
+employees can revise returned requests and ask to correct an existing
+booking. Closed bookings outside their permitted working frame require
+manager and HR approval. Working-time reports compare contractual targets
+with recorded net time based on HR-confirmed contract periods. See the
+[release notes](RELEASE_NOTES.md#openclockwork-v221) and
+[upgrade guide](UPGRADING.md#required-for-221).
 
 The interface is available in German and English on phones, tablets, and
 desktops. Language is independent of working-time rules: targets, breaks,
@@ -35,7 +37,7 @@ country. No proprietary time-clock hardware or hosted subscription is required.
 **Existing installations remain in Team mode after an upgrade.** A mode change
 is a separate, authenticated administrator action with a preview and safety
 checks. Invoice creation, monetary billing, and CAUR coding-agent usage import
-are not included in 2.2.0; see the [roadmap](ROADMAP.md).
+remain on the [roadmap](ROADMAP.md).
 
 ## Choose your mode
 
@@ -89,6 +91,9 @@ Solo customer-management and billable-timesheet UI.
 - **Team approval workflows.** Vacation, home office, special leave, time
   corrections, substitute confirmation, manager approval, HR confirmation,
   bulk actions, and workflow history.
+- **Team cockpit.** Managers see current direct reports. HR can view the
+  organisation. Both can review booking and correction approvals and take
+  authorised, recorded actions on behalf of employees.
 - **Projects and reporting.** Assign employees, structure projects by service
   order, compare PLAN and IST hours, edit booking targets, split entries, and
   export customer or working-time reports as CSV. HR can download working-time
@@ -341,7 +346,7 @@ repository and enter its directory:
 ```bash
 git clone https://github.com/patrickschiller/openclockwork.git
 cd openclockwork
-git switch --detach v2.2.0
+git switch --detach v2.2.1
 cp .env.prod.example .env.prod
 ```
 
@@ -372,7 +377,7 @@ openssl rand -hex 32
 
 Open `.env.prod` in an editor and replace every `change-me` value:
 
-- Set `OPENCLOCKWORK_VERSION=2.2.0` for this release. Use the same explicit
+- Set `OPENCLOCKWORK_VERSION=2.2.1` for this release. Use the same explicit
   version for the API and web images; never deploy `latest`.
 - Put the first command's output into `POSTGRES_PASSWORD` and replace
   `change-me-database-password` inside `DATABASE_URL` with that exact same

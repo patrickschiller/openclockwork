@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import {
   calculateBreakMinutes,
   parseBreakRules,
@@ -78,4 +79,30 @@ export function calculateCaptureSummaries(
     });
   }
   return result;
+}
+
+/** Load the other segments used in a capture's break calculation. */
+export async function loadCaptureSummaries(
+  db: Pick<Prisma.TransactionClient, 'timeEntry'>,
+  entries: readonly CaptureSummaryEntry[],
+): Promise<Map<string, TimeSummary>> {
+  const groups = new Map<
+    string,
+    { employeeId: string; captureGroupId: string }
+  >();
+  for (const { employeeId, captureGroupId } of entries) {
+    if (captureGroupId) {
+      groups.set(`${employeeId}:${captureGroupId}`, {
+        employeeId,
+        captureGroupId,
+      });
+    }
+  }
+  const siblings = groups.size
+    ? await db.timeEntry.findMany({ where: { OR: [...groups.values()] } })
+    : [];
+  const byId = new Map(
+    [...entries, ...siblings].map((entry) => [entry.id, entry]),
+  );
+  return calculateCaptureSummaries([...byId.values()]);
 }

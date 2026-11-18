@@ -2,20 +2,13 @@
 
 ## Gesamtnachtest aller fünf Pakete
 
-Dieser Abschnitt ist der **gemeinsame Einstieg für Patrick zu Hause**. Der Branch
-`feat/44-manager-cockpit` enthält kumulativ **#42 + #41 + #43 + #45 + #44**.
-Es sind weder Merges noch Releases oder fünf Branchwechsel erforderlich.
-Die PR-Abhängigkeit bleibt **#46 → #47 → #48 → #49 → #50**; den exakten
-abschließend geprüften Head nennen PR und Issue-Kommentar. Die zusätzliche
-Cockpit-Migration ist additiv. Die bestehenden Benutzerdateien im Hauptcheckout
-werden nicht für den Nachtest verwendet.
-Der unabhängig akzeptierte **Codestand** ist
-`1972c52db027b38bcfba3bb9b29a41e5f6e61433`; der folgende reine Doku-Nachtrag
-ändert ihn fachlich nicht. Den abschließend CI-geprüften Dokumentations-Head
-nennen [PR #50](https://github.com/patrickschiller/openclockwork/pull/50) und
-Issue-Kommentar, nicht eine selbstreferenzielle Commit-ID in dieser Datei.
+Mit dem Tag `v2.2.1` lassen sich die Änderungen aus den fünf Issues
+**#42, #41, #43, #45 und #44** gemeinsam nachtesten. Die folgenden Schritte
+verwenden einen eigenen lokalen Docker-Stack mit synthetischen Testdaten.
+Die weiter unten dokumentierten Einzeltests beziehen sich auf die jeweiligen
+PR-Stände vor der Integration.
 
-### Ein Branch, ein neuer lokaler Stack
+### Release-Tag und neuer lokaler Stack
 
 Voraussetzungen: Git, Docker mit Compose, ein freier Port `18050` und ein Browser.
 Die allgemeine Grundlage ist [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md).
@@ -24,8 +17,8 @@ notwendig. **Keinen vorhandenen Stack, keine vorhandene `.env` und keine realen
 Personaldaten verwenden.**
 
 ```bash
-git fetch origin
-git worktree add --detach ../openclockwork-all-five-manual origin/feat/44-manager-cockpit
+git fetch origin v2.2.1
+git worktree add --detach ../openclockwork-all-five-manual v2.2.1
 cd ../openclockwork-all-five-manual
 git rev-parse HEAD
 

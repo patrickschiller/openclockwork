@@ -8,7 +8,14 @@ import {
   it,
   vi,
 } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { onlineManager } from '@tanstack/react-query';
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 import { RequestsPage } from './RequestsPage';
 
@@ -212,6 +219,101 @@ describe('request creation and draft revision', () => {
     expect(screen.getByRole('dialog')).toBeDefined();
     expect(createVacationRequestMock).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ['unchanged revision', draft.updatedAt],
+    ['newer revision', '2026-05-01T12:00:00.002Z'],
+  ])(
+    'preserves unsaved edits after reconnect: %s',
+    async (_name, updatedAt) => {
+      let finishRefetch!: (value: typeof draft) => void;
+      const reconnectResponse = new Promise<typeof draft>((resolve) => {
+        finishRefetch = resolve;
+      });
+      listRequestsMock.mockResolvedValue([draft]);
+      getRequestMock
+        .mockResolvedValue(draft)
+        .mockResolvedValueOnce(draft)
+        .mockReturnValueOnce(reconnectResponse);
+      const { queryClient } = renderWithProviders(<RequestsPage />);
+      const requestKey = ['request', draft.id];
+
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'Entwurf · Antrag bearbeiten',
+        }),
+      );
+      const reason = await screen.findByLabelText<HTMLInputElement>(
+        'Begründung (optional)',
+      );
+      const to = screen.getByLabelText<HTMLInputElement>('Bis');
+      const halfDayStart =
+        screen.getByLabelText<HTMLInputElement>('Erster Tag halb');
+      const substitute = await screen.findByLabelText<HTMLSelectElement>(
+        'Vertretung (optional)',
+      );
+      fireEvent.change(reason, { target: { value: 'Unsaved reason' } });
+      fireEvent.change(to, { target: { value: '2026-05-07' } });
+      fireEvent.click(halfDayStart);
+      fireEvent.change(substitute, { target: { value: '' } });
+
+      await act(async () => {
+        onlineManager.setOnline(false);
+        onlineManager.setOnline(true);
+      });
+      await waitFor(() => expect(getRequestMock).toHaveBeenCalledTimes(2));
+      expect(queryClient.getQueryState(requestKey)?.fetchStatus).toBe(
+        'fetching',
+      );
+      expect(screen.getByLabelText('Begründung (optional)')).toBe(reason);
+
+      await act(async () => {
+        finishRefetch(
+          updatedAt === draft.updatedAt
+            ? draft
+            : { ...draft, updatedAt, reason: 'Changed in another tab' },
+        );
+      });
+      await waitFor(() =>
+        expect(queryClient.getQueryState(requestKey)?.fetchStatus).toBe('idle'),
+      );
+
+      expect(screen.getByLabelText('Begründung (optional)')).toBe(reason);
+      expect(reason.value).toBe('Unsaved reason');
+      expect(to.value).toBe('2026-05-07');
+      expect(halfDayStart.checked).toBe(false);
+      expect(substitute.value).toBe('');
+
+      const save = screen.getByRole<HTMLButtonElement>('button', {
+        name: 'Entwurf speichern',
+      });
+      if (updatedAt === draft.updatedAt) {
+        fireEvent.click(save);
+        await waitFor(() =>
+          expect(updateDraftRequestMock).toHaveBeenCalledWith(
+            draft.id,
+            expect.objectContaining({
+              expectedUpdatedAt: draft.updatedAt,
+              reason: 'Unsaved reason',
+              to: '2026-05-07T00:00:00.000Z',
+              halfDayStart: false,
+              substituteId: null,
+            }),
+          ),
+        );
+      } else {
+        await screen.findByText(/Der Entwurf wurde inzwischen geändert/);
+        expect(save.disabled).toBe(true);
+        expect(
+          screen.getByRole<HTMLButtonElement>('button', {
+            name: 'Erneut einreichen',
+          }).disabled,
+        ).toBe(true);
+        expect(updateDraftRequestMock).not.toHaveBeenCalled();
+        expect(resubmitRequestMock).not.toHaveBeenCalled();
+      }
+    },
+  );
 
   it('can save a draft without submission and reads legacy decline reasons from the retained history', async () => {
     listRequestsMock.mockResolvedValue([draft]);

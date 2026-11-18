@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { TimeEntriesService } from '../../../api/src/app/time-entries/time-entries.service';
 import {
   createTestApp,
@@ -475,6 +476,36 @@ describe('Outside-frame TimeEntry approvals (#41)', () => {
     });
     expect((await list(manager).expect(200)).body).toEqual([]);
     expect((await list(owner, 'own').expect(200)).body).toEqual([]);
+  });
+
+  it('uses the full split capture to report break and net time in approval views', async () => {
+    const captureGroupId = randomUUID();
+    const breakRules = [{ afterMinutes: 360, breakMinutes: 30 }];
+    const outside = await entry(owner.id, {
+      captureGroupId,
+      breakRules,
+      clockIn: new Date('2026-05-04T04:00:00Z'),
+      clockOut: new Date('2026-05-04T08:00:00Z'),
+    });
+    await entry(owner.id, {
+      captureGroupId,
+      breakRules,
+      clockIn: new Date('2026-05-04T08:00:00Z'),
+      clockOut: new Date('2026-05-04T12:00:00Z'),
+      status: 'Approved',
+      requiresApproval: false,
+    });
+    const summary = { grossMinutes: 240, breakMinutes: 15, netMinutes: 225 };
+    const approval = { entry: { id: outside.id, summary } };
+    expect((await list(owner, 'own').expect(200)).body).toMatchObject([
+      approval,
+    ]);
+    expect((await list(manager).expect(200)).body).toMatchObject([approval]);
+    expect(await managerApproved(outside.id)).toMatchObject(approval);
+    expect((await list(hr).expect(200)).body).toMatchObject([approval]);
+    expect(
+      (await decide(outside.id, hr, 1, 'HR').expect(201)).body,
+    ).toMatchObject(approval);
   });
 
   it('project-range segmentation invalidates a prior manager sign-off for every outside-frame segment', async () => {

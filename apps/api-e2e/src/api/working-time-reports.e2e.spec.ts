@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { renderWorkingTimePdf } from '../../../api/src/app/reports/working-time-pdf';
 import {
   createTestApp,
   login,
@@ -6,6 +7,16 @@ import {
   seedProject,
   type TestContext,
 } from '../support/test-app';
+
+jest.mock('../../../api/src/app/reports/working-time-pdf', () => {
+  const renderer = jest.requireActual<
+    typeof import('../../../api/src/app/reports/working-time-pdf')
+  >('../../../api/src/app/reports/working-time-pdf');
+  return {
+    ...renderer,
+    renderWorkingTimePdf: jest.fn(renderer.renderWorkingTimePdf),
+  };
+});
 
 describe('Project-independent working-time reports', () => {
   let ctx: TestContext;
@@ -405,6 +416,97 @@ describe('Project-independent working-time reports', () => {
         '%%EOF',
       );
     }
+  });
+
+  it('exports complete PDF bookings by start day and clips only the period report', async () => {
+    const { hr, manager, report, foreign } = await fixture();
+    const token = await login(ctx.http, hr.email);
+    const clockIn = new Date(2026, 7, 10, 23, 10, 5);
+    const clockOut = new Date(2026, 7, 11, 5, 40, 25);
+    const { id: overnightId } = await ctx.prisma.timeEntry.create({
+      data: {
+        employeeId: report.id,
+        clockIn,
+        clockOut,
+        status: 'Approved',
+        breakRules: [{ afterMinutes: 360, breakMinutes: 30 }],
+        terminalLocationLabel: 'Private start',
+        clockOutTerminalLocationLabel: 'Private end',
+      },
+    });
+    await ctx.prisma.timeEntry.createMany({
+      data: [
+        {
+          employeeId: foreign.id,
+          clockIn: new Date(2026, 7, 9, 23),
+          clockOut: new Date(2026, 7, 10, 2),
+          status: 'Approved',
+        },
+        {
+          employeeId: manager.id,
+          clockIn: new Date(2026, 7, 9, 12),
+          status: 'Open',
+        },
+        {
+          employeeId: hr.id,
+          clockIn: new Date(2026, 7, 10, 12),
+          status: 'Open',
+        },
+      ],
+    });
+
+    const range = 'from=2026-08-10&to=2026-08-10';
+    const period = await ctx.http
+      .get(`/api/reports/working-times?${range}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(period.body.rows).toEqual([
+      expect.objectContaining({
+        employeeId: foreign.id,
+        clockIn: new Date(2026, 7, 10).toISOString(),
+        clockOut: new Date(2026, 7, 10, 2).toISOString(),
+      }),
+      expect.objectContaining({
+        id: overnightId,
+        clockIn: clockIn.toISOString(),
+        clockOut: new Date(2026, 7, 11).toISOString(),
+      }),
+    ]);
+
+    const render = jest.mocked(renderWorkingTimePdf);
+    render.mockClear();
+    await ctx.http
+      .get(`/api/reports/working-times.pdf?${range}`)
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect('Content-Type', 'application/pdf');
+    expect(render).toHaveBeenCalledTimes(1);
+    const input = render.mock.calls[0][0];
+    expect(input.employees).toEqual([
+      expect.objectContaining({
+        id: report.id,
+        openEntryCount: 0,
+        rows: [
+          {
+            id: overnightId,
+            employeeId: report.id,
+            employeeName: 'Dora Direct',
+            date: '2026-08-10',
+            clockIn: clockIn.toISOString(),
+            clockOut: clockOut.toISOString(),
+            status: 'Approved',
+            grossMinutes: 390 + 20 / 60,
+            breakMinutes: 30,
+            netMinutes: 360 + 20 / 60,
+          },
+        ],
+      }),
+      expect.objectContaining({
+        id: hr.id,
+        openEntryCount: 1,
+        rows: [],
+      }),
+    ]);
   });
 
   it('restricts PDF downloads to authenticated HR administrators', async () => {
