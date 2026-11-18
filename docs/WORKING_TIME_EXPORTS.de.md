@@ -23,6 +23,8 @@ Der Nachweis enthält:
 
 Nur abgeschlossene Buchungen gehen in die Summen ein. Abgelehnte und stornierte Buchungen werden ausgeschlossen. Noch nicht genehmigte, abgeschlossene Buchungen bleiben mit ihrem Status sichtbar; ihre Werte sind vorläufig. Offene Buchungen werden nicht hochgerechnet; der Nachweis weist auf ihre Anzahl hin. Ein leerer Zeitraum ersetzt keinen Nachweis, dass tatsächlich keine Arbeit geleistet wurde.
 
+Der PDF-Nachweis wählt Buchungen anhand ihres lokalen Startdatums aus. Die Tabelle unter **Arbeitszeiten**, der CSV-Export und der Soll/Ist-Vergleich berücksichtigen die Zeitanteile im gewählten Zeitraum und teilen Buchungen an Mitternacht. Bei Buchungen über eine Zeitraumgrenze können daher unterschiedliche Summen entstehen.
+
 Die Pausenwerte bilden regelbasierte Abzüge aus den gespeicherten Regel-Snapshots ab. Automatische Abzüge belegen nicht, dass Pausen tatsächlich genommen wurden; tatsächliche Pausenlagen werden nicht dokumentiert. Der Arbeitgeber muss die zutreffende Erfassung und die Einhaltung der Pausenregeln sicherstellen. Im PDF werden Brutto und Netto auf Sekunden gerundet und der angezeigte Pausenabzug als Differenz daraus gebildet. Tages- und Zeitraumssummen addieren diese angezeigten Werte.
 
 ## Berechtigung und Grenzen

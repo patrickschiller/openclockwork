@@ -3,13 +3,14 @@
 ## Requests and approvals in Team mode
 
 - Employees can reopen, edit, save and resubmit returned requests. The draft
-  retains its ID, attachments, history and the reason it was returned. Editing
-  only the reason preserves the original timestamps, including at daylight-saving
-  transitions. [PR #46](https://github.com/patrickschiller/openclockwork/pull/46)
+  retains its ID, attachments, history and the reason it was returned.
+  Reconnecting preserves unsaved edits. Editing only the reason preserves the
+  original timestamps, including at daylight-saving transitions. [PR #46](https://github.com/patrickschiller/openclockwork/pull/46)
 - A closed time booking outside its permitted working frame requires approval
   first from the employee's currently assigned manager and then from HR.
-  Employees and reviewers can see the next stage and decision history. If no
-  eligible manager is assigned, HR must correct the assignment before approval
+  Employees and reviewers can see the next stage and decision history. The
+  approval view uses the full capture to calculate breaks for split bookings.
+  If no eligible manager is assigned, HR must correct the assignment before approval
   can proceed. [PR #47](https://github.com/patrickschiller/openclockwork/pull/47)
 - Employees can request a correction to a specific existing booking and
   reviewers can see the proposed changes. Final approval updates that booking
@@ -57,8 +58,11 @@
   [upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v2.2.1/UPGRADING.md).
 - Review the [updated API contract](https://github.com/patrickschiller/openclockwork/blob/v2.2.1/apps/api/openapi.json)
   for booking approvals, request revisions, working-time comparisons and
-  cockpit operations. The existing HR working-time CSV/PDF exports and
-  QR/PIN tablet workflows remain available.
+  cockpit operations. The Working Times table and CSV count only time within
+  the selected period. HR PDFs include complete bookings selected by their
+  local start day. See the
+  [working-time export guide](https://github.com/patrickschiller/openclockwork/blob/v2.2.1/docs/WORKING_TIME_EXPORTS.de.md)
+  for the distinction. QR/PIN tablet workflows remain available.
 
 ## Docker images
 

@@ -456,6 +456,8 @@ const de: Catalog = {
   'requests.revisionReason': 'Rückgabegrund',
   'requests.notDraft':
     'Dieser Antrag ist kein Entwurf mehr. Bitte Übersicht neu laden.',
+  'requests.draftChanged':
+    'Der Entwurf wurde inzwischen geändert. Sichere deine Eingaben bei Bedarf und öffne den Entwurf erneut, um den aktuellen Stand zu bearbeiten.',
   'requests.loadFailed': 'Antrag konnte nicht geladen werden.',
   'requests.ambiguousTime':
     'Diese Ortszeit kommt bei der Zeitumstellung in {zone} zweimal vor. Bitte das gewünschte Vorkommen wählen; unveränderte Werte behalten das gespeicherte Vorkommen.',
@@ -1236,6 +1238,8 @@ const en: Catalog = {
   'requests.revisionReason': 'Reason for revision',
   'requests.notDraft':
     'This request is no longer a draft. Please reload the list.',
+  'requests.draftChanged':
+    'The draft has changed since you opened it. Copy any edits you want to keep and reopen the draft to edit the latest version.',
   'requests.loadFailed': 'Could not load request.',
   'requests.ambiguousTime':
     'This local time occurs twice when the clocks change in {zone}. Choose the intended occurrence; unchanged values keep the saved occurrence.',

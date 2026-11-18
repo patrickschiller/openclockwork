@@ -124,6 +124,7 @@ export function RequestsPage() {
 
       {editingId && (
         <EditRequestDialog
+          key={editingId}
           requestId={editingId}
           onClose={() => {
             setEditingId(null);
@@ -233,13 +234,27 @@ function EditRequestDialog({
     staleTime: 0,
     refetchOnWindowFocus: false,
   });
+  const [openedRequest, setOpenedRequest] = useState<RequestDto>();
+  // Start with the fresh server revision and keep it for the lifetime of the
+  // editor so background refetches cannot overwrite edits or their revision.
+  if (!openedRequest && request.isSuccess && request.isFetchedAfterMount) {
+    setOpenedRequest(request.data);
+  }
+  const latestRequest = request.data ?? openedRequest;
+  const draftWarning =
+    latestRequest?.workflowState !== 'Draft'
+      ? 'requests.notDraft'
+      : latestRequest.updatedAt !== openedRequest?.updatedAt
+        ? 'requests.draftChanged'
+        : undefined;
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
-        {request.data && !request.isFetching ? (
+        {openedRequest ? (
           <NewRequestForm
-            key={request.data.updatedAt}
-            request={request.data}
+            request={openedRequest}
+            draftWarning={draftWarning}
             onClose={onClose}
           />
         ) : (
@@ -258,6 +273,7 @@ function EditRequestDialog({
 interface NewRequestFormProps {
   onClose: () => void;
   request?: RequestDto;
+  draftWarning?: 'requests.notDraft' | 'requests.draftChanged';
 }
 
 function useLocalDateTime(originalIso?: string) {
@@ -355,7 +371,11 @@ function LocalDateTimeField({
   );
 }
 
-function NewRequestForm({ onClose, request }: NewRequestFormProps) {
+function NewRequestForm({
+  onClose,
+  request,
+  draftWarning,
+}: NewRequestFormProps) {
   const user = useCurrentUser();
   const { t, enumLabel, languageTag } = useI18n();
   const employeeId = user.id;
@@ -550,9 +570,9 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
             </AlertDescription>
           </Alert>
         )}
-        {request && request.workflowState !== 'Draft' && (
+        {draftWarning && (
           <Alert variant="destructive">
-            <AlertDescription>{t('requests.notDraft')}</AlertDescription>
+            <AlertDescription>{t(draftWarning)}</AlertDescription>
           </Alert>
         )}
         {request?.type === 'SpecialLeave' && (
@@ -822,7 +842,7 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
           <Alert variant="destructive">
             <AlertDescription>
               {error}
-              {isCorrection && request && (
+              {isCorrection && request && !draftWarning && (
                 <div className="mt-2 space-y-2">
                   <p>{t('requests.staleTargetHint')}</p>
                   <Button
@@ -850,7 +870,7 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
               create.isPending ||
               invalidRange ||
               missingTarget ||
-              request.workflowState !== 'Draft'
+              !!draftWarning
             }
             onClick={() => {
               setError(null);
@@ -866,7 +886,7 @@ function NewRequestForm({ onClose, request }: NewRequestFormProps) {
             insufficientVacation ||
             invalidRange ||
             missingTarget ||
-            (!!request && request.workflowState !== 'Draft')
+            !!draftWarning
           }
           onClick={() => {
             setError(null);

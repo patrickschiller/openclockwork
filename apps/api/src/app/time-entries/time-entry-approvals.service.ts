@@ -6,10 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma, type Employee } from '@prisma/client';
+import type { TimeSummary } from 'shared';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { PrismaService } from '../prisma/prisma.service';
 import { EventsGateway } from '../events/events.gateway';
 import { toTimeEntryDto } from './time-entries.dto';
+import { loadCaptureSummaries } from './capture-summary';
 import {
   type DecideTimeEntryApprovalDto,
   type EntryApprovalState,
@@ -113,16 +115,12 @@ export class TimeEntryApprovalsService {
       );
   }
 
-  private dto(row: ReviewEntry, actor: Employee): TimeEntryApprovalDto {
+  private reviewState(
+    row: ReviewEntry,
+    actor: Employee,
+  ): Pick<TimeEntryApprovalDto, 'state' | 'canDecide'> {
     const state = frameApprovalState(row);
     return {
-      entry: toTimeEntryDto(row),
-      revision: row.revision,
-      employeeName: `${row.employee.firstName} ${row.employee.lastName}`,
-      managerId: row.employee.managerId,
-      managerName: row.employee.manager
-        ? `${row.employee.manager.firstName} ${row.employee.manager.lastName}`
-        : null,
       state,
       canDecide:
         row.employee.isActive &&
@@ -136,47 +134,76 @@ export class TimeEntryApprovalsService {
     };
   }
 
+  private dto(
+    row: ReviewEntry,
+    actor: Employee,
+    summary: TimeSummary | null,
+  ): TimeEntryApprovalDto {
+    return {
+      entry: { ...toTimeEntryDto(row), summary },
+      revision: row.revision,
+      employeeName: `${row.employee.firstName} ${row.employee.lastName}`,
+      managerId: row.employee.managerId,
+      managerName: row.employee.manager
+        ? `${row.employee.manager.firstName} ${row.employee.manager.lastName}`
+        : null,
+      ...this.reviewState(row, actor),
+    };
+  }
+
   async list(
     actorId: string,
     scope = 'review',
   ): Promise<TimeEntryApprovalDto[]> {
     if (scope !== 'review' && scope !== 'own')
       throw new BadRequestException('Invalid approval scope');
-    return this.prisma.$transaction(async (tx) => {
-      await this.assertTeam(tx);
-      const actor = await this.actor(tx, actorId);
-      if (
-        scope === 'review' &&
-        actor.role !== 'Manager' &&
-        actor.role !== 'HRAdmin'
-      )
-        throw new ForbiddenException('Manager or HR access required');
-      const rows = await tx.timeEntry.findMany({
-        where: {
-          AND: [
-            { OR: [{ approvalMode: null }, { approvalMode: { not: 'Solo' } }] },
-            {
-              OR: [
-                { requiresApproval: true },
-                { auditEvents: { some: { action: { startsWith: 'Frame' } } } },
-              ],
-            },
-          ],
-          ...(scope === 'own'
-            ? { employeeId: actor.id }
-            : {
-                employeeId: { not: actor.id },
-                employee: {
-                  isActive: true,
-                  ...(actor.role === 'Manager' ? { managerId: actor.id } : {}),
-                },
-              }),
-        },
-        include: APPROVAL_INCLUDE,
-        orderBy: [{ clockIn: 'desc' }, { id: 'asc' }],
-      });
-      return rows.map((row) => this.dto(row, actor));
-    });
+    return this.prisma.$transaction(
+      async (tx) => {
+        await this.assertTeam(tx);
+        const actor = await this.actor(tx, actorId);
+        if (
+          scope === 'review' &&
+          actor.role !== 'Manager' &&
+          actor.role !== 'HRAdmin'
+        )
+          throw new ForbiddenException('Manager or HR access required');
+        const rows = await tx.timeEntry.findMany({
+          where: {
+            AND: [
+              {
+                OR: [{ approvalMode: null }, { approvalMode: { not: 'Solo' } }],
+              },
+              {
+                OR: [
+                  { requiresApproval: true },
+                  {
+                    auditEvents: { some: { action: { startsWith: 'Frame' } } },
+                  },
+                ],
+              },
+            ],
+            ...(scope === 'own'
+              ? { employeeId: actor.id }
+              : {
+                  employeeId: { not: actor.id },
+                  employee: {
+                    isActive: true,
+                    ...(actor.role === 'Manager'
+                      ? { managerId: actor.id }
+                      : {}),
+                  },
+                }),
+          },
+          include: APPROVAL_INCLUDE,
+          orderBy: [{ clockIn: 'desc' }, { id: 'asc' }],
+        });
+        const summaries = await loadCaptureSummaries(tx, rows);
+        return rows.map((row) =>
+          this.dto(row, actor, summaries.get(row.id) ?? null),
+        );
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 
   async history(
@@ -258,7 +285,7 @@ export class TimeEntryApprovalsService {
         throw new ConflictException(
           'Time entry changed; reload before deciding',
         );
-      const view = this.dto(row, actor);
+      const view = this.reviewState(row, actor);
       if (
         (dto.stage === 'Manager' && actor.role !== 'Manager') ||
         (dto.stage === 'HR' && actor.role !== 'HRAdmin')
@@ -336,7 +363,8 @@ export class TimeEntryApprovalsService {
           },
         },
       });
-      return this.dto(updated, actor);
+      const summaries = await loadCaptureSummaries(tx, [updated]);
+      return this.dto(updated, actor, summaries.get(updated.id) ?? null);
     });
     this.events.broadcast('time-entry:updated', {
       id,

@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, type TimeEntry } from '@prisma/client';
 import { InstallationService } from '../installation/installation.service';
 import { calculateCaptureSummaries } from '../time-entries/capture-summary';
 import {
@@ -60,6 +60,34 @@ function parseLocalDay(value: string): LocalDay {
     throw new BadRequestException(`Invalid calendar date: ${value}`);
   }
   return { date, dayNumber: Date.UTC(year, month - 1, day) / DAY_MS };
+}
+
+function workingTimeRange(query: WorkingTimeReportQueryDto) {
+  if (query.employeeId && query.employeeIds) {
+    throw new BadRequestException(
+      'employeeId and employeeIds cannot be combined',
+    );
+  }
+  const from = parseLocalDay(query.from);
+  const to = parseLocalDay(query.to);
+  const inclusiveDays = to.dayNumber - from.dayNumber + 1;
+  if (inclusiveDays <= 0) {
+    throw new BadRequestException(
+      'The report start date must not be after its end date',
+    );
+  }
+  if (inclusiveDays > MAX_REPORT_DAYS) {
+    throw new BadRequestException(
+      `The report range must not exceed ${MAX_REPORT_DAYS} days`,
+    );
+  }
+  const toExclusive = new Date(
+    to.date.getFullYear(),
+    to.date.getMonth(),
+    to.date.getDate() + 1,
+  );
+  const selectedIds = query.employeeId ? [query.employeeId] : query.employeeIds;
+  return { from, to, toExclusive, selectedIds };
 }
 
 /** Booking day in the deployment's configured local timezone. */
@@ -302,12 +330,11 @@ export class ReportsService {
   }
 
   /** Re-read the active server-side actor inside the report snapshot. */
-  private async scopedEmployees(
+  private async authorizeWorkingTimeReport(
     actorId: string,
-    selectedIds: string[] | undefined,
     tx: Prisma.TransactionClient,
     hrOnly = false,
-  ): Promise<WorkingTimeReportEmployeeDto[]> {
+  ) {
     const settings = await tx.installationSettings.findUnique({
       where: { id: 1 },
     });
@@ -326,6 +353,15 @@ export class ReportsService {
         'Working-time reports require an active authorized actor',
       );
     }
+    return actor;
+  }
+
+  private async scopedEmployees(
+    actorId: string,
+    selectedIds: string[] | undefined,
+    tx: Prisma.TransactionClient,
+  ): Promise<WorkingTimeReportEmployeeDto[]> {
+    const actor = await this.authorizeWorkingTimeReport(actorId, tx);
     const scope: Prisma.EmployeeWhereInput =
       actor.role === 'HRAdmin'
         ? {}
@@ -353,23 +389,15 @@ export class ReportsService {
   ): Promise<Buffer> {
     const input = await this.prisma.$transaction(
       async (tx) => {
-        await this.scopedEmployees(actorId, undefined, tx, true);
-        const report = await this.buildWorkingTimes(
-          actorId,
-          { ...query, includeLocations: 'false' },
-          tx,
-        );
-        const from = parseLocalDay(query.from).date;
-        const to = parseLocalDay(query.to).date;
-        to.setDate(to.getDate() + 1);
-        const selectedIds = query.employeeId
-          ? [query.employeeId]
-          : query.employeeIds;
+        await this.authorizeWorkingTimeReport(actorId, tx, true);
+        const { from, toExclusive, selectedIds } = workingTimeRange(query);
+        // PDF records include complete bookings selected by their local start
+        // day. The on-screen period comparison instead counts overlapping time.
+        const status = { not: 'Rejected' } as const;
         const periodEntries: Prisma.TimeEntryWhereInput = {
-          clockIn: { lt: to },
-          OR: [{ clockOut: { gt: from } }, { clockOut: null }],
+          clockIn: { gte: from.date, lt: toExclusive },
           voidedAt: null,
-          status: { not: 'Rejected' },
+          status,
         };
         const employees = await tx.employee.findMany({
           where: selectedIds
@@ -393,16 +421,52 @@ export class ReportsService {
         if (selectedIds && employees.length !== selectedIds.length) {
           throw new BadRequestException('One or more employees do not exist');
         }
+        const entries = await tx.timeEntry.findMany({
+          where: {
+            ...periodEntries,
+            employeeId: { in: employees.map((employee) => employee.id) },
+            clockOut: { not: null },
+          },
+          orderBy: [{ clockIn: 'asc' }, { employeeId: 'asc' }, { id: 'asc' }],
+          include: {
+            employee: { select: { firstName: true, lastName: true } },
+          },
+        });
+        const summaries = await this.workingTimeCaptureSummaries(
+          entries,
+          status,
+          tx,
+        );
+        const rows = entries.flatMap((entry) => {
+          const summary = summaries.get(entry.id);
+          if (!entry.clockOut || !summary) return [];
+          const grossMinutes =
+            (entry.clockOut.getTime() - entry.clockIn.getTime()) / 60_000;
+          return [
+            {
+              id: entry.id,
+              employeeId: entry.employeeId,
+              employeeName: `${entry.employee.firstName} ${entry.employee.lastName}`,
+              date: localDate(entry.clockIn),
+              clockIn: entry.clockIn.toISOString(),
+              clockOut: entry.clockOut.toISOString(),
+              status: entry.status,
+              grossMinutes,
+              breakMinutes: summary.breakMinutes,
+              netMinutes: grossMinutes - summary.breakMinutes,
+            },
+          ];
+        });
         return {
-          from: report.from,
-          to: report.to,
+          from: query.from,
+          to: query.to,
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           generatedAt: new Date(),
           locale: query.locale ?? 'de',
           employees: employees.map(({ _count, ...employee }) => ({
             ...employee,
             openEntryCount: _count.timeEntries,
-            rows: report.rows.filter((row) => row.employeeId === employee.id),
+            rows: rows.filter((row) => row.employeeId === employee.id),
           })),
         };
       },
@@ -416,37 +480,13 @@ export class ReportsService {
     query: WorkingTimeReportQueryDto,
     tx: Prisma.TransactionClient,
   ): Promise<WorkingTimeReportDto> {
-    if (query.employeeId && query.employeeIds) {
-      throw new BadRequestException(
-        'employeeId and employeeIds cannot be combined',
-      );
-    }
+    const { from, to, toExclusive, selectedIds } = workingTimeRange(query);
     const includeLocations = query.includeLocations === 'true';
-    const from = parseLocalDay(query.from);
-    const to = parseLocalDay(query.to);
-    const inclusiveDays = to.dayNumber - from.dayNumber + 1;
-    if (inclusiveDays <= 0) {
-      throw new BadRequestException(
-        'The report start date must not be after its end date',
-      );
-    }
-    if (inclusiveDays > MAX_REPORT_DAYS) {
-      throw new BadRequestException(
-        `The report range must not exceed ${MAX_REPORT_DAYS} days`,
-      );
-    }
-    const toExclusive = new Date(
-      to.date.getFullYear(),
-      to.date.getMonth(),
-      to.date.getDate() + 1,
-    );
-
-    const employees = await this.scopedEmployees(
-      actorId,
-      query.employeeId ? [query.employeeId] : query.employeeIds,
-      tx,
-    );
+    const employees = await this.scopedEmployees(actorId, selectedIds, tx);
     const employeeIds = employees.map((employee) => employee.id);
+    const status: Prisma.TimeEntryWhereInput['status'] = {
+      in: ['Pending', 'Approved'],
+    };
     // Query by interval overlap, not booking start date. Open timers never
     // contribute provisional minutes to this closed-entry period comparison.
     const [entries, contracts, requests, absences, openCounts] =
@@ -456,7 +496,7 @@ export class ReportsService {
             employeeId: { in: employeeIds },
             clockIn: { lt: toExclusive },
             clockOut: { gt: from.date },
-            status: { in: ['Pending', 'Approved'] },
+            status,
             voidedAt: null,
           },
           orderBy: [{ clockIn: 'asc' }, { employeeId: 'asc' }, { id: 'asc' }],
@@ -519,31 +559,11 @@ export class ReportsService {
         }),
       ]);
 
-    const groupIds = [
-      ...new Set(
-        entries.flatMap((entry) =>
-          entry.captureGroupId ? [entry.captureGroupId] : [],
-        ),
-      ),
-    ];
-    const siblings = groupIds.length
-      ? await tx.timeEntry.findMany({
-          where: {
-            captureGroupId: { in: groupIds },
-            employeeId: {
-              in: [...new Set(entries.map((entry) => entry.employeeId))],
-            },
-            voidedAt: null,
-            status: { in: ['Pending', 'Approved'] },
-            clockOut: { not: null },
-          },
-        })
-      : [];
-    const summaries = calculateCaptureSummaries([
-      ...new Map(
-        [...entries, ...siblings].map((entry) => [entry.id, entry]),
-      ).values(),
-    ]);
+    const summaries = await this.workingTimeCaptureSummaries(
+      entries,
+      status,
+      tx,
+    );
     const rows: WorkingTimeReportRowDto[] = [];
     for (const entry of entries) {
       const summary = summaries.get(entry.id);
@@ -660,6 +680,38 @@ export class ReportsService {
         { grossMinutes: 0, breakMinutes: 0, netMinutes: 0 },
       ),
     };
+  }
+
+  private async workingTimeCaptureSummaries(
+    entries: TimeEntry[],
+    status: Prisma.TimeEntryWhereInput['status'],
+    tx: Prisma.TransactionClient,
+  ) {
+    const groupIds = [
+      ...new Set(
+        entries.flatMap((entry) =>
+          entry.captureGroupId ? [entry.captureGroupId] : [],
+        ),
+      ),
+    ];
+    const siblings = groupIds.length
+      ? await tx.timeEntry.findMany({
+          where: {
+            captureGroupId: { in: groupIds },
+            employeeId: {
+              in: [...new Set(entries.map((entry) => entry.employeeId))],
+            },
+            voidedAt: null,
+            status,
+            clockOut: { not: null },
+          },
+        })
+      : [];
+    return calculateCaptureSummaries([
+      ...new Map(
+        [...entries, ...siblings].map((entry) => [entry.id, entry]),
+      ).values(),
+    ]);
   }
 }
 
