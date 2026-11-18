@@ -50,6 +50,11 @@ COPY --from=builder /app/ops/db-target-safety.cjs ./ops/db-target-safety.cjs
 COPY --from=builder /app/ops/safe-db-reset.mjs ./ops/safe-db-reset.mjs
 COPY --from=builder /app/ops/configure-terminal-runtime.mjs /app/ops/terminal-audit.mjs /app/ops/terminal-audit-chain.mjs ./ops/
 
+# Source checkouts may use umask 077. Keep code root-owned/read-only for the
+# non-root runtime user, but do not inherit unreadable host source modes.
+RUN chmod -R a+rX /app/dist /app/prisma /app/ops \
+ && chmod a+r /app/package.json /app/prisma.config.ts
+
 # Seed the mount point with app-user ownership. Docker copies this metadata
 # into a newly created named volume so local attachments stay writable after
 # container replacement.

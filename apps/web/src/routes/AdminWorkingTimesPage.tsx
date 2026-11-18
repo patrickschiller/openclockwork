@@ -166,7 +166,7 @@ function presetRange(period: Exclude<ReportPeriod, 'custom'>) {
   return { from: dateInputValue(monday), to: dateInputValue(sunday) };
 }
 
-function ComparisonTable({ report }: { report: WorkingTimeReportDto }) {
+export function ComparisonTable({ report }: { report: WorkingTimeReportDto }) {
   const { t, languageTag, formatDate } = useI18n();
   const hours = (minutes: number, signed = false) =>
     t('comparison.hours', {

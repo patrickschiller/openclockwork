@@ -142,6 +142,14 @@ try {
       'Inserted upgrade sentinels for employees, policies, time entry, and terminal.',
     );
   } else {
+    const unknownProxyHistory = await client.query(
+      `SELECT COUNT(*)::int AS count FROM "TeamProxyAudit"`,
+    );
+    assert.equal(
+      unknownProxyHistory.rows[0].count,
+      0,
+      'Migration must not invent proxy actors or operations for existing records.',
+    );
     const unknownContractHistory = await client.query(
       `SELECT COUNT(*)::int AS count FROM "EmployeeContractPeriod"
        WHERE "employeeId" IN ($1, $2)`,

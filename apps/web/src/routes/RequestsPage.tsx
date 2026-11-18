@@ -1,3 +1,4 @@
+import { zonedUtcOffsetLabel } from '../lib/iana-date-time';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -54,7 +55,11 @@ function formatRange(
   return `${f.toLocaleDateString(locale, { timeZone: 'UTC' })} – ${t.toLocaleDateString(locale, { timeZone: 'UTC' })}`;
 }
 
-function correctionInstant(iso: string, locale: string): string {
+function correctionInstant(
+  iso: string,
+  locale: string,
+  timeZone?: string,
+): string {
   // Supported by our browsers/Node 20, but absent from the app's older
   // Intl library declarations. Keep the extension local, not a config change.
   const options: Intl.DateTimeFormatOptions & { fractionalSecondDigits: 3 } = {
@@ -66,8 +71,9 @@ function correctionInstant(iso: string, locale: string): string {
     second: '2-digit',
     fractionalSecondDigits: 3,
     hourCycle: 'h23',
+    ...(timeZone ? { timeZone } : {}),
   };
-  return `${new Date(iso).toLocaleString(locale, options)} (${utcOffsetLabel(iso)})`;
+  return `${new Date(iso).toLocaleString(locale, options)} (${timeZone ? zonedUtcOffsetLabel(iso, timeZone) : utcOffsetLabel(iso)})`;
 }
 
 function minutesBetween(fromIso: string, toIso: string): number {
@@ -918,7 +924,9 @@ function AttachmentsList({ requestId }: { requestId: string }) {
 /** Always use the trusted request snapshot, never the latest target entry. */
 export function TimeAdjustmentDiff({
   request,
+  timeZone,
 }: {
+  timeZone?: string;
   request: {
     targetTimeEntryId?: string | null;
     expectedTargetRevision?: number | null;
@@ -942,11 +950,11 @@ export function TimeAdjustmentDiff({
   const range = (from: string, to: string) => (
     <>
       <time dateTime={from} title={from}>
-        {correctionInstant(from, languageTag)}
+        {correctionInstant(from, languageTag, timeZone)}
       </time>{' '}
       →{' '}
       <time dateTime={to} title={to}>
-        {correctionInstant(to, languageTag)}
+        {correctionInstant(to, languageTag, timeZone)}
       </time>
     </>
   );
@@ -1016,11 +1024,17 @@ export function TimeAdjustmentDiff({
   );
 }
 
-export function RequestTimeEntryAudit({ requestId }: { requestId: string }) {
-  const { id: actorId } = useCurrentUser();
+export function RequestTimeEntryAudit({
+  requestId,
+  timeZone,
+}: {
+  requestId: string;
+  timeZone?: string;
+}) {
+  const { id: actorId, role: actorRole } = useCurrentUser();
   const { t, formatDateTime } = useI18n();
   const audit = useQuery({
-    queryKey: ['request-time-entry-audit', requestId, actorId],
+    queryKey: ['request-time-entry-audit', requestId, actorId, actorRole],
     queryFn: () => api.requestTimeEntryAudit(requestId),
   });
   return (
@@ -1071,10 +1085,11 @@ export function RequestTimeEntryAudit({ requestId }: { requestId: string }) {
                   })}
                 </p>
                 <time dateTime={event.occurredAt}>
-                  {formatDateTime(event.occurredAt)}
+                  {formatDateTime(event.occurredAt, timeZone)}
                 </time>
                 {after && (
                   <TimeAdjustmentDiff
+                    timeZone={timeZone}
                     request={{
                       targetTimeEntryId: before ? event.timeEntryId : null,
                       expectedTargetRevision: before?.revision,

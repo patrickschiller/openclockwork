@@ -35,6 +35,132 @@ export type RequestEventKind =
   | 'Cancelled'
   | 'Resubmitted';
 
+/** Handwritten Team Cockpit contract; kept aligned with team-cockpit.dto.ts. */
+export type AttendanceStatus =
+  | 'Booked'
+  | 'Missing'
+  | 'NoCoreNow'
+  | 'Flexible'
+  | 'Holiday'
+  | 'NonWorkingDay'
+  | 'ApprovedAbsence'
+  | 'PartialAbsenceUnknown'
+  | 'UnknownContract'
+  | 'UnknownSchedule'
+  | 'OutsideEmployment';
+export interface CockpitEmployeeDto {
+  id: string;
+  firstName: string;
+  lastName: string;
+  isActive: boolean;
+}
+export interface CockpitAttendanceDto extends CockpitEmployeeDto {
+  status: AttendanceStatus;
+  obligation: 'RequiredNow' | 'Excused' | 'NotRequiredNow' | 'Unknown';
+  obligationReason?:
+    | 'CoreWindow'
+    | 'OutsideCore'
+    | 'Flexible'
+    | 'Holiday'
+    | 'NonWorkingDay'
+    | 'ApprovedAbsence'
+    | 'PartialDayTimingUnknown'
+    | 'UnknownContract'
+    | 'UnknownSchedule'
+    | 'OutsideEmployment';
+  contractKnown: boolean;
+  scheduleName: string | null;
+  openEntry: {
+    id: string;
+    clockIn: string;
+    requiresApproval: boolean;
+    projectName: string | null;
+    serviceOrderTitle: string | null;
+  } | null;
+  coreWindows: { start: string; end: string; label: string | null }[];
+  absences: {
+    id: string;
+    source: 'Request' | 'Absence';
+    classification: string;
+    status: 'Approved' | 'Recorded';
+    coverage: number;
+  }[];
+}
+export interface TeamCockpitDto {
+  generatedAt: string;
+  today: string;
+  timeZone: string;
+  nextRefreshAt: string;
+  scope: 'Team' | 'Organisation';
+  employees: CockpitAttendanceDto[];
+}
+export interface CockpitHistoryItemDto {
+  kind: 'TimeEntry' | 'Request' | 'Absence';
+  id: string;
+  employeeId: string;
+  from: string;
+  to: string | null;
+  allDay: boolean;
+  classification: string;
+  status: string;
+  workflowState: string | null;
+  halfDayStart: boolean;
+  halfDayEnd: boolean;
+  projectName: string | null;
+  serviceOrderTitle: string | null;
+  grossMinutes: number | null;
+  breakMinutes: number | null;
+  netMinutes: number | null;
+  requiresApproval: boolean;
+  reason: string | null;
+  request: RequestDto | null;
+  proxyActions: {
+    id: string;
+    action: string;
+    actorId: string | null;
+    actorName: string | null;
+    at: string;
+    reason: string;
+  }[];
+}
+export interface CockpitHistoryDto {
+  employee: CockpitEmployeeDto;
+  from: string;
+  to: string;
+  timeZone: string;
+  generatedAt: string;
+  items: CockpitHistoryItemDto[];
+  nextCursor: string | null;
+}
+export interface ProxyClockInPayload {
+  reason: string;
+  projectId?: string | null;
+  serviceOrderId?: string | null;
+  activity?: string | null;
+  billable?: boolean;
+  note?: string | null;
+}
+export interface ProxyManualTimeEntryPayload extends ProxyClockInPayload {
+  clockIn: string;
+  clockOut: string;
+}
+export interface ProxyAbsencePayload {
+  kind: 'Sickness' | 'Training' | 'Flextime';
+  from: string;
+  to: string;
+  proxyReason: string;
+}
+export interface ProxyRequestPayload {
+  type: 'Vacation' | 'HomeOffice' | 'SpecialLeave';
+  from: string;
+  to: string;
+  halfDayStart?: boolean;
+  halfDayEnd?: boolean;
+  substituteId?: string | null;
+  reason?: string | null;
+  proxyReason: string;
+}
+
 export interface HealthResponse {
   status: string;
   service: string;
@@ -1008,6 +1134,57 @@ export async function downloadAuthenticated(
 }
 
 export const api = {
+  teamCockpit: () => request<TeamCockpitDto>('/api/team-cockpit'),
+  teamCockpitApprovalRequests: () =>
+    request<RequestDto[]>('/api/team-cockpit/approval-requests'),
+  teamCockpitHistory: (
+    employeeId: string,
+    params: { from: string; to: string; limit?: number; cursor?: string },
+  ) => {
+    const query = new URLSearchParams({
+      from: params.from,
+      to: params.to,
+      limit: String(params.limit ?? 200),
+    });
+    if (params.cursor) query.set('cursor', params.cursor);
+    return request<CockpitHistoryDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/history?${query}`,
+    );
+  },
+  teamCockpitBookingTargets: (employeeId: string) =>
+    request<BookableProjectDto[]>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/booking-targets`,
+    ),
+  teamCockpitClockIn: (employeeId: string, payload: ProxyClockInPayload) =>
+    request<TimeEntryDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/clock-in`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  teamCockpitManual: (
+    employeeId: string,
+    payload: ProxyManualTimeEntryPayload,
+  ) =>
+    request<TimeEntryDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/manual`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  teamCockpitRecordAbsence: (
+    employeeId: string,
+    payload: ProxyAbsencePayload,
+  ) =>
+    request<AbsenceDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/absences`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  teamCockpitRequestAbsence: (
+    employeeId: string,
+    payload: ProxyRequestPayload,
+  ) =>
+    request<RequestDto>(
+      `/api/team-cockpit/employees/${encodeURIComponent(employeeId)}/requests`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+
   health: () => request<HealthResponse>('/api/health'),
   login: (payload: LoginPayload) =>
     request<LoginResponse>('/api/auth/login', {
@@ -1252,6 +1429,7 @@ export const api = {
     actorId: string,
     note?: string,
     requiresHrConfirmation = false,
+    expectedUpdatedAt?: string,
   ) =>
     request<RequestDto>(`/api/requests/${id}/manager-approve`, {
       method: 'POST',
@@ -1259,22 +1437,38 @@ export const api = {
         actorId,
         note: note ?? null,
         requiresHrConfirmation,
+        expectedUpdatedAt,
       }),
     }),
-  managerReject: (id: string, actorId: string, note?: string) =>
+  managerReject: (
+    id: string,
+    actorId: string,
+    note?: string,
+    expectedUpdatedAt?: string,
+  ) =>
     request<RequestDto>(`/api/requests/${id}/manager-reject`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null }),
+      body: JSON.stringify({ actorId, note: note ?? null, expectedUpdatedAt }),
     }),
-  hrConfirm: (id: string, actorId: string, note?: string) =>
+  hrConfirm: (
+    id: string,
+    actorId: string,
+    note?: string,
+    expectedUpdatedAt?: string,
+  ) =>
     request<RequestDto>(`/api/requests/${id}/hr-confirm`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note: note ?? null }),
+      body: JSON.stringify({ actorId, note: note ?? null, expectedUpdatedAt }),
     }),
-  hrReject: (id: string, actorId: string, note: string) =>
+  hrReject: (
+    id: string,
+    actorId: string,
+    note: string,
+    expectedUpdatedAt?: string,
+  ) =>
     request<RequestDto>(`/api/requests/${id}/hr-reject`, {
       method: 'POST',
-      body: JSON.stringify({ actorId, note }),
+      body: JSON.stringify({ actorId, note, expectedUpdatedAt }),
     }),
   substituteAccept: (id: string, actorId: string, note?: string) =>
     request<RequestDto>(`/api/requests/${id}/substitute/accept`, {

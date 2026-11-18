@@ -10,5 +10,6 @@ import { RequestsService } from './requests.service';
   imports: [EmployeesModule, AccountsModule, LeaveAllowancesModule],
   controllers: [RequestsController],
   providers: [RequestsService, TimeAdjustmentsService],
+  exports: [RequestsService],
 })
 export class RequestsModule {}

@@ -5,6 +5,16 @@
   "nx": {
     "implicitDependencies": [
       "web"
-    ]
+    ],
+    "targets": {
+      "cockpit-runtime": {
+        "executor": "nx:run-commands",
+        "cache": false,
+        "options": {
+          "command": "playwright test src/manager-cockpit-runtime.spec.ts --project=chromium",
+          "cwd": "apps/web-e2e"
+        }
+      }
+    }
   }
 }

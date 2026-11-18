@@ -1,5 +1,185 @@
 # Nachtest der Issue-Pakete
 
+## Gesamtnachtest aller fünf Pakete
+
+Dieser Abschnitt ist der **gemeinsame Einstieg für Patrick zu Hause**. Der Branch
+`feat/44-manager-cockpit` enthält kumulativ **#42 + #41 + #43 + #45 + #44**.
+Es sind weder Merges noch Releases oder fünf Branchwechsel erforderlich.
+Die PR-Abhängigkeit bleibt **#46 → #47 → #48 → #49 → #50**; den exakten
+abschließend geprüften Head nennen PR und Issue-Kommentar. Die zusätzliche
+Cockpit-Migration ist additiv. Die bestehenden Benutzerdateien im Hauptcheckout
+werden nicht für den Nachtest verwendet.
+Der unabhängig akzeptierte **Codestand** ist
+`1972c52db027b38bcfba3bb9b29a41e5f6e61433`; der folgende reine Doku-Nachtrag
+ändert ihn fachlich nicht. Den abschließend CI-geprüften Dokumentations-Head
+nennen [PR #50](https://github.com/patrickschiller/openclockwork/pull/50) und
+Issue-Kommentar, nicht eine selbstreferenzielle Commit-ID in dieser Datei.
+
+### Ein Branch, ein neuer lokaler Stack
+
+Voraussetzungen: Git, Docker mit Compose, ein freier Port `18050` und ein Browser.
+Die allgemeine Grundlage ist [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md).
+Die Builds laufen in Docker; auf dem Heimrechner ist dafür kein globales Nx
+notwendig. **Keinen vorhandenen Stack, keine vorhandene `.env` und keine realen
+Personaldaten verwenden.**
+
+```bash
+git fetch origin
+git worktree add --detach ../openclockwork-all-five-manual origin/feat/44-manager-cockpit
+cd ../openclockwork-all-five-manual
+git rev-parse HEAD
+
+cat > /tmp/openclockwork-all-five-compose.yml <<'YAML'
+services:
+  api:
+    image: openclockwork-api:issues-all-local
+  web:
+    image: openclockwork-web:issues-all-local
+YAML
+
+all5() {
+  TEST_WEB_PORT=18050 docker compose --env-file /dev/null \
+    -p openclockwork-all-five -f docker-compose.test.yml \
+    -f /tmp/openclockwork-all-five-compose.yml "$@"
+}
+# Alle Paket-Fixtures und Paket-Kontrollbefehle auf denselben Stack lenken.
+dc42() { all5 "$@"; }
+dc41() { all5 "$@"; }
+dc43() { all5 "$@"; }
+dc45() { all5 "$@"; }
+dc44() { all5 "$@"; }
+all5 build
+all5 up -d --wait
+all5 exec -T -e NODE_ENV=development \
+  -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
+  api node --import tsx prisma/seed.ts
+curl --fail http://localhost:18050/api/health
+```
+
+Den Seed genau einmal auf diesem neuen Stack ausführen. Einstieg:
+**<http://localhost:18050>**. Für die folgenden Fälle ausschließlich diesen Stack
+und diese URL verwenden. Die älteren paketweisen Setup-/Worktree-/Port-Befehle
+weiter unten sind **Alternativen**, nicht zusätzlich auszuführen. Insbesondere
+nicht erneut seeden und nicht auf fünf andere Branches wechseln.
+
+**Einen Modus pro Shell wählen:** Beim Gesamtnachtest sind `dc42`, `dc41`,
+`dc43`, `dc45` und `dc44` bereits oben als Weiterleitungen zu `all5` definiert.
+Die späteren, ausdrücklich mit **„Nur Einzeltest“** bezeichneten Setup-Blöcke
+überspringen: weder deren Worktree-/Override-Befehle noch deren anders definierte
+Wrapper kopieren. Direkt zu den Szenarien und SQL-Fixtures wechseln; diese
+verwenden immer den ausgewählten Paket-Wrapper. Paketweise Stopps während des
+Gesamtnachtests ebenfalls überspringen und erst ganz am Ende `all5 stop` nutzen.
+Alle später genannten Ports `18041`–`18045` gelten **nur für Einzeltests**;
+im Gesamtnachtest bleibt jede Oberfläche auf **18050**.
+
+| Modus | Wrapper für Fixture/Steuerung | Compose-Projekt | Web-Port |
+| --- | --- | --- | --- |
+| Gesamtnachtest aller fünf | `dc42` / `dc41` / `dc43` / `dc45` / `dc44` → `all5` | `openclockwork-all-five` | 18050 |
+| Nur Einzeltest #42 | eigenes `dc42` aus dem #42-Setup | `openclockwork-issue42` | 18042 |
+| Nur Einzeltest #41 | eigenes `dc41` aus dem #41-Setup | `openclockwork-issue41` | 18041 |
+| Nur Einzeltest #43 | eigenes `dc43` aus dem #43-Setup | `openclockwork-issue43` | 18043 |
+| Nur Einzeltest #45 | eigenes `dc45` aus dem #45-Setup | `openclockwork-issue45` | 18045 |
+| Nur Einzeltest #44 | eigenes `dc44` aus dem #44-Setup | `openclockwork-issue44` | 18044 |
+
+Die Abschnitte **„Automatisch ausgeführte Gates“ / „Automatische Verifikation“**
+sind historische Automationsnachweise, keine zusätzlich auszuführenden Schritte
+dieses Heimnachtests. Insbesondere keine weitere E2E-Datenbank starten und keine
+E2E-Test-Suite gegen die manuelle Compose-Datenbank richten.
+
+| Rolle           | Synthetisches Konto                 | Verwendung                                            |
+| --------------- | ----------------------------------- | ----------------------------------------------------- |
+| HR              | `hannah.roth@openclockwork.test`    | Vertragsbestätigung, HR-Stufe, Organisationssicht     |
+| Manager         | `marc.becker@openclockwork.test`    | eigenes Team, Cockpit, Manager-Stufe, Stellvertretung |
+| Fremder Manager | `stefanie.weiss@openclockwork.test` | Negativtest für fremdes Team                          |
+| Beschäftigte    | `anna.mueller@openclockwork.test`   | Antrag, Bearbeitung, eigene Zeitbuchung/Korrektur     |
+| Vertretung      | `bernd.schulz@openclockwork.test`   | Vertretung annehmen/ablehnen                          |
+
+Initiales Passwort dieser lokalen synthetischen Konten: `openclockwork`.
+Separate Browserprofile/private Fenster pro Rolle erleichtern den Wechsel.
+Für Vertragsvergleiche bestätigt der Demo-Seed ausdrücklich synthetisch bekannte
+Vertragsperioden ab dem Jahresbeginn; unbekannte ältere Historie bleibt unbekannt.
+Für exakte Zahlen und freie Antragszeiträume die jeweils genannten zusätzlichen
+Prüffälle verwenden, nicht beliebige schon belegte Seed-Tage.
+
+### Geordnete gemeinsame Checkliste
+
+Bei jeder ID-/Revisionsprüfung die IDs aus den Browser-Netzwerkdetails notieren.
+Alle Schritte laufen auf `localhost:18050` und demselben kombinierten Branch.
+
+1. **#42 – zurückgegebener Antrag:** Als Anna freien Urlaub beantragen; Marc
+   gibt mit Begründung zurück; Anna öffnet den zugänglichen Entwurf, ändert Werte,
+   speichert und reicht erneut ein. ID, Historie und Anlagen bleiben erhalten,
+   Rückgabegrund und Name sichtbar. Danach den Vertretungs-Ablehnungsfall sowie
+   die Sekunden-/DST-Fälle aus dem #42-Abschnitt prüfen. Fremdzugriff,
+   Nicht-Entwurf und veraltete Revision müssen scheitern.
+2. **#41 – echte Rahmenzeit-Freigabe:** Einen gewöhnlich erfassten, geschlossenen
+   Eintrag außerhalb des konfigurierten Rahmens erzeugen. Manager-Entscheidung
+   zuerst, danach separate HR-Bestätigung; Eintrag/Historie/Employee-Status
+   stimmen in Genehmigungen, Cockpit und eigener Zeitübersicht überein. Eine
+   noch laufende Buchung, fremdes Team oder doppelte Entscheidung darf nicht
+   genehmigt werden. Konkrete Einrichtung/Negativfälle stehen bei #41.
+3. **#43 – vorhandene Buchung korrigieren:** Anna wählt die bestehende Buchung
+   explizit als Ziel, z. B. 08–16 → 08–17 und separat 09–16. Vorher/Nachher ist
+   sichtbar; nach finaler notwendiger Genehmigung bleibt dieselbe Buchungs-ID
+   und die Anzahl der Buchungen stabil. Manager-/HR-Stufen können auch aus dem
+   Cockpit bedient werden. Andere Überlappungen und veraltete Zielrevisionen
+   bleiben gesperrt; Rückgabe/Bearbeitung behält die Zielbindung.
+4. **#45 – Soll/Ist:** Unter Mitarbeiter die HR-Vertragsperioden prüfen bzw.
+   bestätigen; Wochen-/Monats-/benutzerdefinierter Arbeitszeitenfilter zeigt
+   auch Personen mit 0 Ist. Die numerischen Fälle aus #45 nachrechnen (38 h Ist
+   gegen 40 h Soll, Vertragswechsel mitten in der Woche, Feiertag/Halbtag).
+   Ohne bestätigte Historie sind Soll/Differenz unbekannt, nicht 0. Eine spätere
+   operative Profil-/Planänderung darf historische Vertragssnapshots nicht
+   überschreiben. Für den SQL-Fixture-Block aus #45 ist `dc45` oben bereits
+   richtig definiert; dessen separates Setup überspringen.
+5. **#44 – volles Cockpit:** Als Marc über die Navigation das Manager-Cockpit
+   öffnen. Buchungsstatus, bekannte Kernzeitpflicht und unbestimmbare Fälle
+   getrennt prüfen; beide Genehmigungsarten direkt bearbeiten; stellvertretend
+   **jetzt starten und rückwirkend buchen**, danach als Beschäftigte normal
+   stoppen. Krankheits-/Ausfallaufzeichnung und normaler Abwesenheitsantrag
+   im Namen der Person mit Audit prüfen. Mitarbeiterhistorie und Kalender
+   für Monat, Quartal, ganzes Jahr und eigenen Zeitraum einschließlich aller
+   Antragsstatus verwenden. Konkrete Vorbereitung, Rollen-/Concurrency- und
+   Grenzzeitfälle stehen im #44-Abschnitt.
+
+Gemeinsamer Abschluss: DE/EN wechseln, die Hauptaktionen per Tab/Enter bedienen,
+Fehler-/Leerzustände kontrollieren und mit Stefanie/Employee fremde IDs sowie
+nicht erlaubte Rollen versuchen. Historie ist keine Behauptung einer heutigen
+Anwesenheit; ein laufender Timer ist keine physische Anwesenheitsmessung.
+
+### Beenden und Fortsetzen ohne Datenverlust
+
+```bash
+all5 stop
+# Später im selben Test-Worktree mit derselben all5-Funktion:
+all5 up -d --wait
+```
+
+Nicht erneut seeden und kein `down -v` ausführen. Diese Anleitung ist ein
+**manueller Nachtestplan**, keine Behauptung eines durchgeführten Heimtests.
+Tatsächlich ausgeführte automatisierte Gesamt-Gates und ein gegebenenfalls real
+laufender Browser-/Runtime-Smoke sind im letzten Paketabschnitt mit Ergebnis
+getrennt dokumentiert.
+
+### Geprüfte Stack-Auswahl dieses Doku-Nachtrags
+
+Die kopierten Shell-Wrapper und Fixture-/Kontrollaufrufe wurden für **beide
+Modi** geprüft: 19 Bash-Blöcke syntaktisch gültig, **42** aufgezeichnete
+Befehlsweiterleitungen und **10 echte, ausschließlich lesende** Compose-
+Konfigurationen (je #42/#41/#43/#45/#44 kombiniert und einzeln). Geprüft sind
+Projektname, Loopback-Port, Images, API-CORS-Port und projektgebundene Volumes.
+Beispielsweise zeigt `dc41 config --format json` im Gesamtnachtest
+`openclockwork-all-five`/18050, im Einzeltest `openclockwork-issue41`/18041.
+Entsprechend gelten die übrigen Zeilen der Modustabelle.
+
+Alle **fünf SQL-Heredocs** sind bytegleich zum akzeptierten Codestand geblieben.
+Für die Zielprüfung wurden mutierende Docker-Aufrufe nur aufgezeichnet, nicht
+weitergeleitet; Override-Inhalte lagen für `config` ausschließlich in einem
+frischen temporären Verzeichnis. Kein realer Stack wurde erzeugt, gestartet,
+verändert oder gestoppt, kein SQL erneut ausgeführt. Keine unveränderten lokalen
+Code-Volltests wiederholt; die regulären GitHub-Gates prüfen den neuen Doku-Head
+separat, dessen Ergebnis in PR #50 und Issue-Kommentar steht.
+
 ## Paket #42 – zurückgegebene Anträge bearbeiten
 
 - Issue: <https://github.com/patrickschiller/openclockwork/issues/42>
@@ -9,10 +189,13 @@
   Migration erforderlich: Die vorhandenen Felder `updatedAt` und `workflowState`
   sichern Schreibzugriffe ab; das vorhandene Ereignis `Resubmitted` wird verwendet.
 
-### Isoliertes lokales Setup
+### Nur Einzeltest #42: isoliertes lokales Setup
+
+**Gesamtnachtest:** Dieses gesamte Setup überspringen; `dc42` und Port 18050
+sind oben bereits festgelegt. Mit Abschnitt A fortfahren.
 
 Die Grundlage ist [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md).
-Für diesen Nachtest **nicht** die bestehenden Solo-/Team-Projekte wiederverwenden.
+Für diesen Einzeltest **nicht** die bestehenden Solo-/Team-Projekte wiederverwenden.
 Eigene Projekt-, Image-Namen und Port vermeiden Änderungen an anderen Teststacks.
 Nur synthetische Daten verwenden; weder Produktivdaten importieren noch eine
 vorhandene `.env` laden.
@@ -37,17 +220,16 @@ services:
     image: openclockwork-web:issue42-local
 YAML
 
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml build
+dc42() {
+  TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
+    -p openclockwork-issue42 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-42-compose.yml "$@"
+}
+dc42 build
 
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml up -d --wait
+dc42 up -d --wait
 
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml exec -T \
+dc42 exec -T \
   -e NODE_ENV=development \
   -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
   api node --import tsx prisma/seed.ts
@@ -273,7 +455,10 @@ nacheinander starten. Es wurde dafür keine Projektkonfiguration geändert.
 Weitere nicht blockierende Ausgaben: React-Router-Future-Hinweise,
 Node-localStorage-Hinweis und veraltete Browserslist-Daten.
 
-Reproduzierbare API-Testumgebung (ausschließlich neue synthetische Testinstanz):
+**Optionaler separater Entwickler-Nachlauf, nicht Teil des manuellen
+Gesamtnachtests:** Reproduzierbare API-Testumgebung ausschließlich auf einer
+neuen synthetischen E2E-Instanz. Im Heimnachtest diesen Block überspringen;
+niemals die manuelle Compose-Datenbank als E2E-Resetziel verwenden:
 
 ```bash
 docker run --name openclockwork-issue-42-db \
@@ -291,21 +476,22 @@ Die Test-Suite prüft den Testdatenbanknamen vor Migration/Reset. Ein vorhandene
 `DATABASE_URL` muss entfernt oder bewusst auf dieselbe isolierte Instanz gesetzt
 werden; widersprüchliche Ziele werden abgewiesen.
 
-### Stoppen, Daten erhalten
+### Nur Einzeltest #42: stoppen, Daten erhalten
+
+Beim Gesamtnachtest diesen Zwischenstopp überspringen und mit #41 fortfahren.
+`dc42` bleibt in beiden Modi auf den gewählten Stack gebunden.
 
 ```bash
-TEST_WEB_PORT=18042 docker compose --env-file /dev/null \
-  -p openclockwork-issue42 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-42-compose.yml stop
+dc42 stop
 ```
 
-Zum Fortsetzen denselben `up -d --wait`-Befehl verwenden, **nicht** erneut seeden.
+Zum Fortsetzen `dc42 up -d --wait` verwenden, **nicht** erneut seeden.
 Kein `down -v`: Das würde die Nachtestdaten löschen. Weitere Pakete ergänzen
 diese Anleitung erst bei ihrer jeweiligen Implementierung.
 
 ## Paket #41 – Freigabe normaler Buchungen außerhalb der Rahmenzeit
 
-### Branch, Abhängigkeit und isoliertes Setup
+### Branch, Abhängigkeit und Setup nur für Einzeltest #41
 
 - Branch: `fix/41-outside-frame-approval`.
 - Worktree: `/Users/patrickschiller/openclockwork-issue-41`.
@@ -318,8 +504,13 @@ diese Anleitung erst bei ihrer jeweiligen Implementierung.
   Signaturfelder. Bestehende Buchungswerte, Revisionen und Historien bleiben
   erhalten; alte ausstehende Buchungen beginnen bei der Managerprüfung.
 
+**Gesamtnachtest:** Den folgenden Einzeltest-Setup-Block überspringen, `dc41`
+von ganz oben beibehalten und direkt mit Abschnitt A bzw. Fixture B fortfahren.
+Oberfläche bleibt Port 18050; keine weitere Override-Datei erforderlich.
+
 Grundlage weiterhin [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md).
-Einen separaten Stack verwenden; keine bestehenden Projekte/Volumes löschen.
+Nur beim Einzeltest einen separaten Stack verwenden; keine bestehenden
+Projekte/Volumes löschen.
 Im #41-Worktree oder einem neuen Checkout dieses Branches:
 
 ```bash
@@ -335,17 +526,16 @@ services:
     image: openclockwork-web:issue41-local
 YAML
 
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml build
+dc41() {
+  TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
+    -p openclockwork-issue41 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-41-compose.yml "$@"
+}
+dc41 build
 
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml up -d --wait
+dc41 up -d --wait
 
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml exec -T \
+dc41 exec -T \
   -e NODE_ENV=development \
   -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
   api node --import tsx prisma/seed.ts
@@ -385,16 +575,16 @@ Rolle HRAdmin ersetzt diese erste Stufe ausdrücklich nicht.
 ### B. Reproduzierbare Legacy-Ausgangsbuchungen
 
 Zum gezielten Nachtest alter ausstehender Einträge können auf **diesem neuen
-synthetischen Stack** drei feste Intervalle angelegt werden. Die Seed-Zeiten
+synthetischen Stack** drei feste Intervalle angelegt werden. `dc41` wählt
+im Gesamtnachtest `all5`/18050, im Einzeltest den eigenen #41-Stack/18041.
+Die Seed-Zeiten
 liegen relativ zum aktuellen Datum; vorab prüfen, dass die folgenden historischen
 Oktobertage frei sind. Bei Konflikt keine vorhandenen Daten ändern, sondern
 freie Tage im SQL wählen. Die neuen Spalten absichtlich nicht setzen:
 Das bildet die Altbestands-Situation nach der Migration ab.
 
 ```bash
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml exec -T db \
+dc41 exec -T db \
   psql -U openclockwork -d openclockwork_test -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO "TimeEntry" (
   "id", "employeeId", "clockIn", "clockOut", "source", "status",
@@ -526,12 +716,12 @@ Der manuelle Docker-/Browser-Durchlauf aus dieser Anleitung wurde **nicht**
 als durchgeführt oder bestanden gewertet. Keine Release-, Tag-, Versions-,
 Merge- oder Deployment-Aktion.
 
-Zum Stoppen mit Datenerhalt:
+**Nur Einzeltest #41:** Zum Stoppen mit Datenerhalt den gewählten Wrapper
+verwenden. Beim Gesamtnachtest diesen Zwischenstopp überspringen und mit #43
+fortfahren. Den Gesamtnachtest erst ganz am Ende über `all5 stop` beenden.
 
 ```bash
-TEST_WEB_PORT=18041 docker compose --env-file /dev/null \
-  -p openclockwork-issue41 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-41-compose.yml stop
+dc41 stop
 ```
 
 Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #43, #45 und #44 sind
@@ -539,7 +729,7 @@ noch nicht Bestandteil dieses Pakets.
 
 ## Paket #43 – bestehende Zeitbuchung gezielt korrigieren
 
-### Branch, Abhängigkeiten und isolierter Teststack
+### Branch, Abhängigkeiten und Setup nur für Einzeltest #43
 
 - Branch: `fix/43-existing-entry-correction`.
 - Worktree: `/Users/patrickschiller/openclockwork-issue-43`.
@@ -551,8 +741,12 @@ noch nicht Bestandteil dieses Pakets.
   Ziel-ID/Originalrevision/Originalsnapshot und ein Request-Link im Buchungsaudit.
   Bestehende fehlende-Buchung-Anträge bleiben ohne erfundene Zielbindung.
 
-Weiterhin [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md) verwenden, aber
-separates Compose-Projekt, Images und Port. Keine vorhandenen Volumes löschen:
+**Gesamtnachtest:** Den folgenden Einzeltest-Setup-Block überspringen, `dc43`
+von ganz oben beibehalten und direkt mit Fixture A fortfahren. Oberfläche bleibt
+Port 18050; keine weitere Override-Datei erforderlich.
+
+Nur beim Einzeltest [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md) mit einem
+separaten Compose-Projekt, Images und Port verwenden. Keine Volumes löschen:
 
 ```bash
 git fetch origin
@@ -567,17 +761,16 @@ services:
     image: openclockwork-web:issue43-local
 YAML
 
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml build
+dc43() {
+  TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
+    -p openclockwork-issue43 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-43-compose.yml "$@"
+}
+dc43 build
 
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml up -d --wait
+dc43 up -d --wait
 
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml exec -T \
+dc43 exec -T \
   -e NODE_ENV=development \
   -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
   api node --import tsx prisma/seed.ts
@@ -596,12 +789,11 @@ Zwei unterschiedliche, freie Tage verwenden, damit beide ursprünglichen
 Issue-Beispiele separat durchspielbar sind. Die relative Seed-Zeiterfassung liegt
 nahe dem Ausführungsdatum; vorab prüfen, dass die folgenden historischen Tage
 frei sind. Bei Konflikt einen anderen freien Tag wählen, keine bestehenden
-Buchungen löschen.
+Buchungen löschen. `dc43` wählt im Gesamtnachtest `all5`/18050, im Einzeltest
+den eigenen #43-Stack/18043.
 
 ```bash
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml exec -T db \
+dc43 exec -T db \
   psql -U openclockwork -d openclockwork_test -v ON_ERROR_STOP=1 <<'SQL'
 INSERT INTO "TimeEntry" (
   "id", "employeeId", "clockIn", "clockOut", "source", "status",
@@ -789,12 +981,12 @@ Der ausführliche manuelle Docker-/Browser-Nachtest oben wurde **nicht**
 als durchgeführt oder bestanden behauptet. Keine Releases, Tags, Versionsbumps,
 Merges, Deployments oder Release-Workflows.
 
-Zum Stoppen mit Datenerhalt:
+**Nur Einzeltest #43:** Zum Stoppen mit Datenerhalt den gewählten Wrapper
+verwenden. Beim Gesamtnachtest diesen Zwischenstopp überspringen und mit #45
+fortfahren; erst ganz am Ende `all5 stop` nutzen.
 
 ```bash
-TEST_WEB_PORT=18043 docker compose --env-file /dev/null \
-  -p openclockwork-issue43 -f docker-compose.test.yml \
-  -f /tmp/openclockwork-43-compose.yml stop
+dc43 stop
 ```
 
 Kein `down -v`, kein erneutes Seeden beim Fortsetzen. #45 und #44 folgen erst
@@ -860,12 +1052,18 @@ Keine erneuten lokalen Volltests für diese reine Textkorrektur.
 - Führungskräfte sehen sich selbst und unmittelbar zugeordnete Beschäftigte,
   HR organisationsweit (auch historische/inaktive Personen). Unberechtigte
   ausgewählte IDs werden serverseitig verweigert, nicht still ausgefiltert.
-  PDF bleibt HR vorbehalten; PDF-Funktionsausbau gehört zum späteren Paket #44.
+  PDF bleibt HR vorbehalten; ein PDF-Funktionsausbau gehört nicht zum Umfang
+  dieses Soll/Ist-Pakets.
 
-### A. Eigenständiges lokales Setup und synthetische Prüfdaten
+### A. Auswahl des Stacks und gemeinsame Prüfdaten
 
-Die Voraussetzungen aus [LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md)
-verwenden, aber einen **eigenen** Stack auf Port `18045` starten. Keine bestehende
+**Gesamtnachtest:** Nur den folgenden Setup-Block überspringen. `dc45` von
+oben beibehalten und anschließend den gemeinsamen SQL-Fixture-Block in diesem
+Abschnitt ausführen. Oberfläche bleibt Port 18050.
+
+**Nur Einzeltest #45:** Die Voraussetzungen aus
+[LOCAL_DOCKER_TEST.de.md](LOCAL_DOCKER_TEST.de.md) verwenden und einen
+**eigenen** Stack auf Port `18045` starten. Keine bestehende
 Datenbank, `.env` oder Produktivdaten verwenden:
 
 ```bash
@@ -901,7 +1099,9 @@ bereits bestehende Vertragsperioden bei einem erneuten Seed nicht um.
 
 Für reproduzierbare Zahlen unabhängig von sonstigen Seed-Buchungen zwei
 **neue** synthetische Mitarbeiter ohne bestätigte Historie und fünf geschlossene
-Testbuchungen anlegen. Diesen SQL-Block nur im eben angelegten Teststack ausführen,
+Testbuchungen anlegen. `dc45` wählt im Gesamtnachtest `all5`/18050, im
+Einzeltest den eigenen #45-Stack/18045. Diesen SQL-Block nur im gewählten
+Teststack ausführen,
 auf einer frischen Instanz genau einmal. Keine vorhandenen Buchungen ändern:
 
 ```bash
@@ -1073,5 +1273,368 @@ Loopback-Listener-Lebensdauer pro Suite; keine Retries oder schwächeren
 HTTP-Assertions. Die vollständigen Nachläufe mit diesem Listener waren grün.
 Builds und Typechecks liefen getrennt, ohne `dist`-Rennen.
 
-Stoppen ohne Datenverlust: `dc45 stop`. Zum Fortsetzen `dc45 up -d --wait`;
-kein erneuter Seed und kein `down -v`.
+**Nur Einzeltest #45:** Stoppen ohne Datenverlust: `dc45 stop`. Zum Fortsetzen
+`dc45 up -d --wait`; kein erneuter Seed und kein `down -v`. Beim Gesamtnachtest
+hier nicht stoppen, sondern mit #44 fortfahren und erst abschließend `all5 stop`
+verwenden.
+
+## #44 – vollständiges Manager-Cockpit
+
+**Branch:** `feat/44-manager-cockpit`, auf dem akzeptierten #45-Head
+`3a2361d0d2d25f23ce030ce751cf67873aedbf8f`. Das Paket umfasst die zentrale
+Teamübersicht, **beide** Genehmigungsarten, echte stellvertretende Zeiterfassung
+und Abwesenheiten sowie Detailhistorie **und** Kalender. Der PR ist kumulativ;
+Reihenfolge **#46 → #47 → #48 → #49 → #50**, alle gegen `main` für die
+bestehende CI. Nicht vor den Abhängigkeiten einzeln mergen.
+
+### A. Gewählten Stack verwenden und reproduzierbare Person
+
+**Gesamtnachtest:** Das Setup ganz oben verwenden: `dc44` leitet bereits an
+`all5`, Projekt `openclockwork-all-five`, Port **18050** weiter. Den folgenden
+Einzeltest-Setup-Block vollständig überspringen. Kein weiterer Stack,
+Branchwechsel oder Seed notwendig.
+
+**Nur Einzeltest #44 – Alternative zum Gesamtnachtest:** In einer separaten
+Shell einen neuen Test-Worktree und eigenen Stack verwenden. Nicht zusätzlich
+zum Gesamtnachtest ausführen; keine vorhandenen Daten/Volumes verwenden.
+
+```bash
+git fetch origin
+git worktree add --detach ../openclockwork-44-manual origin/feat/44-manager-cockpit
+cd ../openclockwork-44-manual
+cat > /tmp/openclockwork-44-compose.yml <<'YAML'
+services:
+  api:
+    image: openclockwork-api:issue44-local
+  web:
+    image: openclockwork-web:issue44-local
+YAML
+dc44() {
+  TEST_WEB_PORT=18044 docker compose --env-file /dev/null \
+    -p openclockwork-issue44 -f docker-compose.test.yml \
+    -f /tmp/openclockwork-44-compose.yml "$@"
+}
+dc44 build
+dc44 up -d --wait
+dc44 exec -T -e NODE_ENV=development \
+  -e OPENCLOCKWORK_SEED_CONFIRM_DATABASE=openclockwork_test \
+  api node --import tsx prisma/seed.ts
+```
+
+Nur im Einzeltest: Oberfläche <http://localhost:18044>, Seed einmal auf dem
+neuen Stack, dieselben synthetischen Rollen wie oben. `dc44` ist dann auf diesen
+Einzeltest gebunden. Im Gesamtnachtest bleiben Alias und Port 18050 unverändert.
+
+**Ab hier beide Modi:** Die folgenden
+SQL-Befehle sind ausschließlich Fixture-Vorbereitung auf **dieser neuen lokalen
+Testdatenbank**. Keine Produktivdaten, keine künstliche rückwirkende
+Vertragshistorie. Das Demo-Passwort wird nur aus dem synthetischen Seed übernommen.
+
+Dieser einmalige Block legt eine zusätzliche Person im Team von Marc an.
+Die ungewöhnliche Sieben-Tage-Kernzeit ist eine **ausdrückliche Testannahme**,
+kein allgemeines Anwesenheitsmodell. Damit ist der Kernzeitfall auch am Wochenende
+prüfbar. Zwischen 00:01 und 23:58 Berliner Zeit gilt die bekannte Kernzeit.
+
+```bash
+dc44 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test <<'SQL'
+BEGIN;
+INSERT INTO "WorkSchedule" (
+  "id", "name", "frameStart", "frameEnd", "workingDays", "breakRules", "updatedAt"
+) VALUES (
+  '00000000-0000-4000-8000-000000004402', 'MANUAL44 known seven-day core',
+  '07:00', '18:00', 127,
+  '[{"afterMinutes":360,"breakMinutes":30}]'::jsonb, CURRENT_TIMESTAMP
+);
+INSERT INTO "WorkScheduleCoreTime" ("id", "scheduleId", "label", "start", "end", "weekdays")
+VALUES (
+  '00000000-0000-4000-8000-000000004403',
+  '00000000-0000-4000-8000-000000004402', 'Explicit synthetic core', '00:01', '23:58', 127
+);
+INSERT INTO "Employee" (
+  "id", "personalNo", "firstName", "lastName", "email", "passwordHash", "role",
+  "timeModel", "weeklyHours", "annualLeaveDays", "startDate", "holidayCalendar",
+  "managerId", "workScheduleId", "updatedAt"
+)
+SELECT '00000000-0000-4000-8000-000000004401', 'MANUAL44', 'Cockpit', 'Test',
+  'cockpit.test@openclockwork.test', seed."passwordHash", 'Employee', 'Teilzeit', 35, 30,
+  DATE '2024-01-01', 'NONE', manager."id", '00000000-0000-4000-8000-000000004402',
+  CURRENT_TIMESTAMP
+FROM "Employee" seed CROSS JOIN "Employee" manager
+WHERE seed."email" = 'anna.mueller@openclockwork.test'
+  AND manager."email" = 'marc.becker@openclockwork.test';
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM "Employee" WHERE "personalNo" = 'MANUAL44') THEN
+    RAISE EXCEPTION 'Expected synthetic seed accounts are missing';
+  END IF;
+END $$;
+COMMIT;
+SQL
+```
+
+**Zuerst ohne Vertragsbestätigung:** Marc öffnet **Manager-Cockpit**, wählt
+„Cockpit Test“. Erwartet: keine erfundene Fehlzeit; Vertrag/Anwesenheitspflicht
+ist nicht bestimmbar. Ein laufender Timer wäre trotzdem als Buchungsfakt sichtbar.
+
+Danach Hannah unter **Mitarbeiter → Cockpit Test → Vertragsperioden**:
+Bestätigung ab **1. Januar des aktuellen Jahres**, Beschäftigungsbeginn
+01.01.2024, 35 Wochenstunden, Teilzeit, **alle sieben Arbeitstage**, Kalender
+**NONE**, keine zusätzlichen Feiertage. Aussagekräftige Bestätigungsnotiz und
+explizite Bestätigung verwenden; Details des HR-Formulars stehen in #45.
+Es werden nur die für diesen Test ausdrücklich bekannten Fakten bestätigt.
+Marc aktualisiert: während der bekannten Kernzeit und ohne entschuldigende
+Abwesenheit steht nun ein textlicher Hinweis auf die fehlende Buchung.
+35 Wochenstunden ergeben hier **5 h Soll pro Arbeitstag**, nicht 7 oder 8 h.
+
+### B. Heutiger Status, Pflicht und automatische Aktualisierung
+
+1. Ohne Timer und innerhalb der bekannten Kernzeit: erforderliche Buchung fehlt.
+   **Nicht** aus bloßer Wochenstundenzahl oder Rahmenzeit auf Pflicht schließen.
+   Mit „Jetzt einstempeln“ aus Abschnitt D wird daraus **eingebucht**; das ist
+   weder eine Standortmessung noch ein Nachweis physischer Anwesenheit.
+2. Timer schließen, anschließend als HR im **operativen** Plan Kernzeiten
+   entfernen: flexible Zeit/keine bekannte aktuelle Kernzeitpflicht, kein falsches
+   „Fehlt“. Ein eindeutig passender Plan mit einem Fenster, das gerade nicht
+   läuft, zeigt „außerhalb Kernzeit“. Nur Rahmenstart/-ende ändern begründet
+   keine Anwesenheitspflicht.
+3. Einen bekannten vertraglichen Nicht-Arbeitstag oder bestätigten Feiertag
+   über eine ausdrücklich bekannte Test-Vertragsperiode herstellen. Ohne Timer
+   ist dies entsprechend entschuldigt/nicht erforderlich. Mit offenem Timer
+   bleiben **Buchungsfakt und Grund der fehlenden Pflicht** getrennt lesbar.
+   Vertragsänderungen wie bei #45 datiert bestätigen; keine historische
+   Korrektheit aus einem bloßen Profilwechsel ableiten.
+4. Genehmigten vollen Urlaub/Sonderurlaub bzw. erfasste Krankheit für heute
+   prüfen: keine Fehlbuchungswarnung. Pending/Draft/Rejected/Cancelled entschuldigt
+   **nicht**. Homeoffice hebt eine bekannte Kernzeitpflicht nicht allein auf.
+   Bei genehmigtem **halben** Tag zeigt die Oberfläche die zeitlich unbestimmte
+   Teilabwesenheit, statt willkürlich morgens/nachmittags freizugeben. Zwei
+   unbestimmte Halbtagssätze werden nicht zu erfundenen Zeitfenstern addiert.
+5. Als HR im Testplan eine kurze Kernzeit eintragen: Beginn etwa zwei Minuten
+   nach der aktuellen **Serverzeit**, Ende zwei Minuten später, heutiger
+   Wochentag. Nach einmaligem Laden die Ansicht offen lassen: Start-/Endgrenzen
+   müssen ohne Klick wirksam werden. Zusätzlich als Beschäftigte in einem
+   zweiten Fenster starten/stoppen: Cockpit aktualisiert durch Ereignisse;
+   ein 30-Sekunden-Fallback deckt ausgefallene Ereignisse ab. Bei Ladefehlern
+   darf ein alter „Fehlt“-Stand nicht als aktueller gesicherter Fakt erscheinen.
+6. Fehlender/mehrdeutiger Plan, fehlende Vertragsabdeckung oder eine mehrdeutige
+   Kernzeit an der Zeitumstellung: klarer Unbekannt-Hinweis, keine erfundene Pflicht.
+   Die automatisierten Fälle prüfen auch unbekannte Kalender und DST-Lücken/Folds.
+
+Im Manager-Cockpit erscheinen nur **aktuelle direkte Teammitglieder**.
+Hannah besitzt die ausdrücklich benannte Organisationssicht. Selbstaktionen
+sind keine stellvertretenden Aktionen. Mitarbeiterrolle und Solo-Installation
+haben keinen Team-Cockpit-Zugriff. Unnötige Krankheitsgründe, Bescheinigungen und
+Diagnosen werden weder in der Tagesübersicht noch in der Historie ausgeliefert.
+
+### C. Beide Genehmigungsarten unmittelbar im Cockpit
+
+1. Abschnitt D erzeugt einen **gewöhnlichen geschlossenen** Eintrag außerhalb
+   des Plans, z. B. gestern 06:15–08:45 bei Rahmen 07–18. Er erscheint in der
+   Rahmenzeit-Genehmigungsliste. Marc genehmigt, danach Hannah bestätigt die
+   HR-Stufe. Optionalen Kommentar und lesbare Historie kontrollieren.
+2. Separat als Cockpit Test einen Antrag **bestehende Buchung korrigieren**
+   auswählen, z. B. denselben Eintrag bis 09:45 verlängern. Im Cockpit erscheinen
+   Mitarbeitername, originaler/veränderter Zeitraum, Zustand und Verlauf.
+   Marc genehmigt, anschließend Hannah die weiterhin notwendige HR-Stufe.
+   Buchungs-ID und Anzahl bleiben gleich; keine doppelte Materialisierung.
+3. Einen anderen Eintrag bzw. Korrekturantrag ablehnen: Ablehnungsgrund ist
+   erforderlich, Ergebnis und Verlauf sind für die betroffenen Rollen konsistent.
+   Ein laufender Eintrag ist nicht als abgeschlossene Buchung genehmigbar.
+4. Zwei Tabs mit demselben Stand: im ersten entscheiden, im zweiten dieselbe
+   oder gegenteilige Entscheidung versuchen. Zweite Entscheidung scheitert als
+   veraltet; neu laden. Auch **zurückgeben → bearbeiten → neu einreichen**
+   legitimiert keine alte angezeigte Entscheidung (ABA). Genau ein Ergebnis,
+   keine zusätzliche Buchung und kein doppeltes Audit.
+5. Zwischen Laden und Entscheiden Managerzuordnung/Rolle ändern: alter Manager
+   darf nicht mehr entscheiden. HR darf nicht die Managerstufe überspringen;
+   eigene Einträge/Anträge können auch mit breiter Rolle nicht selbst genehmigt
+   werden. Ein fehlender Manager bleibt sichtbar blockiert, nicht still bestätigt.
+
+Alle Zeiten im Cockpit einschließlich Genehmigungsdetails folgen der angezeigten
+Serverzeitzone. Ein Browser mit einer anderen Zone darf daraus keine anderen
+Buchungszeitpunkte erzeugen. Normaler #42-Entwurfsdialog behält seine dokumentierte
+Ortszeit-/ISO-Roundtrip-Logik mit Sekunden und expliziter Fold-Auswahl.
+
+### D. Vollständige stellvertretende Erfassung
+
+Als Marc „Cockpit Test“ wählen, Bereich **Im Auftrag erfassen**.
+Jede Aktion benötigt eine **betriebliche Begründung (5–1000 Zeichen)**; keine
+medizinischen Einzelheiten eingeben. Projekt/Service-Auftrag werden für die
+begünstigte Person geladen, nicht aus Marcs eigenen Zuordnungen übernommen.
+
+| Aktion                         | Konkreter Versuch                                                                                                 | Erwartung                                                                                                                               |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Jetzt einstempeln              | Betriebsgrund eintragen, optional zulässiges Projekt/Auftrag wählen, speichern                                    | Beginn ist Server-JETZT, genau ein offener Eintrag; Actor Marc und begünstigte Person getrennt im Audit                                 |
+| Normal fortsetzen/stoppen      | Separates Fenster `cockpit.test@openclockwork.test`, Passwort `openclockwork`, normale Buchungsseite → Gehen      | Beschäftigte beendet ihre eigene stellvertretend gestartete Buchung ohne Sonderrecht; Rahmenprüfung bleibt aktiv                        |
+| Abgeschlossene Zeit nachtragen | Freier vergangener Tag 06:15–08:45, Rahmen 07–18                                                                  | Geschlossene Pending-Buchung, Manager → HR erforderlich; kein automatisches Durchwinken durch die Stellvertretung                       |
+| Pausenprüfung                  | Anderer freier Tag 08:00–16:30                                                                                    | Mit obigem Testplan 510 min brutto − 30 min Pause = **480 min netto**, keine manuelle Pausenüberschreibung                              |
+| Zeitumstellung                 | Herbsttag mit zweifacher 02-Uhr-Stunde, sofern bereits vergangen                                                  | Explizite Auswahl mit Offset/ISO; keine still gewählte falsche Stunde. Nicht existierende Frühlings-Ortszeit wird abgewiesen            |
+| Abwesenheit erfassen           | Krankheit, später separat Schulung und Freizeitausgleich auf freien Tagen                                         | Direkte betriebliche Aufzeichnung gemäß bestehender Domäne, kein erfundener Antragsstatus; Actor/Begünstigte/Zeitraum/Grund auditiert   |
+| Abwesenheit beantragen         | Urlaub, Homeoffice und Sonderurlaub auf verschiedenen freien Tagen; ggf. halber erster/letzter Tag und Vertretung | Normale Validierung/Vertretungs-/Genehmigungskette, **nicht durch die Stellvertretung genehmigt**; Ersteller Marc im Submitted-Ereignis |
+
+Für alle vier Modi dieselben Negativfälle prüfen:
+
+- Zweimal „Jetzt einstempeln“ parallel, auch Manager gegen Beschäftigte:
+  genau ein offener Timer; zweiter Versuch scheitert ohne zusätzliches Audit.
+- Rückwirkende Überlappung, Ende vor Beginn, Zukunft und ungültiger Auftrag:
+  keine Buchung. Manipulierte `breakRules`, `breakMinutes` oder `breakOverride`
+  werden abgewiesen; normale gesetzliche/vertragliche Pausen bleiben wirksam.
+- Fremde Team-ID, eigene ID, inaktive Person, gewechselte Zuordnung/Rolle oder
+  Solo-Wechsel während der Operation: **403** bzw. ungültige Session **401**,
+  keine Nebenwirkung. Ein HR-Recht ist kein Recht zur eigenen Stellvertretung
+  oder zur eigenen Genehmigung.
+- `employeeId`, `actorId`, Status oder Signaturen im Body können weder die
+  URL-Zielperson noch den JWT-Akteur ersetzen. Nicht freigegebene Body-Felder
+  sind nicht maßgeblich; ein ansonsten zulässiger Request kann trotzdem
+  erfolgreich sein. **Fremdes URL-Ziel** bleibt unabhängig vom Body verboten.
+- Proxy-Antrag mit zu wenig Urlaub, Überschneidung, falscher Vertretung oder
+  nicht freigegebenem Typ: normaler Fachfehler, keine Auto-Genehmigung.
+- Bei Krankheit keine Diagnose/Notiz/Bescheinigung einschleusen:
+  medizinische Felder sind ausdrücklich verboten. Die Cockpit-Historie gibt
+  auch vorhandene medizinische Notizen aus alten Abwesenheiten nicht zurück.
+
+Auditkontrolle auf genau der isolierten Testdatenbank:
+
+```bash
+dc44 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test -c \
+ 'SELECT "action", "actorId", "employeeId", "resourceKind", "resourceId", "reason", "occurredAt"
+  FROM "TeamProxyAudit" WHERE "employeeId" = '\''00000000-0000-4000-8000-000000004401'\''
+  ORDER BY "occurredAt";'
+```
+
+Actor ist der tatsächliche angemeldete Erfasser, nicht die begünstigte Person.
+Zeitbuchungs-Audits enthalten zusätzlich die Werte vorher/nachher; das Original
+bleibt erhalten. Entscheidungen haben ihre eigenen tatsächlichen Akteure und
+Zeitpunkte. Ein fehlgeschlagenes Schreiben rollt Werte, Entscheidung und Audit
+zusammen zurück, statt einen halben Erfolg zu hinterlassen.
+
+### E. Mitarbeiterhistorie und Kalender, vollständig statt nur Kurzliste
+
+1. Cockpit Test wählen. **Monat, Quartal, Jahr und eigener Zeitraum** wechseln;
+   Grenzen in der ausgewiesenen Serverzeitzone beachten. Zeitbuchungen,
+   Krankheit/Schulung/Freizeitausgleich sowie Urlaub/Homeoffice/Sonderurlaub
+   erscheinen mit Klasse, Zustand und ggf. Halbtag.
+2. In den vorherigen Paketen erzeugte Pending/Draft/Rejected/Cancelled/Approved
+   Datensätze prüfen. Kalender und Liste unterscheiden diese lesbar, nicht nur
+   per Farbe. Ein offener Antrag ist **keine genehmigte Verfügbarkeit**.
+   Datumsganze Abwesenheiten umfassen den letzten Tag; Halbtag bedeutet hier
+   keine erfundene Vormittags-/Nachmittagslage.
+3. Buchung über Mitternacht/Monatsgrenze: beide berührten Kalendertage korrekt,
+   aber keine Phantombelegung am exklusiven Endzeitpunkt 00:00. Eine offene
+   Buchung endet für die Kalenderdarstellung am geladenen Jetzt, nicht irgendwo
+   in der Zukunft. Die Historie zeigt die vollständigen Originalintervalle;
+   der separate #45-Vergleich berechnet geclippte Periodensummen.
+4. **Verlauf** öffnen: Antragsereignisse/Entscheidungen, verknüpfte Korrektur mit
+   Vorher/Nachher und Buchungs-Audit lesen. Stellvertretende Aktionen benennen
+   den tatsächlichen Erfasser. Fremde aktuelle Zuordnung verhindert den Abruf;
+   frühere Autorschaft ist kein dauerhaftes Leserecht.
+5. Jahr laden: alle Cursor-Seiten werden nachgeladen; Fortschritt ist sichtbar,
+   Kalender erst mit vollständigen Daten belastbar. Kein stilles 200-/500-Limit.
+   Für mehr als ein Jahr bleibt die Historie bis fünf Jahre auswählbar; der
+   separate Soll/Ist-Vergleich weist sein eigenes 366-Tage-Limit aus.
+   Leere Bereiche, Ladefehler und erneutes Laden sind explizit bedienbar.
+
+Optionaler **Großjahres-Fixture**: auf derselben Testperson ein älteres Jahr mit
+mehr als 500 kleinen, nicht überlappenden geschlossenen Buchungen erzeugen.
+Nicht als reale Historie/Vertragsbestätigung behandeln. Erzeugt mindestens
+730 Buchungen (Schaltjahr 732), keine genehmigungspflichtigen Datensätze und
+keinen erfundenen Vertrag. Bei wiederholtem Ausführen verhindert der Marker
+Duplikate. Danach genau das Vorjahr im Jahresfilter wählen.
+
+```bash
+dc44 exec -T db psql -v ON_ERROR_STOP=1 -U openclockwork -d openclockwork_test <<'SQL'
+INSERT INTO "TimeEntry" (
+  "id", "employeeId", "clockIn", "clockOut", "source", "status",
+  "requiresApproval", "breakRules", "note", "updatedAt"
+)
+SELECT gen_random_uuid(), '00000000-0000-4000-8000-000000004401',
+  ((d::date + slot) AT TIME ZONE 'Europe/Berlin') AT TIME ZONE 'UTC',
+  ((d::date + slot + interval '15 minutes') AT TIME ZONE 'Europe/Berlin') AT TIME ZONE 'UTC',
+  'Manual', 'Approved', false, '[]'::jsonb, 'MANUAL44 large-year fixture', CURRENT_TIMESTAMP
+FROM generate_series(
+  date_trunc('year', CURRENT_DATE)::date - interval '1 year',
+  date_trunc('year', CURRENT_DATE)::date - interval '1 day', interval '1 day'
+) d
+CROSS JOIN (VALUES (TIME '12:00'), (TIME '13:00')) slots(slot)
+WHERE NOT EXISTS (
+  SELECT 1 FROM "TimeEntry" old
+  WHERE old."employeeId" = '00000000-0000-4000-8000-000000004401'
+    AND old."note" = 'MANUAL44 large-year fixture'
+);
+SQL
+```
+
+Unter DE und EN navigieren; Auswahllisten, Datumseingaben, Bestätigen/Ablehnen,
+Fehler und Verlaufsdialog per Tastatur bedienen. Offline sind stellvertretende
+Mutationen gesperrt. Fremde Team-IDs auch bei History/Cursor/Booking-Targets
+prüfen; eine gemischte oder erratene ID erweitert niemals den Scope.
+
+### F. Tatsächlich ausgeführte automatisierte Gates
+
+Die ausführliche Anleitung A–E ist **kein behaupteter manueller Heimnachtest**.
+Es wurde zusätzlich ein echter **automatisierter Chromium-Lauf** auf dem gebauten
+isolierten Compose-Stack `openclockwork-all-five` durchgeführt. Browserzone
+`America/New_York`, Serverzone `Europe/Berlin`: reale Logins, Manager-Proxy-Start,
+normaler Employee-Stopp, Nachtrag und Bestandskorrektur jeweils Manager → HR,
+stabile Ziel-ID/Anzahl, Krankheitsaufzeichnung, normaler halbtägiger Urlaubsantrag,
+Historie/Kalender/Jahresfilter sowie fremde/eigene unzulässige Proxy-Ziele.
+Keine Mock-API, keine realen Daten, keine gespeicherten Auth-Traces.
+
+Der opt-in Test prüft vor Mutationen lokalen Docker-Kontext, exaktes Compose-
+Projekt, synthetische Datenbank und Loopback-Port. Er ist nicht gegen ein
+beliebiges Deployment ausführbar. Nur nach dem **kombinierten Setup** mit
+Projekt `openclockwork-all-five` und Port 18050 ausführen, nicht gegen den
+alternativen Einzeltest auf 18044. Auf einem Node-20-/pnpm-9-Entwicklerrechner
+mit installierten Abhängigkeiten und Chromium:
+
+```bash
+pnpm exec playwright install chromium
+COCKPIT_RUNTIME_TEST=1 BASE_URL=http://127.0.0.1:18050 \
+  pnpm nx run web-e2e:cockpit-runtime --skip-nx-cache
+```
+
+Der Test ergänzt eindeutig markierte synthetische Personen/Pläne, löscht keine
+vorhandenen Daten und benötigt kein erneutes Seeden. Die endgültigen lokal ausgeführten Gates (Node **20.20.2**, pnpm **9.15.9**,
+`TZ=Europe/Berlin`) sind:
+
+| Gate                                                                                                         | Tatsächlich ausgeführtes Ergebnis                                                                                                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm nx run api-e2e:e2e --runInBand --skip-nx-cache`                                                        | **653/653 Tests, 45 Suites bestanden**, einschließlich aller bisherigen #42/#41/#43/#45-Regressionen                                                                                                                                          |
+| Neue #44-API-Fälle                                                                                           | **238**: 112 Scope/Anwesenheit/History/Approval-Listen/Targets, 30 stellvertretende Zeitbuchungen, 48 Abwesenheits-/Antragsfälle, 48 Versions-/Concurrency-/Autoritäts-/Audit-Fälle                                                           |
+| `pnpm nx run api-e2e:e2e --runInBand --testPathPatterns=cockpit-decision-audit --skip-nx-cache`              | **48/48 bestanden**; unter anderem zwei gleichzeitige Entscheider, ABA-Rückgabe/Resubmit, Authority-Änderung nach Sperrwartezeit, aktuelle statt historische Audit-Rechte                                                                     |
+| `pnpm nx run-many -t test -p web,shared --run --skip-nx-cache`                                               | Web **366/366 Tests in 49 Dateien**, Shared **88/88 in 7 Dateien** bestanden                                                                                                                                                                  |
+| `pnpm nx run api-e2e:test-ops`                                                                               | **27/27 bestanden**                                                                                                                                                                                                                           |
+| `pnpm nx run-many -t typecheck,lint -p api,web,shared,api-e2e,web-e2e`                                       | **Alle fünf Projekte erfolgreich**; nach Generierung Web/API-E2E/Web-E2E nochmals ohne Nx-Cache. **0 Lintfehler**, nur **15 bestehende Warnungen** (13 in den bisherigen vier Projekten + 2 im bestehenden Browser-Smoke), keine neue Warnung |
+| `pnpm nx run-many -t build -p api,web,shared --skip-nx-cache`                                                | **Alle drei Produktions-Builds bestanden**, nach den Typechecks, ohne `dist`-Rennen                                                                                                                                                           |
+| `pnpm verify:api`                                                                                            | OpenAPI und generierter Client reproduzierbar synchron; Ergebnis vor dem Commit geprüft                                                                                                                                                       |
+| Befüllter echter DB-Upgrade vom akzeptierten #45-Stand                                                       | **27 → 28 Migrationen bestanden**, Sentinel-Werte/Audits erhalten, **0 erfundene Proxy-Audits**, weiterhin keine erfundene Vertragsbestätigung                                                                                                |
+| Docker-Build/Start/Seed des kombinierten Branches                                                            | **API/Web gebaut, API/Web/DB healthy**, genau einmal synthetisch geseedet (9 Demo-Personen); finales Web-Image anschließend nachgebaut                                                                                                        |
+| `COCKPIT_RUNTIME_TEST=1 BASE_URL=http://127.0.0.1:18050 pnpm nx run web-e2e:cockpit-runtime --skip-nx-cache` | **1/1 echter Chromium-Test bestanden**, auf dem abschließenden Docker-Webimage, reale Manager-/HR-/Employee-Aktionen mit Browserzone New York gegen Serverzone Berlin                                                                                         |
+| SQL-Blöcke aus #44 A und E                                                                                   | **Tatsächlich ausgeführt**: Plan, Kernzeit und synthetische Person angelegt; **730** geschlossene Vorjahresbuchungen eingefügt. Kein manueller Browsernachtest dieser SQL-Fixtures behauptet                                                  |
+| `git diff --check`                                                                                           | Vor dem Commit bestanden                                                                                                                                                                                                                      |
+
+Zwischenläufe fanden eine fehlende Feldfreigabe im Privacy-Test nach Ergänzung
+des getrennten Pflichtgrunds, Typinferenz für leere Testarrays und eine neue
+Test-Non-null-Warnung. Korrigiert wurden die expliziten Testtypen/-Guards und die
+gezielte erlaubte Antwortfeldliste, nicht die Berechtigungs-/Privacy-Assertions.
+Der erste tatsächliche Docker-Start zeigte außerdem `EACCES /app/package.json`
+bei einem Quellcheckout mit `umask 077`: das Runtime-Image macht nur den
+root-eigenen Code für den nicht privilegierten App-Benutzer lesbar; keine
+Host-/Datenrechte wurden geändert. Der korrigierte Stack und der finale
+Browserlauf waren erfolgreich. Ein abschließender Readback vereinheitlichte
+auch die Datumsüberschrift des Korrekturverlaufs mit der ausgewiesenen
+Serverzeitzone; eine zusätzliche Mitternachtsregression und der vollständige
+Web-Nachlauf (**366 Tests**) sind grün. Beim Zusatztest wurden anschließend
+die projektspezifische Importauflösung und Importreihenfolge korrigiert;
+Types/Lint, beide Zonenregressionen und Web-Produktionsbuild sind erneut grün.
+
+Die bestehende CI bleibt unverändert und prüft auch den kumulativen Upgradepfad
+von `main`. Exakten finalen Head, alle fünf CI-Ergebnisse und deren stabile
+GitHub-URLs nennen PR/Issue-Kommentar; diese Aussagen dürfen nicht auf spätere
+Commits übertragen werden. Menschlicher Gesamtnachtest zu Hause und unabhängige
+Abnahme durch unabhängiges Review sind damit nicht vorweggenommen. Kein Merge, Release,
+Tag, Versionsbump oder Deployment.
+
+Zum Ende `dc44 stop` verwenden: im Gesamtnachtest entspricht das `all5 stop`,
+im Einzeltest stoppt es ausschließlich `openclockwork-issue44`. Fortsetzen mit
+`dc44 up -d --wait` in derselben Wrapper-Auswahl; Daten/Attachments bleiben
+vorhanden. Keine Volumes löschen und nicht erneut seeden.

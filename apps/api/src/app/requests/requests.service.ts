@@ -11,6 +11,7 @@ import {
   type RequestEventKind,
   type RequestType,
 } from '@prisma/client';
+import { isISO8601 } from 'class-validator';
 import {
   calculateVacationDays,
   calculateWorkingDays,
@@ -23,6 +24,9 @@ import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestNotificationService } from '../notifications/request-notification.service';
 import { EventsGateway } from '../events/events.gateway';
+import type { JwtUser } from '../auth/jwt.strategy';
+import { assertProxyTarget, writeProxyAudit } from '../team-cockpit/team-scope';
+import type { ProxyRequestDto } from './proxy-request.dto';
 import { TimeAdjustmentsService } from './time-adjustments.service';
 import type {
   TimeEntryAuditDto,
@@ -123,6 +127,102 @@ export class RequestsService {
 
   async createVacation(dto: CreateVacationDto): Promise<RequestDto> {
     return this.createValidated('Vacation', dto);
+  }
+
+  /** Submit for the beneficiary, never approve on behalf of the proxy actor. */
+  async createProxy(
+    employeeId: string,
+    dto: ProxyRequestDto,
+    actor: JwtUser,
+  ): Promise<RequestDto> {
+    const created = await this.prisma.$transaction(async (tx) => {
+      await this.lockEmployee(tx, employeeId);
+      const target = await assertProxyTarget(tx, actor, employeeId);
+      if (!['Vacation', 'HomeOffice', 'SpecialLeave'].includes(dto.type)) {
+        throw new BadRequestException(
+          'Only absence applications may be submitted by proxy',
+        );
+      }
+      const proxyReason =
+        typeof dto.proxyReason === 'string' ? dto.proxyReason.trim() : '';
+      if (!proxyReason || proxyReason.length < 5 || proxyReason.length > 1000) {
+        throw new BadRequestException(
+          'proxyReason must contain 5 to 1000 characters',
+        );
+      }
+      if (
+        !isISO8601(dto.from, { strict: true }) ||
+        !isISO8601(dto.to, { strict: true })
+      ) {
+        throw new BadRequestException(
+          'Request dates must be valid ISO calendar dates',
+        );
+      }
+      // Explicit values only: neither a body owner nor approval/correction data
+      // may become authoritative when this service is called without an HTTP pipe.
+      const values = await this.validateValues(
+        dto.type,
+        {
+          employeeId,
+          from: dto.from,
+          to: dto.to,
+          halfDayStart: dto.halfDayStart,
+          halfDayEnd: dto.halfDayEnd,
+          substituteId: dto.substituteId,
+          reason: dto.reason,
+        },
+        tx,
+      );
+      const request = await tx.request.create({
+        data: {
+          ...values,
+          employeeId,
+          type: dto.type,
+          status: 'Submitted',
+          workflowState: values.substituteId
+            ? 'PendingSubstitute'
+            : 'PendingManager',
+        },
+        include: employeeInclude,
+      });
+      await tx.requestEvent.create({
+        data: {
+          requestId: request.id,
+          kind: 'Submitted',
+          actorId: target.actor.id,
+          note: proxyReason,
+        },
+      });
+      await writeProxyAudit(tx, {
+        ...target,
+        resourceKind: 'Request',
+        resourceId: request.id,
+        action: 'RequestSubmitted',
+        reason: proxyReason,
+        values: {
+          before: null,
+          after: {
+            employeeId: request.employeeId,
+            type: request.type,
+            from: request.from.toISOString(),
+            to: request.to.toISOString(),
+            reason: request.reason,
+            halfDayStart: request.halfDayStart,
+            halfDayEnd: request.halfDayEnd,
+            calculatedDays: Number(request.calculatedDays),
+            substituteId: request.substituteId,
+            status: request.status,
+            workflowState: request.workflowState,
+            currentApproverId: request.currentApproverId,
+            requiresApproval: request.requiresApproval,
+            createdAt: request.createdAt.toISOString(),
+          },
+        },
+      });
+      return request;
+    });
+    this.notifications.notifyTransitioned(created, 'Submitted', actor.id);
+    return toRequestDto(created);
   }
 
   private async lockEmployee(
@@ -357,6 +457,20 @@ export class RequestsService {
     };
   }
 
+  private assertExpectedVersion(
+    request: Request,
+    expectedUpdatedAt?: string,
+  ): void {
+    if (expectedUpdatedAt === undefined) return;
+    const expected = new Date(expectedUpdatedAt);
+    if (!Number.isFinite(expected.getTime()))
+      throw new BadRequestException('Invalid displayed request version');
+    if (expected.getTime() !== request.updatedAt.getTime())
+      throw new ConflictException(
+        'Request changed; reload and review the current values before deciding',
+      );
+  }
+
   /** Compare-and-swap protects transitions too, including Draft → pending → Draft ABA races. */
   private async updateVersion(
     tx: Prisma.TransactionClient,
@@ -390,10 +504,12 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string | null,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.type === 'TimeAdjustment') {
       await this.assertApprover(request, actorId);
+      this.assertExpectedVersion(request, expectedUpdatedAt);
       return this.approveTimeAdjustment(
         request,
         requiresTwoStageApproval(request)
@@ -406,12 +522,20 @@ export class RequestsService {
     if (request.type === 'Vacation') {
       // Vacation must use the multi-stage workflow.
       await this.assertApprover(request, actorId);
+      this.assertExpectedVersion(request, expectedUpdatedAt);
       return this.transitionVacation(request, 'manager_approve', actorId, note);
     }
     await this.assertApprover(request, actorId);
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     if (request.workflowState !== 'PendingManager')
       throw new ConflictException('Request is not pending manager approval');
     const updated = await this.prisma.$transaction(async (tx) => {
+      await this.assertTransitionAuthority(
+        tx,
+        request,
+        'manager_approve',
+        actorId,
+      );
       const updated = await this.updateVersion(tx, request, {
         status: 'Approved',
         workflowState: 'Approved',
@@ -433,16 +557,25 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string | null,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.type === 'Vacation') {
       await this.assertApprover(request, actorId);
+      this.assertExpectedVersion(request, expectedUpdatedAt);
       return this.transitionVacation(request, 'manager_reject', actorId, note);
     }
     await this.assertApprover(request, actorId);
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     if (request.workflowState !== 'PendingManager')
       throw new ConflictException('Request is not pending manager approval');
     const updated = await this.prisma.$transaction(async (tx) => {
+      await this.assertTransitionAuthority(
+        tx,
+        request,
+        'manager_reject',
+        actorId,
+      );
       const updated = await this.updateVersion(tx, request, {
         status: 'Rejected',
         workflowState: 'Rejected',
@@ -467,9 +600,11 @@ export class RequestsService {
     actorId: string,
     note: string | null,
     requiresHrConfirmation: boolean,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertApprover(request, actorId);
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     // Off-hours TimeAdjustments always need HR confirmation, regardless of the
     // flag set by the manager — the spec calls for a "Sondergenehmigung" first,
     // then the actual time correction.
@@ -485,9 +620,11 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string | null,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertApprover(request, actorId);
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     return this.transitionVacation(request, 'manager_reject', actorId, note);
   }
 
@@ -495,9 +632,11 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string | null,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertHrAdminRole(actorId);
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     return this.transitionVacation(request, 'hr_confirm', actorId, note);
   }
 
@@ -505,9 +644,11 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertHrAdminRole(actorId);
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     return this.transitionVacation(request, 'hr_reject', actorId, note);
   }
 
@@ -515,11 +656,13 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string | null,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.substituteId !== actorId) {
       throw new ForbiddenException('Only the chosen substitute can accept');
     }
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     return this.transitionVacation(request, 'substitute_accept', actorId, note);
   }
 
@@ -527,11 +670,13 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.substituteId !== actorId) {
       throw new ForbiddenException('Only the chosen substitute can decline');
     }
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     return this.transitionVacation(
       request,
       'substitute_decline',
@@ -544,9 +689,11 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     await this.assertApprover(request, actorId);
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     return this.transitionVacation(request, 'manager_return', actorId, note);
   }
 
@@ -686,6 +833,7 @@ export class RequestsService {
     id: string,
     actorId: string,
     note: string | null,
+    expectedUpdatedAt?: string,
   ): Promise<RequestDto> {
     const request = await this.assertRequest(id);
     if (request.employeeId !== actorId) {
@@ -706,10 +854,66 @@ export class RequestsService {
       throw new ConflictException(
         'An applied correction cannot be undone by cancelling its request; submit a new correction',
       );
+    this.assertExpectedVersion(request, expectedUpdatedAt);
     return this.transitionVacation(request, 'cancel', actorId, note);
   }
 
   // ----- Internal -----
+
+  private async assertTransitionAuthority(
+    tx: Prisma.TransactionClient,
+    expected: Request,
+    event: WorkflowEvent,
+    actorId: string,
+  ): Promise<void> {
+    await this.lockEmployee(tx, expected.employeeId);
+    await this.adjustments.assertTeam(tx);
+    const [request, actor, employee] = await Promise.all([
+      tx.request.findUniqueOrThrow({ where: { id: expected.id } }),
+      tx.employee.findUnique({ where: { id: actorId } }),
+      tx.employee.findUnique({ where: { id: expected.employeeId } }),
+    ]);
+    if (
+      request.updatedAt.getTime() !== expected.updatedAt.getTime() ||
+      request.workflowState !== expected.workflowState
+    )
+      throw new ConflictException('Request changed; reload before continuing');
+    if (!actor?.isActive || !employee?.isActive)
+      throw new ForbiddenException('Active employee and reviewer required');
+    if (event.startsWith('manager_')) {
+      if (actor.role !== 'Manager' && actor.role !== 'HRAdmin')
+        throw new ForbiddenException('Manager review required');
+      if (
+        actor.role === 'Manager' &&
+        (employee.managerId !== actor.id ||
+          request.currentApproverId !== actor.id ||
+          actor.id === employee.id)
+      )
+        throw new ForbiddenException(
+          'Only the current assigned manager may review this request',
+        );
+    } else if (event === 'hr_confirm' || event === 'hr_reject') {
+      if (actor.role !== 'HRAdmin')
+        throw new ForbiddenException('HR review required');
+    } else if (
+      event === 'substitute_accept' ||
+      event === 'substitute_decline'
+    ) {
+      if (request.substituteId !== actor.id || actor.id === employee.id)
+        throw new ForbiddenException('Only the selected substitute may decide');
+    } else if (event === 'cancel') {
+      if (
+        actor.id !== employee.id &&
+        actor.role !== 'HRAdmin' &&
+        !(
+          actor.role === 'Manager' &&
+          employee.managerId === actor.id &&
+          request.currentApproverId === actor.id
+        )
+      )
+        throw new ForbiddenException('Cancellation is no longer authorized');
+    }
+  }
 
   private async transitionVacation(
     request: Request,
@@ -779,6 +983,13 @@ export class RequestsService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      await this.assertTransitionAuthority(tx, request, event, actorId);
+      if (event === 'substitute_accept') {
+        const employee = await tx.employee.findUniqueOrThrow({
+          where: { id: employeeId },
+        });
+        data.currentApproverId = employee.managerId;
+      }
       const u = await this.updateVersion(tx, request, data);
       await tx.requestEvent.create({
         data: { requestId: request.id, kind: eventKind, actorId, note },
