@@ -17,7 +17,7 @@ notwendig. **Keinen vorhandenen Stack, keine vorhandene `.env` und keine realen
 Personaldaten verwenden.**
 
 ```bash
-git fetch origin v2.2.1
+git fetch origin tag v2.2.1
 git worktree add --detach ../openclockwork-all-five-manual v2.2.1
 cd ../openclockwork-all-five-manual
 git rev-parse HEAD
