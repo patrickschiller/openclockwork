@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { EmployeeLeaveAllowance } from '@prisma/client';
+import type { EmployeeLeaveAllowance, Prisma } from '@prisma/client';
 import type { JwtUser } from '../auth/jwt.strategy';
 import { EmployeesService } from '../employees/employees.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,13 +29,14 @@ export class LeaveAllowancesService {
   async getOrDefault(
     employeeId: string,
     year: number,
+    db: Prisma.TransactionClient = this.prisma,
   ): Promise<EmployeeLeaveAllowance> {
-    const existing = await this.prisma.employeeLeaveAllowance.findUnique({
+    const existing = await db.employeeLeaveAllowance.findUnique({
       where: { employeeId_year: { employeeId, year } },
     });
     if (existing) return existing;
-    const employee = await this.assertEmployee(employeeId);
-    return this.prisma.employeeLeaveAllowance.create({
+    const employee = await this.assertEmployee(employeeId, db);
+    return db.employeeLeaveAllowance.create({
       data: {
         employeeId,
         year,
@@ -113,8 +114,11 @@ export class LeaveAllowancesService {
     return { scanned: candidates.length, expired };
   }
 
-  private async assertEmployee(employeeId: string) {
-    const employee = await this.prisma.employee.findUnique({
+  private async assertEmployee(
+    employeeId: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    const employee = await db.employee.findUnique({
       where: { id: employeeId },
     });
     if (!employee)

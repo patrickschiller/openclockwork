@@ -3,12 +3,18 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import type { JwtUser } from '../auth/jwt.strategy';
@@ -20,9 +26,10 @@ import {
   CreateVacationDto,
   ManagerApproveDto,
   TransitionDto,
+  UpdateDraftRequestDto,
   TransitionWithRequiredNoteDto,
   type BulkResult,
-  type RequestDto,
+  RequestDto,
   type RequestEventDto,
 } from './requests.dto';
 
@@ -34,6 +41,7 @@ export class RequestsController {
   constructor(private readonly service: RequestsService) {}
 
   @Get()
+  @ApiOkResponse({ type: RequestDto, isArray: true })
   list(
     @CurrentUser() user: JwtUser,
     @Query('employeeId') employeeId?: string,
@@ -57,6 +65,7 @@ export class RequestsController {
   }
 
   @Get(':id')
+  @ApiOkResponse({ type: RequestDto })
   get(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser() user: JwtUser,
@@ -73,6 +82,7 @@ export class RequestsController {
   }
 
   @Post()
+  @ApiCreatedResponse({ type: RequestDto })
   create(
     @Body() dto: CreateRequestDto,
     @CurrentUser() user: JwtUser,
@@ -81,6 +91,7 @@ export class RequestsController {
   }
 
   @Post('vacation')
+  @ApiCreatedResponse({ type: RequestDto })
   createVacation(
     @Body() dto: CreateVacationDto,
     @CurrentUser() user: JwtUser,
@@ -88,9 +99,30 @@ export class RequestsController {
     return this.service.createVacation({ ...dto, employeeId: user.id });
   }
 
+  @Patch(':id')
+  @ApiOkResponse({ type: RequestDto })
+  updateDraft(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateDraftRequestDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.updateDraft(id, user.id, dto, false);
+  }
+
+  @Post(':id/resubmit')
+  @ApiCreatedResponse({ type: RequestDto })
+  resubmit(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: UpdateDraftRequestDto,
+    @CurrentUser() user: JwtUser,
+  ): Promise<RequestDto> {
+    return this.service.updateDraft(id, user.id, dto, true);
+  }
+
   // ----- Generic approve / reject (legacy convenience) -----
 
   @Post(':id/approve')
+  @ApiCreatedResponse({ type: RequestDto })
   approve(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,
@@ -100,6 +132,7 @@ export class RequestsController {
   }
 
   @Post(':id/reject')
+  @ApiCreatedResponse({ type: RequestDto })
   reject(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,
@@ -111,6 +144,7 @@ export class RequestsController {
   // ----- Vacation workflow -----
 
   @Post(':id/manager-approve')
+  @ApiCreatedResponse({ type: RequestDto })
   managerApprove(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: ManagerApproveDto,
@@ -125,6 +159,7 @@ export class RequestsController {
   }
 
   @Post(':id/manager-reject')
+  @ApiCreatedResponse({ type: RequestDto })
   managerReject(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,
@@ -134,6 +169,7 @@ export class RequestsController {
   }
 
   @Post(':id/hr-confirm')
+  @ApiCreatedResponse({ type: RequestDto })
   hrConfirm(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,
@@ -143,6 +179,7 @@ export class RequestsController {
   }
 
   @Post(':id/hr-reject')
+  @ApiCreatedResponse({ type: RequestDto })
   hrReject(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionWithRequiredNoteDto,
@@ -152,6 +189,7 @@ export class RequestsController {
   }
 
   @Post(':id/substitute/accept')
+  @ApiCreatedResponse({ type: RequestDto })
   substituteAccept(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,
@@ -161,6 +199,7 @@ export class RequestsController {
   }
 
   @Post(':id/substitute/decline')
+  @ApiCreatedResponse({ type: RequestDto })
   substituteDecline(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionWithRequiredNoteDto,
@@ -170,6 +209,7 @@ export class RequestsController {
   }
 
   @Post(':id/return')
+  @ApiCreatedResponse({ type: RequestDto })
   returnForRevision(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionWithRequiredNoteDto,
@@ -179,6 +219,7 @@ export class RequestsController {
   }
 
   @Post(':id/cancel')
+  @ApiCreatedResponse({ type: RequestDto })
   cancel(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() body: TransitionDto,

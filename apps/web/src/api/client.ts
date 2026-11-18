@@ -367,6 +367,8 @@ export interface AccountDto {
 export interface RequestDto {
   id: string;
   employeeId: string;
+  employeeName: string;
+  updatedAt: string;
   type: RequestType;
   status: RequestStatus;
   workflowState: WorkflowState;
@@ -544,6 +546,13 @@ export interface CreateVacationPayload {
   reason: string | null;
   halfDayStart?: boolean;
   halfDayEnd?: boolean;
+}
+
+export interface UpdateDraftRequestPayload extends Omit<
+  CreateVacationPayload,
+  'employeeId'
+> {
+  expectedUpdatedAt: string;
 }
 
 export interface UpsertLeaveAllowancePayload {
@@ -1052,6 +1061,16 @@ export const api = {
     }),
   createVacationRequest: (payload: CreateVacationPayload) =>
     request<RequestDto>('/api/requests/vacation', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateDraftRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+  resubmitRequest: (id: string, payload: UpdateDraftRequestPayload) =>
+    request<RequestDto>(`/api/requests/${id}/resubmit`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

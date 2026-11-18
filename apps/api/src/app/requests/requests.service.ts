@@ -10,7 +10,6 @@ import type {
   Request,
   RequestEventKind,
   RequestType,
-  WorkflowState,
 } from '@prisma/client';
 import {
   calculateVacationDays,
@@ -32,6 +31,7 @@ import {
   type CreateVacationDto,
   type RequestDto,
   type RequestEventDto,
+  type UpdateDraftRequestDto,
 } from './requests.dto';
 
 export interface ListRequestsFilter {
@@ -42,6 +42,13 @@ export interface ListRequestsFilter {
   currentApproverId?: string;
   substituteId?: string;
 }
+
+const employeeInclude = {
+  employee: { select: { firstName: true, lastName: true } },
+} as const;
+type RequestWithEmployee = Prisma.RequestGetPayload<{
+  include: typeof employeeInclude;
+}>;
 
 @Injectable()
 export class RequestsService {
@@ -72,6 +79,7 @@ export class RequestsService {
       where: { AND: [where, await this.visibilityWhere(actorId)] },
       orderBy: { createdAt: 'desc' },
       take: 200,
+      include: employeeInclude,
     });
     return rows.map(toRequestDto);
   }
@@ -99,143 +107,234 @@ export class RequestsService {
     }));
   }
 
-  // ----- Generic create (HomeOffice, SpecialLeave, TimeAdjustment, Vacation-as-fallback) -----
-
+  // Creation and revision deliberately share validation. Serializing per employee
+  // keeps simultaneous resubmissions/creations from spending the same balance or
+  // passing the same overlap check. No request is deleted/recreated on revision.
   async create(dto: CreateRequestDto): Promise<RequestDto> {
-    if (dto.type === 'Vacation') {
-      // Vacation has its own validated path with leave balance check.
-      return this.createVacation({
-        employeeId: dto.employeeId,
-        from: dto.from,
-        to: dto.to,
-        substituteId: null,
-        reason: dto.reason ?? null,
-      });
-    }
-    const employee = await this.employees.getById(dto.employeeId);
-    const from = new Date(dto.from);
-    const to = new Date(dto.to);
-    if (to.getTime() < from.getTime()) {
-      throw new BadRequestException('"to" must be on/after "from"');
-    }
-    await this.assertNoActiveOverlap(employee.id, from, to);
-    const schedule = await this.schedules.resolveForEmployee(employee.id);
-    let requires = false;
-    if (dto.type === 'TimeAdjustment') {
-      if (to.getTime() <= from.getTime()) {
-        throw new BadRequestException(
-          'TimeAdjustment "to" must be after "from"',
-        );
-      }
-      await this.assertNoTimeEntryOverlap(employee.id, from, to);
-      requires = requiresSpecialApproval(from, to, schedule.frame);
-    }
-    const calculatedDays = calculateWorkingDays(from, to, {
-      workingDays: schedule.workingDays,
-      holidayProvider: schedule.holidayProvider,
-    });
+    return this.createValidated(dto.type, dto);
+  }
+
+  async createVacation(dto: CreateVacationDto): Promise<RequestDto> {
+    return this.createValidated('Vacation', dto);
+  }
+
+  private async lockEmployee(
+    tx: Prisma.TransactionClient,
+    employeeId: string,
+  ): Promise<void> {
+    await tx.$queryRaw`SELECT "id" FROM "Employee" WHERE "id" = ${employeeId}::uuid FOR NO KEY UPDATE`;
+  }
+
+  private async createValidated(
+    type: RequestType,
+    dto: CreateVacationDto,
+  ): Promise<RequestDto> {
     const created = await this.prisma.$transaction(async (tx) => {
+      await this.lockEmployee(tx, dto.employeeId);
+      const values = await this.validateValues(type, dto, tx);
       const request = await tx.request.create({
         data: {
-          employeeId: employee.id,
-          type: dto.type as RequestType,
+          ...values,
+          employeeId: dto.employeeId,
+          type,
           status: 'Submitted',
-          workflowState: 'PendingManager',
-          from,
-          to,
-          reason: dto.reason ?? null,
-          requiresApproval: requires,
-          calculatedDays,
-          currentApproverId: employee.managerId,
+          workflowState: values.substituteId
+            ? 'PendingSubstitute'
+            : 'PendingManager',
         },
+        include: employeeInclude,
       });
       await tx.requestEvent.create({
         data: {
           requestId: request.id,
           kind: 'Submitted',
-          actorId: employee.id,
+          actorId: dto.employeeId,
         },
       });
       return request;
     });
-    this.notifications.notifyTransitioned(created, 'Submitted', employee.id);
+    this.notifications.notifyTransitioned(created, 'Submitted', dto.employeeId);
     return toRequestDto(created);
   }
 
-  // ----- Vacation creation with balance check -----
+  async updateDraft(
+    id: string,
+    actorId: string,
+    dto: UpdateDraftRequestDto,
+    resubmit: boolean,
+  ): Promise<RequestDto> {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await this.lockEmployee(tx, actorId);
+      const request = await tx.request.findUnique({ where: { id } });
+      if (!request) throw new NotFoundException(`Request ${id} not found`);
+      if (request.employeeId !== actorId) {
+        throw new ForbiddenException('Only the requester may edit or resubmit');
+      }
+      if (
+        request.workflowState !== 'Draft' ||
+        request.updatedAt.toISOString() !==
+          new Date(dto.expectedUpdatedAt).toISOString()
+      ) {
+        throw new ConflictException(
+          'Request changed or is no longer a draft; reload before editing',
+        );
+      }
+      const values = await this.validateValues(
+        request.type,
+        { ...dto, employeeId: actorId },
+        tx,
+        id,
+      );
+      const data: Prisma.RequestUncheckedUpdateInput = {
+        ...values,
+        // A saved draft is not assigned until it is actually submitted.
+        currentApproverId: resubmit ? values.currentApproverId : null,
+        workflowState: resubmit
+          ? nextState('Draft', 'submit', {
+              hasSubstitute: !!values.substituteId,
+            })
+          : 'Draft',
+        status: 'Submitted', // legacy display status; workflowState gates writes
+        approverId: null,
+        substituteAcceptedAt: null,
+        hrConfirmedAt: null,
+        cancelledAt: null,
+        decidedAt: null,
+        // Keep the revision reason visible until submission; history always keeps it.
+        decisionNote: resubmit ? null : request.decisionNote,
+      };
+      const saved = await this.updateVersion(tx, request, data);
+      if (resubmit) {
+        await tx.requestEvent.create({
+          data: { requestId: id, kind: 'Resubmitted', actorId },
+        });
+      }
+      return saved;
+    });
+    if (resubmit)
+      this.notifications.notifyTransitioned(updated, 'Resubmitted', actorId);
+    return toRequestDto(updated);
+  }
 
-  async createVacation(dto: CreateVacationDto): Promise<RequestDto> {
+  private async validateValues(
+    type: RequestType,
+    dto: CreateVacationDto,
+    tx: Prisma.TransactionClient,
+    excludeRequestId?: string,
+  ) {
     const employee = await this.employees.getById(dto.employeeId);
     const from = new Date(dto.from);
     const to = new Date(dto.to);
-    if (to.getTime() < from.getTime()) {
-      throw new BadRequestException('"to" must be on/after "from"');
+    if (
+      !Number.isFinite(from.getTime()) ||
+      !Number.isFinite(to.getTime()) ||
+      to < from
+    ) {
+      throw new BadRequestException('"to" must be on/after a valid "from"');
     }
-    if (from.getUTCFullYear() !== to.getUTCFullYear()) {
+    const vacation = type === 'Vacation';
+    if (vacation && from.getUTCFullYear() !== to.getUTCFullYear()) {
       throw new BadRequestException(
         'Vacation must lie within a single calendar year — split into two requests',
       );
     }
-    if (dto.substituteId && dto.substituteId === employee.id) {
-      throw new BadRequestException('Substitute must be a different employee');
+    if (!vacation && (dto.substituteId || dto.halfDayStart || dto.halfDayEnd)) {
+      throw new BadRequestException(
+        'Substitute and half-days are only supported for Vacation',
+      );
+    }
+    const substituteId = vacation ? (dto.substituteId ?? null) : null;
+    if (substituteId) {
+      const substitute = await tx.employee.findUnique({
+        where: { id: substituteId },
+      });
+      if (substituteId === employee.id || !substitute?.isActive) {
+        throw new BadRequestException(
+          'Substitute must be a different active employee',
+        );
+      }
     }
     const schedule = await this.schedules.resolveForEmployee(employee.id);
-    const halfDayStart = !!dto.halfDayStart;
-    const halfDayEnd = !!dto.halfDayEnd;
-    const calculatedDays = calculateVacationDays(from, to, {
+    const halfDayStart = vacation && !!dto.halfDayStart;
+    const halfDayEnd = vacation && !!dto.halfDayEnd;
+    const options = {
       workingDays: schedule.workingDays,
       holidayProvider: schedule.holidayProvider,
       halfDayStart,
       halfDayEnd,
-    });
-    if (calculatedDays <= 0) {
+    };
+    const calculatedDays = vacation
+      ? calculateVacationDays(from, to, options)
+      : calculateWorkingDays(from, to, options);
+    if (vacation && calculatedDays <= 0)
       throw new BadRequestException('Vacation range covers no working days');
-    }
-    await this.assertNoActiveOverlap(employee.id, from, to);
-
-    const balance = await this.vacationBalance.compute(
+    await this.assertNoActiveOverlap(
       employee.id,
-      from.getUTCFullYear(),
+      from,
+      to,
+      tx,
+      excludeRequestId,
     );
-    if (balance.remainingDays < calculatedDays) {
-      throw new ConflictException(
-        `Not enough vacation days remaining (${balance.remainingDays} < ${calculatedDays})`,
-      );
+    let requiresApproval = false;
+    if (type === 'TimeAdjustment') {
+      if (to <= from)
+        throw new BadRequestException(
+          'TimeAdjustment "to" must be after "from"',
+        );
+      await this.assertNoTimeEntryOverlap(employee.id, from, to, tx);
+      requiresApproval = requiresSpecialApproval(from, to, schedule.frame);
     }
+    if (vacation) {
+      const balance = await this.vacationBalance.compute(
+        employee.id,
+        from.getUTCFullYear(),
+        excludeRequestId,
+        tx,
+      );
+      if (balance.remainingDays < calculatedDays) {
+        throw new ConflictException(
+          `Not enough vacation days remaining (${balance.remainingDays} < ${calculatedDays})`,
+        );
+      }
+    }
+    return {
+      from,
+      to,
+      reason: dto.reason ?? null,
+      calculatedDays,
+      halfDayStart,
+      halfDayEnd,
+      substituteId,
+      requiresApproval,
+      currentApproverId: substituteId ? null : employee.managerId,
+    };
+  }
 
-    const hasSubstitute = !!dto.substituteId;
-    const initialState: WorkflowState = hasSubstitute
-      ? 'PendingSubstitute'
-      : 'PendingManager';
-
-    const created = await this.prisma.$transaction(async (tx) => {
-      const request = await tx.request.create({
-        data: {
-          employeeId: employee.id,
-          type: 'Vacation',
-          status: 'Submitted',
-          workflowState: initialState,
-          from,
-          to,
-          reason: dto.reason ?? null,
-          calculatedDays,
-          halfDayStart,
-          halfDayEnd,
-          substituteId: dto.substituteId ?? null,
-          currentApproverId: hasSubstitute ? null : employee.managerId,
-        },
-      });
-      await tx.requestEvent.create({
-        data: {
-          requestId: request.id,
-          kind: 'Submitted',
-          actorId: employee.id,
-        },
-      });
-      return request;
+  /** Compare-and-swap protects transitions too, including Draft → pending → Draft ABA races. */
+  private async updateVersion(
+    tx: Prisma.TransactionClient,
+    request: Request,
+    data: Prisma.RequestUncheckedUpdateInput,
+  ): Promise<RequestWithEmployee> {
+    const changed = await tx.request.updateMany({
+      where: {
+        id: request.id,
+        workflowState: request.workflowState,
+        updatedAt: request.updatedAt,
+      },
+      data: {
+        ...data,
+        updatedAt: new Date(
+          Math.max(Date.now(), request.updatedAt.getTime() + 1),
+        ),
+      },
     });
-    this.notifications.notifyTransitioned(created, 'Submitted', employee.id);
-    return toRequestDto(created);
+    if (changed.count !== 1)
+      throw new ConflictException('Request changed; reload before continuing');
+    return tx.request.findUniqueOrThrow({
+      where: { id: request.id },
+      include: employeeInclude,
+    });
   }
 
   // ----- Generic approve / reject (legacy path for non-Vacation) -----
@@ -263,23 +362,21 @@ export class RequestsService {
       );
     }
     await this.assertApprover(request, actorId);
-    const alreadyApproved = request.workflowState === 'Approved';
+    if (request.workflowState !== 'PendingManager')
+      throw new ConflictException('Request is not pending manager approval');
     const updated = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.request.update({
-        where: { id: request.id },
-        data: {
-          status: 'Approved',
-          workflowState: 'Approved',
-          approverId: actorId,
-          currentApproverId: null,
-          decidedAt: new Date(),
-          decisionNote: note,
-        },
+      const updated = await this.updateVersion(tx, request, {
+        status: 'Approved',
+        workflowState: 'Approved',
+        approverId: actorId,
+        currentApproverId: null,
+        decidedAt: new Date(),
+        decisionNote: note,
       });
       await tx.requestEvent.create({
         data: { requestId: id, kind: 'ManagerApproved', actorId, note },
       });
-      if (request.type === 'TimeAdjustment' && !alreadyApproved) {
+      if (request.type === 'TimeAdjustment') {
         await this.materializeTimeAdjustment(tx, request);
       }
       return updated;
@@ -299,17 +396,16 @@ export class RequestsService {
       return this.transitionVacation(request, 'manager_reject', actorId, note);
     }
     await this.assertApprover(request, actorId);
+    if (request.workflowState !== 'PendingManager')
+      throw new ConflictException('Request is not pending manager approval');
     const updated = await this.prisma.$transaction(async (tx) => {
-      const updated = await tx.request.update({
-        where: { id: request.id },
-        data: {
-          status: 'Rejected',
-          workflowState: 'Rejected',
-          approverId: actorId,
-          currentApproverId: null,
-          decidedAt: new Date(),
-          decisionNote: note,
-        },
+      const updated = await this.updateVersion(tx, request, {
+        status: 'Rejected',
+        workflowState: 'Rejected',
+        approverId: actorId,
+        currentApproverId: null,
+        decidedAt: new Date(),
+        decisionNote: note,
       });
       await tx.requestEvent.create({
         data: { requestId: id, kind: 'ManagerRejected', actorId, note },
@@ -578,7 +674,7 @@ export class RequestsService {
     });
     const status = deriveStatus(target);
 
-    const data: Prisma.RequestUpdateInput = {
+    const data: Prisma.RequestUncheckedUpdateInput = {
       workflowState: target,
       status,
     };
@@ -588,48 +684,47 @@ export class RequestsService {
 
     // Side effects per transition.
     if (event === 'submit') {
-      // No-op here — submit is done at create time.
+      // Creation and resubmission have their own validated paths.
     }
     if (event === 'substitute_accept') {
       data.substituteAcceptedAt = new Date();
       // Move approver to manager.
       const employee = await this.employees.getById(employeeId);
-      data.currentApprover = employee.managerId
-        ? { connect: { id: employee.managerId } }
-        : { disconnect: true };
+      data.currentApproverId = employee.managerId;
     }
     if (event === 'substitute_decline') {
-      data.currentApprover = { disconnect: true };
+      data.decisionNote = note;
+      data.currentApproverId = null;
     }
     if (event === 'manager_approve' || event === 'manager_approve_with_hr') {
-      data.approver = { connect: { id: actorId } };
+      data.approverId = actorId;
       data.decidedAt = event === 'manager_approve' ? new Date() : null;
       data.decisionNote = event === 'manager_approve' ? note : null;
       if (event === 'manager_approve_with_hr') {
-        data.currentApprover = { disconnect: true };
+        data.currentApproverId = null;
       } else {
-        data.currentApprover = { disconnect: true };
+        data.currentApproverId = null;
       }
     }
     if (event === 'manager_reject' || event === 'manager_return') {
-      data.approver = { connect: { id: actorId } };
+      data.approverId = actorId;
       data.decidedAt = event === 'manager_reject' ? new Date() : null;
       data.decisionNote = note;
-      data.currentApprover = { disconnect: true };
+      data.currentApproverId = null;
     }
     if (event === 'hr_confirm' || event === 'hr_reject') {
       data.hrConfirmedAt = event === 'hr_confirm' ? new Date() : null;
       data.decidedAt = new Date();
       data.decisionNote = note;
-      data.currentApprover = { disconnect: true };
+      data.currentApproverId = null;
     }
     if (event === 'cancel') {
       data.cancelledAt = new Date();
-      data.currentApprover = { disconnect: true };
+      data.currentApproverId = null;
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.request.update({ where: { id: request.id }, data });
+      const u = await this.updateVersion(tx, request, data);
       await tx.requestEvent.create({
         data: { requestId: request.id, kind: eventKind, actorId, note },
       });
@@ -672,8 +767,11 @@ export class RequestsService {
     });
   }
 
-  private async assertRequest(id: string): Promise<Request> {
-    const request = await this.prisma.request.findUnique({ where: { id } });
+  private async assertRequest(id: string): Promise<RequestWithEmployee> {
+    const request = await this.prisma.request.findUnique({
+      where: { id },
+      include: employeeInclude,
+    });
     if (!request) throw new NotFoundException(`Request ${id} not found`);
     return request;
   }
@@ -737,11 +835,14 @@ export class RequestsService {
     employeeId: string,
     from: Date,
     to: Date,
+    db: Prisma.TransactionClient = this.prisma,
+    excludeRequestId?: string,
   ): Promise<void> {
-    const overlap = await this.prisma.request.findFirst({
+    const overlap = await db.request.findFirst({
       where: {
         employeeId,
         status: { notIn: ['Rejected', 'Cancelled'] },
+        ...(excludeRequestId ? { id: { not: excludeRequestId } } : {}),
         from: { lte: to },
         to: { gte: from },
       },
@@ -762,8 +863,9 @@ export class RequestsService {
     employeeId: string,
     from: Date,
     to: Date,
+    db: Prisma.TransactionClient = this.prisma,
   ): Promise<void> {
-    const overlap = await this.prisma.timeEntry.findFirst({
+    const overlap = await db.timeEntry.findFirst({
       where: {
         employeeId,
         status: { not: 'Rejected' },

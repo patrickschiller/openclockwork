@@ -1281,7 +1281,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    patch: operations['RequestsController_updateDraft'];
     trace?: never;
   };
   '/api/requests/{id}/events': {
@@ -1310,6 +1310,22 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations['RequestsController_createVacation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/requests/{id}/resubmit': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations['RequestsController_resubmit'];
     delete?: never;
     options?: never;
     head?: never;
@@ -2813,6 +2829,45 @@ export interface components {
       adjustmentDays: number;
       adjustmentReason?: Record<string, never> | null;
     };
+    RequestDto: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      employeeId: string;
+      employeeName: string;
+      /** Format: date-time */
+      updatedAt: string;
+      /** @enum {string} */
+      type: 'Vacation' | 'HomeOffice' | 'SpecialLeave' | 'TimeAdjustment';
+      status: string;
+      workflowState: string;
+      /** Format: date-time */
+      from: string;
+      /** Format: date-time */
+      to: string;
+      reason: string | null;
+      requiresApproval: boolean;
+      /** Format: uuid */
+      approverId: string | null;
+      /** Format: uuid */
+      currentApproverId: string | null;
+      /** Format: uuid */
+      substituteId: string | null;
+      /** Format: date-time */
+      substituteAcceptedAt: string | null;
+      /** Format: date-time */
+      hrConfirmedAt: string | null;
+      /** Format: date-time */
+      cancelledAt: string | null;
+      calculatedDays: number;
+      halfDayStart: boolean;
+      halfDayEnd: boolean;
+      /** Format: date-time */
+      decidedAt: string | null;
+      decisionNote: string | null;
+      /** Format: date-time */
+      createdAt: string;
+    };
     CreateRequestDto: {
       /** Format: uuid */
       employeeId: string;
@@ -2828,7 +2883,7 @@ export interface components {
        * @example 2026-08-07T00:00:00.000Z
        */
       to: string;
-      reason?: Record<string, never> | null;
+      reason?: string | null;
     };
     CreateVacationDto: {
       /** Format: uuid */
@@ -2838,8 +2893,8 @@ export interface components {
       /** Format: date-time */
       to: string;
       /** Format: uuid */
-      substituteId?: Record<string, never> | null;
-      reason?: Record<string, never> | null;
+      substituteId?: string | null;
+      reason?: string | null;
       /**
        * @description Take the first day as a half-day
        * @default false
@@ -2851,15 +2906,39 @@ export interface components {
        */
       halfDayEnd: boolean;
     };
+    UpdateDraftRequestDto: {
+      /** Format: date-time */
+      from: string;
+      /** Format: date-time */
+      to: string;
+      /** Format: uuid */
+      substituteId?: string | null;
+      reason?: string | null;
+      /**
+       * @description Take the first day as a half-day
+       * @default false
+       */
+      halfDayStart: boolean;
+      /**
+       * @description Take the last day as a half-day
+       * @default false
+       */
+      halfDayEnd: boolean;
+      /**
+       * Format: date-time
+       * @description updatedAt from the version being edited; stale writes return 409
+       */
+      expectedUpdatedAt: string;
+    };
     TransitionDto: {
       /** Format: uuid */
       actorId: string;
-      note?: Record<string, never> | null;
+      note?: string | null;
     };
     ManagerApproveDto: {
       /** Format: uuid */
       actorId: string;
-      note?: Record<string, never> | null;
+      note?: string | null;
       /** @default false */
       requiresHrConfirmation: boolean;
     };
@@ -2872,7 +2951,7 @@ export interface components {
       /** Format: uuid */
       actorId: string;
       ids: string[];
-      note?: Record<string, never> | null;
+      note?: string | null;
       /** @default false */
       requiresHrConfirmation: boolean;
     };
@@ -5059,7 +5138,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'][];
+        };
       };
     };
   };
@@ -5080,7 +5161,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5099,7 +5182,34 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
+      };
+    };
+  };
+  RequestsController_updateDraft: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateDraftRequestDto'];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5139,7 +5249,34 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
+      };
+    };
+  };
+  RequestsController_resubmit: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UpdateDraftRequestDto'];
+      };
+    };
+    responses: {
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5162,7 +5299,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5185,7 +5324,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5208,7 +5349,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5231,7 +5374,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5254,7 +5399,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5277,7 +5424,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5300,7 +5449,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5323,7 +5474,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5346,7 +5499,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };
@@ -5369,7 +5524,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          'application/json': components['schemas']['RequestDto'];
+        };
       };
     };
   };

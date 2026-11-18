@@ -502,7 +502,7 @@ function RequestRow({
           )}
           <div>
             <p className="font-medium">
-              {enumLabel(request.type)} ·{' '}
+              {request.employeeName} · {enumLabel(request.type)} ·{' '}
               {isTimeAdjustment
                 ? `${formatDateTime(request.from)} – ${formatDateTime(request.to)}`
                 : `${formatDate(request.from.slice(0, 10))} – ${formatDate(request.to.slice(0, 10))}`}
@@ -624,7 +624,7 @@ function AuditTrail({ requestId }: { requestId: string }) {
         <SheetTitle>{t('requests.auditHistory')}</SheetTitle>
         <SheetDescription>
           {requestQuery.data
-            ? `${enumLabel(requestQuery.data.type)} · ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.from : requestQuery.data.from.slice(0, 10))} – ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.to : requestQuery.data.to.slice(0, 10))}`
+            ? `${requestQuery.data.employeeName} · ${enumLabel(requestQuery.data.type)} · ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.from : requestQuery.data.from.slice(0, 10))} – ${formatDate(requestQuery.data.type === 'TimeAdjustment' ? requestQuery.data.to : requestQuery.data.to.slice(0, 10))}`
             : '…'}
         </SheetDescription>
       </SheetHeader>
