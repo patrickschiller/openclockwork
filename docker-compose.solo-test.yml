@@ -35,7 +35,6 @@ services:
       ERP_API_KEY: solo-acceptance-erp-local-test-only
       CRON_API_KEY: solo-acceptance-cron-local-test-only
       API_CORS_ORIGINS: http://localhost:18080,http://127.0.0.1:18080
-      STORAGE_BACKEND: local
       ATTACHMENTS_DIR: /app/data/attachments
     ports:
       - '127.0.0.1:13000:3000'

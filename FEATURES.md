@@ -217,7 +217,7 @@ Employee submits
   outside configured frames
 - Corrections to specific existing bookings update the same booking on final
   approval and retain the prior and new values in its audit history
-- Local-filesystem or Azure Blob attachments for supported request types
+- File attachments for supported request types
 - Daily-target blocks bypass the workflow only when HR enables the employee and
   all schedule, holiday, absence, conflict, frame, and break checks pass
 
@@ -361,7 +361,7 @@ local rules and calendar coverage for each period in use.
 - Optional server-enforced geofences with maximum-accuracy validation
 - Historical position/accuracy/radius snapshots retained when a terminal is
   deleted; pairing codes, devices, credentials, and QR challenges are removed
-- Pluggable attachment storage using local volumes or Azure Blob Storage
+- Private filesystem storage for request attachments
 - Public demo reset controls that are explicitly disabled by default
 
 OpenClockwork provides technical controls, but operators remain responsible for
@@ -394,18 +394,19 @@ in this release.
 ## Self-hosting and operations
 
 - Dockerfiles for API and web applications
-- Development and production Docker Compose configurations
+- Host-independent production Docker Compose with versioned API and web images
+- Development Compose and a production-shaped build from source
 - Trusted-HTTPS iPad overlay with runtime-configuration validation
 - PostgreSQL with versioned Prisma migrations
+- Separate persistent volumes for PostgreSQL data and request attachments
 - Explicitly guarded synthetic seed data for disposable local evaluation only;
   normal development startup does not seed automatically
 - Empty production bootstrap with a one-time Solo owner/Team administrator command
-- Azure Container Apps, ACR, PostgreSQL Flexible Server, Key Vault, Blob
-  Storage, and Log Analytics reference infrastructure
-- Dedicated terminal QR secret in Compose and Azure Key Vault
+- Dedicated terminal QR signing secret configured through Compose
 - Optional PIN Compose overlay separating database migration and runtime roles,
   independent PIN/audit secrets, and a separate local QR/PIN test stack
-- Stable versioned images and documented backup/migration/rollback procedures
+- [Container deployment guide](docs/CONTAINER_DEPLOYMENT.md) and
+  [backup, migration, and rollback procedures](UPGRADING.md)
 - Nx targets for lint, type-check, build, unit, integration, E2E, and browser
   tests
 

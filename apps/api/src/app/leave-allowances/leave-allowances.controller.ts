@@ -77,9 +77,7 @@ export class CronCarryOverController {
   constructor(private readonly service: LeaveAllowancesService) {}
 
   /**
-   * X-Cron-Key-protected version of expire-carryovers — called by the
-   * scheduled ACA Job (infra/azure/main.bicep, every day at 02:00 UTC).
-   * Same idempotent behaviour, no JWT round-trip required.
+   * Idempotent carry-over expiry for a scheduler authenticating via X-Cron-Key.
    */
   @Post('expire-carryovers')
   @HttpCode(HttpStatus.OK)

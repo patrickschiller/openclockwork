@@ -101,8 +101,8 @@ Solo customer-management and billable-timesheet UI.
   Clock-in/out locations are optional in HR tables and CSV and excluded from PDFs.
   See the [German working-time export guidance](docs/WORKING_TIME_EXPORTS.de.md)
   for the legal context and the limits of automatic break deductions.
-- **Self-hosted and API-first.** PostgreSQL, NestJS, React, OpenAPI, Socket.IO,
-  Docker, and an Azure reference deployment—without SaaS lock-in.
+- **Self-hosted and API-first.** Run the PostgreSQL, NestJS and React stack with
+  Docker Compose on your own host. The API supports OpenAPI and Socket.IO.
 - **Localised interface.** German and English translations, browser-aware dates,
   and a persistent language switcher across login, Solo, employee, manager, HR,
   and kiosk experiences.
@@ -216,7 +216,7 @@ embedded browsers may handle downloads and printing differently.
 | Realtime   | Authenticated Socket.IO gateway                                    |
 | API        | REST with committed OpenAPI specification and generated web client |
 | Tests      | Vitest, Jest, API E2E, and Playwright browser tests                |
-| Deployment | Docker Compose and Azure Container Apps reference infrastructure   |
+| Deployment | Docker Compose, versioned container images, and local source builds |
 
 ## Repository layout
 
@@ -230,7 +230,6 @@ libs/
   shared/         Shared types and pure working-time domain functions
 prisma/           Schema, migrations, seed, and admin bootstrap
 docs/             Operator and device setup guides
-infra/azure/      Azure reference deployment
 ops/              Runtime validation, TLS, Nginx, and operations scripts
 assets/           Brand sources and documentation screenshots
 ```
@@ -331,22 +330,26 @@ the regular HTTP port to a tablet.
 
 ## Production installation (step by step)
 
-Production installations use versioned API and web images from the GitHub
-Container Registry. The database starts empty: production never loads the
-development/demo seed. Follow every step below to configure the installation
-and create its first Solo owner or Team HR administrator. Upgrading an existing
-database is a different workflow: use [UPGRADING.md](UPGRADING.md), do not run
-bootstrap again, and keep the existing volume names.
+Run the production stack on any host that supports Docker Engine and the
+Docker Compose plugin. Compose runs PostgreSQL, the API and the web app on a
+private network. The web container serves the PWA and proxies the API and
+WebSockets from one origin. PostgreSQL data and request attachments persist in
+separate named volumes.
+
+Use matching release images from the default registry or your own mirror, or
+build both images from source. For network setup, volumes, monitoring and
+regular maintenance, see the [container operations guide](docs/CONTAINER_DEPLOYMENT.md).
+For an existing database, keep the existing volumes and follow [UPGRADING.md](UPGRADING.md).
 
 ### 1. Prepare the host and configuration
 
 Install Docker Engine with the Docker Compose plugin, then obtain this
-repository and enter its directory:
+repository and enter its directory. Run this setup for a fresh installation:
 
 ```bash
 git clone https://github.com/patrickschiller/openclockwork.git
 cd openclockwork
-git switch --detach v2.2.1
+umask 077
 cp .env.prod.example .env.prod
 ```
 
@@ -396,8 +399,9 @@ Open `.env.prod` in an editor and replace every `change-me` value:
     `API_CORS_ORIGINS=https://time.example.com`
   - If more than one browser origin is required, separate the complete URLs
     with commas and no spaces.
-- Keep the volume names stable across future upgrades. Set `TZ` and `WEB_PORT`
-  as required for the installation.
+- Keep the volume names stable across future upgrades. Set `TZ` to the working
+  timezone and `WEB_PORT` to an available host port. For a host-based HTTPS
+  reverse proxy, set `WEB_BIND_ADDRESS=127.0.0.1` in the current Compose setup.
 
 If a PostgreSQL password contains URL-special characters, percent-encode it in
 `DATABASE_URL`. The hexadecimal command above avoids that ambiguity.
@@ -408,10 +412,11 @@ Choose exactly one of the following variants.
 
 #### Variant A: install a published release
 
-Use this on a production host when `OPENCLOCKWORK_VERSION` refers to an image
-that has already been published to GHCR:
+Set `OPENCLOCKWORK_VERSION` to a published release and use matching API and web
+images. The default images are distributed through GitHub Container Registry:
 
 ```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod config --quiet
 docker compose -f docker-compose.prod.yml --env-file .env.prod pull
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
@@ -439,6 +444,9 @@ Migrations create the empty production schema but never create demo employees,
 projects, bookings, or known passwords.
 
 ### 4. Verify the empty installation
+
+Use the same Compose files and environment file you started the stack with.
+The examples below use the base production file.
 
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod ps
@@ -513,34 +521,18 @@ later is explicit and guarded; it is not a substitute for completing setup.
 
 ### 8. Protect the installation
 
-Configure TLS/reverse-proxy access, database backups, and attachment backups
-before entering real personal data. The PostgreSQL database and locally stored
-attachments use stable named Docker volumes.
-
-**Warning — there is no command to execute in this part of the installation.**
-The following operations destroy application data and must never be used in
-production: removing Compose volumes during shutdown, resetting Prisma
-migrations, running the database-reset script, or running the destructive demo
-reset. A normal stop or restart must always preserve the named volumes.
+Before recording real data, configure HTTPS with your existing reverse proxy
+or follow the [Caddy example](docs/CONTAINER_DEPLOYMENT.md#caddy-example).
+Schedule backups of the database, attachment volume and deployment
+configuration. Test a restore on a separate stack. Use `docker compose stop`
+for maintenance and preserve both named volumes when replacing containers.
+`docker compose down -v` deletes the Compose-managed volumes. See the
+[container operations guide](docs/CONTAINER_DEPLOYMENT.md) and [UPGRADING.md](UPGRADING.md).
 
 If the bootstrap command reports that an employee already exists, do not reset
 or seed the database to work around it. Preserve a backup and investigate the
 existing data; the bootstrap command is intentionally not an administrator
 recovery or privilege-escalation tool.
-
-Maintainers can build the same production-shaped stack from the current source
-tree with the local override:
-
-```bash
-docker compose \
-  -f docker-compose.prod.yml \
-  -f docker-compose.prod.build.yml \
-  --env-file .env.prod \
-  up -d --build
-```
-
-For an existing installation, follow the backup, migration, verification, and
-rollback procedure in [UPGRADING.md](UPGRADING.md).
 
 ## Voluntary support
 
@@ -568,7 +560,7 @@ You can also support the project through
 - [PIN and authentication audit operations (German)](docs/TERMINAL_AUTH_OPERATIONS.de.md)
 - [Upgrade procedure](UPGRADING.md)
 - [Release process](RELEASING.md)
-- [Azure reference deployment](infra/azure/README.md)
+- [Host-independent Docker and container operations](docs/CONTAINER_DEPLOYMENT.md)
 - [Generated OpenAPI specification](apps/api/openapi.json)
 - [Security policy](SECURITY.md)
 - [Contribution guide](CONTRIBUTING.md)

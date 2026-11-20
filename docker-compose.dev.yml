@@ -59,7 +59,6 @@ services:
       ERP_API_KEY: ${ERP_API_KEY:-dev-erp-key}
       CRON_API_KEY: ${CRON_API_KEY:-dev-cron-key}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost,http://localhost:8080}
-      STORAGE_BACKEND: local
       ATTACHMENTS_DIR: data/attachments
     ports:
       - '${DEV_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-3001}:3001'

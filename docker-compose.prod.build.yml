@@ -7,12 +7,14 @@
 services:
   api:
     image: openclockwork-api:local
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile.api
 
   web:
     image: openclockwork-web:local
+    pull_policy: never
     build:
       context: .
       dockerfile: Dockerfile.web

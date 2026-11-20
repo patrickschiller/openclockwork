@@ -29,9 +29,9 @@ are **not implemented** in this release. See the [roadmap](../ROADMAP.md).
 
 ## Install a release and create the owner
 
-Use the [production installation guide](../README.md#production-installation-step-by-step)
+Use the [container deployment guide](CONTAINER_DEPLOYMENT.md)
 for host requirements, independent secrets, TLS, persistent volumes, and backups.
-For 2.2.1, check out the `v2.2.1` tag and set the following in your private
+For release 2.2.1, set the following in your private
 `.env.prod`:
 
 ```dotenv

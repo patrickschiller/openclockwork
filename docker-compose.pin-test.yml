@@ -51,7 +51,6 @@ services:
       ERP_API_KEY: local-pin-test-erp-only-synthetic-openclockwork
       CRON_API_KEY: local-pin-test-cron-only-synthetic-openclockwork
       API_CORS_ORIGINS: http://localhost:${PIN_TEST_WEB_PORT:-18082},http://127.0.0.1:${PIN_TEST_WEB_PORT:-18082}
-      STORAGE_BACKEND: local
       ATTACHMENTS_DIR: /app/data/attachments
     volumes:
       - pin-attachments:/app/data/attachments

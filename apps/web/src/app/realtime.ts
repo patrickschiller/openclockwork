@@ -27,8 +27,7 @@ async function ensureSocket(token: string): Promise<Socket> {
   const { io } = await import('socket.io-client');
   sharedToken = token;
   sharedSocket = io({
-    // websocket only — ACA terminates TLS and supports WS natively; the
-    // polling fallback transport adds noticeable bytes without value.
+    // The web container and any external reverse proxy forward WebSocket upgrades.
     transports: ['websocket'],
     auth: { token },
     reconnection: true,

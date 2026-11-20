@@ -482,9 +482,9 @@ not a supported exception. These are intentional maintenance-tool compatibility
 changes, not a new requirement for ordinary Team HTTP requests.
 
 Development Compose no longer seeds automatically and starts with demo mode
-disabled. The Azure template can select a separate classified demo database
-and run its explicitly enabled maintenance job in a non-production runtime;
-the API remains in production mode. Existing databases are not renamed.
+disabled. Scheduled demo resets require an explicit opt-in and run against a
+separate disposable database in a non-production environment. Existing
+databases keep their names.
 
 See the exact configuration and migration steps in the
 [maintenance section of the upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v2.0.0/UPGRADING.md#development-test-and-demo-maintenance).
@@ -544,7 +544,7 @@ development image tag for unattended production upgrades.
   respects supported regional date formats. Fixes date-only leave displays and
   upcoming-leave filtering across timezone and year boundaries.
 - Establishes UTC as the default deployment and new-terminal timezone, with an
-  explicit timezone setting for Docker and Azure installations.
+  explicit `TZ` setting for Docker installations.
 - Adds a prominent [roadmap](https://github.com/patrickschiller/openclockwork/blob/v1.4.0/ROADMAP.md)
   for complete Solo mode, customer invoicing, CAUR usage accounting, and combined
   human/agent billing. These capabilities are planned, not implemented in 1.4.0.
@@ -555,8 +555,7 @@ development image tag for unattended production upgrades.
   data and attachment volume names; do not use `docker compose down -v`.
 - **Set `TZ` explicitly to the installation's existing working timezone before
   upgrading.** Use `Europe/Berlin` if that was the previous implicit default.
-  Azure deployments must likewise set the `timeZone` parameter used by the API
-  and scheduled job. Existing terminal timezones remain unchanged.
+  Existing terminal timezones stay unchanged.
 - Set `OPENCLOCKWORK_VERSION=1.4.0` and follow the
   [upgrade guide](https://github.com/patrickschiller/openclockwork/blob/v1.4.0/UPGRADING.md),
   including the notes for any skipped releases.

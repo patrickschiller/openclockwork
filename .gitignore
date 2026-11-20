@@ -80,9 +80,5 @@ vite.config.*.timestamp*
 vitest.config.*.timestamp*
 test-output
 
-# --- Azure infra: real .bicepparam files carry secrets ---
-infra/azure/*.bicepparam
-!infra/azure/*.example.bicepparam
-
 .nx/polygraph
 .claude/

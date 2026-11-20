@@ -5,6 +5,17 @@ import {
   type TestContext,
 } from '../support/test-app';
 
+it('refuses obsolete attachment storage instead of serving an empty directory', async () => {
+  const previousBackend = process.env.STORAGE_BACKEND;
+  process.env.STORAGE_BACKEND = 'object-storage';
+  try {
+    await expect(createTestApp()).rejects.toThrow('Unsupported STORAGE_BACKEND');
+  } finally {
+    if (previousBackend === undefined) delete process.env.STORAGE_BACKEND;
+    else process.env.STORAGE_BACKEND = previousBackend;
+  }
+});
+
 describe('Attachments — SpecialLeave uploads', () => {
   let ctx: TestContext;
   beforeAll(async () => {

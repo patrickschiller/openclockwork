@@ -27,7 +27,7 @@ services:
       retries: 10
 
   api:
-    image: ghcr.io/patrickschiller/openclockwork-api:${OPENCLOCKWORK_VERSION}
+    image: ${OPENCLOCKWORK_API_IMAGE:-ghcr.io/patrickschiller/openclockwork-api:${OPENCLOCKWORK_VERSION}}
     restart: unless-stopped
     depends_on:
       db:
@@ -46,10 +46,9 @@ services:
       ERP_API_KEY: ${ERP_API_KEY}
       CRON_API_KEY: ${CRON_API_KEY}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS}
-      STORAGE_BACKEND: ${STORAGE_BACKEND:-local}
+      # Pass through legacy settings so the API can reject unsupported values.
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-}
       ATTACHMENTS_DIR: ${ATTACHMENTS_DIR:-/app/data/attachments}
-      AZURE_BLOB_ACCOUNT: ${AZURE_BLOB_ACCOUNT:-}
-      AZURE_BLOB_CONTAINER: ${AZURE_BLOB_CONTAINER:-}
     volumes:
       - openclockwork-attachments:/app/data/attachments
     # Apply pending migrations on container start, then hand off to the API.
@@ -58,13 +57,13 @@ services:
       [
         'sh',
         '-c',
-        './node_modules/.bin/prisma migrate deploy && node dist/main.js',
+        './node_modules/.bin/prisma migrate deploy && exec node dist/main.js',
       ]
     expose:
       - '3000'
 
   web:
-    image: ghcr.io/patrickschiller/openclockwork-web:${OPENCLOCKWORK_VERSION}
+    image: ${OPENCLOCKWORK_WEB_IMAGE:-ghcr.io/patrickschiller/openclockwork-web:${OPENCLOCKWORK_VERSION}}
     restart: unless-stopped
     depends_on:
       api:
@@ -72,7 +71,7 @@ services:
     environment:
       SUPPORT_URL: ${SUPPORT_URL-https://github.com/sponsors/patrickschiller}
     ports:
-      - '${WEB_PORT:-8080}:8080'
+      - '${WEB_BIND_ADDRESS:+${WEB_BIND_ADDRESS}:}${WEB_PORT:-8080}:8080'
 
 volumes:
   openclockwork-db-data:
