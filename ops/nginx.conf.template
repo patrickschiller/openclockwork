@@ -1,12 +1,9 @@
 # Production nginx config template for the OpenClockwork web container.
 #
 # The official nginx image runs envsubst on /etc/nginx/templates/*.template
-# at container start; ${API_UPSTREAM} is the only variable that gets
-# substituted (NGINX_ENVSUBST_FILTER), so nginx's own $host / $remote_addr
-# / $http_upgrade etc. survive verbatim.
-#
-#   docker-compose : API_UPSTREAM=http://api:3000      (compose service DNS)
-#   Azure CA       : API_UPSTREAM=https://<api>.internal.<env-domain>
+# at container start. NGINX_ENVSUBST_FILTER limits substitution to the
+# runtime settings, preserving nginx variables such as $host.
+# API_UPSTREAM defaults to http://api:3000 on the Compose network.
 #
 # Serves the React/Vite/PWA bundle from /usr/share/nginx/html and proxies
 # /api + /socket.io to the api upstream. SPA fallback ensures deep links
@@ -76,10 +73,7 @@ server {
         return 200 'window.__OPENClockwork_CONFIG__ = { demoMode: ${DEMO_MODE}, supportUrl: "${SUPPORT_URL}" };';
     }
 
-    # API proxy. proxy_ssl_server_name is required when the upstream is
-    # HTTPS and routed through ACA's internal envoy — the envoy demands
-    # an SNI hostname to pick the right backend, and nginx omits it by
-    # default. Harmless when API_UPSTREAM is plain http://.
+    # Send the upstream hostname via SNI when API_UPSTREAM uses HTTPS.
     location /api/ {
         proxy_pass ${API_UPSTREAM};
         proxy_ssl_server_name on;

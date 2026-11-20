@@ -150,6 +150,8 @@ function assertDemoResetTarget(env = process.env) {
     refuse(
       'demo reset requires DEMO_RESET_ENABLED=true and the documented DEMO_RESET_CONFIRMATION.',
     );
+  if (env.STORAGE_BACKEND && env.STORAGE_BACKEND.toLowerCase() !== 'local')
+    refuse('demo reset requires local attachment storage.');
   return target;
 }
 

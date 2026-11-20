@@ -419,8 +419,7 @@ model Request {
 
 // Files attached to a request — currently only used for Sonderurlaub
 // (SpecialLeave) where a Beleg is often required. Bytes live in the
-// configured StorageAdapter (local FS in dev, Blob in Azure); the DB
-// row carries metadata and the opaque storage key.
+// attachment directory. The DB row carries metadata and the storage key.
 model RequestAttachment {
   id           String   @id @default(uuid()) @db.Uuid
   requestId    String   @db.Uuid

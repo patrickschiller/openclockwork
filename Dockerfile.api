@@ -63,9 +63,8 @@ RUN mkdir -p /app/data/attachments /app/data/audit && chown -R app:app /app/data
 USER app
 EXPOSE 3000
 
-# Neutral default timezone. Configure the organisation's working timezone
-# (docker-compose / Container App env). Drives core-time-window and
-# 07:00/23:00 off-hours reasoning, which is all wall-clock.
+# Neutral default timezone. Set TZ to the organisation's working timezone
+# for wall-clock rules such as core time and the 07:00/23:00 off-hours window.
 ENV NODE_ENV=production \
     API_PORT=3000 \
     TZ=UTC

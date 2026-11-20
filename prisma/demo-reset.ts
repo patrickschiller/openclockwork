@@ -1,5 +1,4 @@
-import { DefaultAzureCredential } from '@azure/identity';
-import { BlobServiceClient } from '@azure/storage-blob';
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { spawnSync } from 'child_process';
 import safety from '../ops/db-target-safety.cjs';
@@ -31,33 +30,6 @@ async function truncateApplicationTables(): Promise<void> {
   await prisma.$executeRawUnsafe(
     `TRUNCATE TABLE ${tableList} RESTART IDENTITY CASCADE`,
   );
-}
-
-async function clearAzureAttachments(): Promise<void> {
-  if ((process.env.STORAGE_BACKEND ?? 'local').toLowerCase() !== 'azure-blob')
-    return;
-
-  const account = process.env.AZURE_BLOB_ACCOUNT;
-  const container = process.env.AZURE_BLOB_CONTAINER;
-  if (!account || !container) {
-    throw new Error(
-      'AZURE_BLOB_ACCOUNT and AZURE_BLOB_CONTAINER are required when STORAGE_BACKEND=azure-blob.',
-    );
-  }
-
-  const service = new BlobServiceClient(
-    `https://${account}.blob.core.windows.net`,
-    new DefaultAzureCredential(),
-  );
-  const containerClient = service.getContainerClient(container);
-
-  let deleted = 0;
-  for await (const blob of containerClient.listBlobsFlat()) {
-    await containerClient.deleteBlob(blob.name, { deleteSnapshots: 'include' });
-    deleted += 1;
-  }
-
-  console.log(`Deleted ${deleted} attachment blob(s).`);
 }
 
 function seedDatabase(target: {
@@ -95,9 +67,6 @@ async function main(): Promise<void> {
   `;
   safety.assertConnectedDatabase(target, connected.database, connected.schema);
 
-  // Delete attachments first. If Blob access fails, the database remains
-  // untouched and the job can be retried without producing orphaned blobs.
-  await clearAzureAttachments();
   await truncateApplicationTables();
   await prisma.$disconnect();
   seedDatabase(target);
@@ -117,4 +86,3 @@ main()
   .finally(async () => {
     await prisma?.$disconnect();
   });
-import 'dotenv/config';

@@ -75,8 +75,8 @@ Version 2.1.0 kombinieren. Für Release 2.2.1 gilt
 ersetzt den Migrationsstart in der API durch den getrennten Job. `DATABASE_URL`
 verwendet danach den Runtime-Benutzer mit demselben Passwort, das
 `TERMINAL_RUNTIME_DB_PASSWORD` für die Rolleneinrichtung bereitstellt.
-Azure-Referenzdeployments bleiben ohne entsprechende Secrets und Rollentrennung
-QR-only; die neue Methode wird nicht automatisch produktiv aktiviert.
+Der Basisstack bleibt bei QR-Authentifizierung. Die PIN-Anmeldung wird mit dem
+Overlay und der dazugehörigen Einrichtung aktiviert.
 UPDATE/DELETE werden zusätzlich durch einen Trigger verweigert. Owner, Backup-
 und Wartungszugriff müssen organisatorisch getrennt bleiben.
 

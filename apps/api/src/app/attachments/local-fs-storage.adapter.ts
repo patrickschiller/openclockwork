@@ -18,6 +18,12 @@ export class LocalFsStorageAdapter implements StorageAdapter {
   private readonly baseDir: string;
 
   constructor(config: ConfigService) {
+    const backend = config.get<string>('STORAGE_BACKEND');
+    if (backend && backend.toLowerCase() !== 'local') {
+      throw new Error(
+        'Unsupported STORAGE_BACKEND. Move existing attachments to ATTACHMENTS_DIR and remove STORAGE_BACKEND before starting the API.',
+      );
+    }
     this.baseDir = config.get<string>('ATTACHMENTS_DIR') ?? path.resolve('data', 'attachments');
   }
 

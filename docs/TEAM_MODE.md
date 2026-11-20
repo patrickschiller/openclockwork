@@ -12,8 +12,8 @@ employee, manager, kiosk, or approval setup has to be replaced by Solo. Choose
 
 ## Install and bootstrap
 
-Follow the [production installation guide](../README.md#production-installation-step-by-step).
-For this release, use the `v2.2.1` source tag and set
+Follow the [container deployment guide](CONTAINER_DEPLOYMENT.md).
+For release 2.2.1, set
 `OPENCLOCKWORK_VERSION=2.2.1` in the private `.env.prod` file. Configure all
 required independent secrets, browser origins, the installation's IANA working
 timezone (`TZ`), stable volume names, and TLS before using real personal data.
@@ -146,7 +146,7 @@ Managers and HR can approve, reject, return for correction, and use supported
 bulk actions. Employees can cancel requests and review workflow history.
 Out-of-frame work and time corrections follow the applicable Team rules rather
 than Solo's direct owner-correction workflow. Supported requests can include
-attachments stored locally or in configured Azure Blob Storage.
+attachments. The API stores the files in its persistent attachment volume.
 
 Do not assume a request is final merely because one approver accepted it.
 Inspect the current state and remaining workflow steps. Historical Solo entries

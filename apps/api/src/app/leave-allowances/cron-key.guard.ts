@@ -7,9 +7,8 @@ interface RequestLike {
 
 /**
  * Header-based guard for unattended cron callers. Reads CRON_API_KEY from
- * config and compares against the `X-Cron-Key` request header. Designed
- * for the scheduled ACA Job that drives the carry-over expiry — see
- * infra/azure/main.bicep.
+ * config and compares against the `X-Cron-Key` request header used by
+ * the scheduler for carry-over expiry.
  */
 @Injectable()
 export class CronKeyGuard implements CanActivate {

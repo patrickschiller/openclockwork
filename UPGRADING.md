@@ -17,6 +17,8 @@ The production Docker Compose stack keeps PostgreSQL data in the named volume
 `openclockwork-attachments-prod`. `docker compose up -d` replaces application
 containers without deleting either volume. Keep `OPENCLOCKWORK_DB_VOLUME` and
 `OPENCLOCKWORK_ATTACHMENTS_VOLUME` unchanged in `.env.prod` across upgrades.
+See the [container deployment guide](docs/CONTAINER_DEPLOYMENT.md) for host
+requirements and production configuration.
 
 The example volume names are not a backup or a deletion lock. Its named volumes
 are Compose-managed unless you explicitly configure them as external. A custom
@@ -173,9 +175,7 @@ requirements below and the release notes for every skipped version.
   invented Solo owner. Employee, project, time, leave and terminal identities
   and existing historical policy snapshots are retained.
 - **Retain the installation's explicit working `TZ`.** For example, keep
-  `Europe/Berlin` if that is the timezone used by the existing data. A new
-  deployment's UTC default is not an instruction to change an existing one.
-  Keep the equivalent API/job timezone setting in Azure as well.
+  `Europe/Berlin` if that is the timezone used by the existing data.
 - The new time-entry metadata starts neutral: `billable=false`, `revision=0`,
   `voidedAt=null`, `captureGroupId=null` and `approvalMode=null`. Existing Team
   work is not relabelled as self-approved Solo work or retrospectively grouped
@@ -256,7 +256,9 @@ The following commands assume the standard local attachment mount
 `/app/data/attachments`. Run them in a dedicated shell, supplying the **existing**
 deployment's values; do not use development/test Compose files. If multiple
 Compose files are required, include all of them in the `oc` function in the same
-order as the deployed stack.
+order as the deployed stack. If your previous installation used remote storage
+for attachments, see [Moving attachments from a previous storage service](#moving-attachments-from-a-previous-storage-service)
+for the file backup and restore steps.
 
 ```bash
 set -eu
@@ -299,12 +301,9 @@ oc exec -T db pg_restore --list < "$oc_backup_dir/database.dump" \
 tar -tzf "$oc_backup_dir/attachments.tar.gz" > /dev/null
 ```
 
-If `STORAGE_BACKEND=azure-blob` is configured, back up the Azure container
-with its provider-supported backup/versioning procedure **instead of** the
-local attachment command. Preserve a matching database recovery point and
-keep all relevant writers paused while establishing the pair. Back up any
-external secret references and additional PostgreSQL roles required for recovery;
-`pg_dump` is a database dump, not a complete cluster/role or point-in-time backup.
+Back up any external secret references and additional PostgreSQL roles required
+for recovery. `pg_dump` covers the individual database. Cluster-wide roles and
+point-in-time recovery require separate backups.
 
 Do not proceed after a failed dump, archive or validation. The files produced
 above are local, unencrypted backup material until protected by your chosen
@@ -327,6 +326,22 @@ backup set was restored and the outcome. A successful dump exit code alone
 does not establish recoverability. Encrypted backups are useful only if their
 decryption keys and configuration can also be recovered.
 
+### Moving attachments from a previous storage service
+
+If the installation currently keeps attachments outside the filesystem, pause
+all writers and export the files together with a backup of the corresponding
+database. Restore the files to the API's persistent attachment volume at
+`/app/data/attachments`. Keep each file's exact storage key as its relative
+path, including any intermediate directories. OpenClockwork uses these keys
+to find the files for existing database records.
+
+Make the volume readable and writable by the API's container user. With the
+files and database restored, remove the old `STORAGE_BACKEND` setting before
+starting the new API. If you set `ATTACHMENTS_DIR`, use the directory on the
+mounted volume where you restored the files. In a private instance, verify
+downloads of existing attachments and test a new upload and download before
+reopening traffic. Retain the source backup for rollback.
+
 ## Required when adding QR terminal support
 
 Before starting a release that contains the tablet terminal feature, add a new
@@ -339,9 +354,7 @@ TERMINAL_QR_SECRET=replace-with-an-independent-random-value-of-at-least-32-chara
 Do not reuse `JWT_SECRET`. The production Compose file intentionally refuses to
 start without this value because it derives pairing and rotating QR material.
 Store it with the same backup and access controls as the other application
-secrets. Azure deployments must likewise set the secure
-`terminalQrSecret` Bicep parameter (for example in an untracked private
-parameter file); the deployment stores it as a separate Key Vault secret.
+secrets.
 
 Existing releases from 1.2.0 onward also harden the live-booking API. `GET /api/timeentries`,
 `POST /api/timeentries/clock-in`, and `POST /api/timeentries/clock-out` now
@@ -391,11 +404,10 @@ installation and explicitly retain its working timezone before deploying 1.4.0.
   their labels.
 - Bootstrap and employee forms no longer assume a 30-day leave entitlement.
   Enter the contractual allowance explicitly. Existing allowances are retained.
-- Docker and Azure defaults become `UTC`. **Set `TZ` explicitly to your existing
+- The container default becomes `UTC`. **Set `TZ` explicitly to your existing
   working timezone before upgrading**, especially if you previously relied on
-  the implicit `Europe/Berlin` default. For Azure, set the `timeZone` parameter
-  for both the API and scheduled job. Existing terminal display timezones stay
-  unchanged.
+  the implicit `Europe/Berlin` default. Existing terminal display timezones
+  stay unchanged.
 
 Review calendars and break policies after the upgrade. Custom holidays are
 explicit dates rather than recurring rules: supply each relevant year. The API
@@ -435,19 +447,11 @@ The development Compose stack no longer seeds automatically and defaults
 `DEMO_MODE` to `false`. Creating synthetic demo data is now an explicit,
 separately confirmed maintenance operation on a disposable database.
 
-An older Azure demo-reset job using `NODE_ENV=production` and a generic
-`openclockwork` database will now refuse to run. Disable or replace that job
-with a deliberately isolated non-production demo lifecycle and its explicit
-opt-ins. Do not weaken the production environment or rename a production
-database to make a reset job pass. Review CI, local scripts and scheduled demo
-jobs before relying on their next run. Normal production upgrades do not
-require any seed/reset opt-in.
-
-The Azure template's optional `postgresDatabaseName` keeps the existing generic
-name as its default; it does not rename existing databases. For a deliberately
-new disposable demo deployment, follow the [Azure deployment guide](infra/azure/README.md)
-to select a classified name and opt in to its maintenance job. Only that job
-runs in a non-production runtime; the API retains its production runtime.
+Review CI, local scripts and scheduled demo jobs before the next run. Disable
+any demo-reset jobs using `NODE_ENV=production` or an unclassified database
+such as `openclockwork`. For automated demo resets, use a separate disposable
+demo database, run the job in a non-production runtime, and supply the explicit
+opt-ins listed above.
 
 ## 2. Select and pull the release
 

@@ -267,6 +267,29 @@ test('seed, demo-reset and reset CLI paths reject production before any connecti
   }
 });
 
+test('demo reset refuses obsolete attachment storage before connecting', () => {
+  const result = spawnSync(
+    process.execPath,
+    ['--import', 'tsx', 'prisma/demo-reset.ts'],
+    {
+      cwd: new URL('..', import.meta.url),
+      encoding: 'utf8',
+      timeout: 15000,
+      env: {
+        ...process.env,
+        ...maintenance('openclockwork_demo'),
+        DATABASE_URL: url('openclockwork_demo', '127.0.0.1:1'),
+        NODE_ENV: 'test',
+        DEMO_RESET_ENABLED: 'true',
+        DEMO_RESET_CONFIRMATION: 'DELETE-AND-RESEED-OPENClockwork-DEMO',
+        STORAGE_BACKEND: 'object-storage',
+      },
+    },
+  );
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /demo reset requires local attachment storage/);
+});
+
 test('reset CLI refuses argument-based target overrides before invoking Prisma', () => {
   const result = spawnSync(
     process.execPath,

@@ -3,7 +3,7 @@
 # Combine with docker-compose.prod.yml and OpenClockwork 2.1.0 or newer.
 services:
   migrate:
-    image: ghcr.io/patrickschiller/openclockwork-api:${OPENCLOCKWORK_VERSION}
+    image: ${OPENCLOCKWORK_API_IMAGE:-ghcr.io/patrickschiller/openclockwork-api:${OPENCLOCKWORK_VERSION}}
     depends_on:
       db:
         condition: service_healthy

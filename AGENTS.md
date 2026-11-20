@@ -30,5 +30,5 @@
 - The backend follows NestJS conventions: controllers stay thin, services own business logic, and API changes should keep the OpenAPI spec and generated web client in sync.
 - The frontend is a React/Vite/Tailwind PWA with German and English UI support. User-facing text should go through the existing i18n catalogue instead of hard-coded strings.
 - Time tracking, leave, approval, break deduction, and core-hour rules model real working-time behavior. Read the existing domain tests before changing these rules, and add focused tests for behavioral changes.
-- Never commit secrets, real personal data, production credentials, or local Azure parameter files. Keep demo data synthetic and make privacy implications explicit in public documentation.
-- Prefer small, reviewable changes that preserve the existing monorepo boundaries between `apps/api`, `apps/web`, `apps/*-e2e`, `libs/shared`, `prisma`, and `infra`.
+- Never commit secrets, real personal data, production credentials, or private deployment configuration. Keep demo data synthetic and make privacy implications explicit in public documentation.
+- Prefer small, reviewable changes that preserve the existing monorepo boundaries between `apps/api`, `apps/web`, `apps/*-e2e`, `libs/shared`, `prisma`, and `ops`.
