@@ -40,7 +40,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install dependencies
@@ -144,7 +144,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install dependencies
@@ -203,7 +203,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24.22.3
           cache: pnpm
 
       - name: Install dependencies
@@ -256,7 +256,7 @@ jobs:
           version: 9.15.9
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24.22.3
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- build stage ----------
-FROM node:20-alpine AS builder
+FROM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
@@ -22,14 +22,18 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
  && pnpm nx build web
 
 # ---------- runtime stage ----------
-FROM nginx:1.27-alpine AS runtime
+FROM nginx/nginx-unprivileged:1.30.8-alpine@sha256:637c35e46af7bc0dd3d3bcf7162e004e13ab3b370fde7cd416e2ac410b5a985a AS runtime
 
 # Static assets + envsubst-templated nginx config. The official entrypoint
 # substitutes ${API_UPSTREAM} into default.conf at container start; the
 # NGINX_ENVSUBST_FILTER keeps nginx's own $host / $remote_addr alone.
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
-COPY --from=builder /app/package.json /app/package.json
-COPY ops/nginx.conf.template /etc/nginx/templates/default.conf.template
+# Keep startup configuration readable by nginx, even from a checkout with umask 077.
+COPY --chmod=644 --from=builder /app/package.json /app/package.json
+COPY --chmod=644 ops/nginx.conf.template /etc/nginx/templates/default.conf.template
+USER root
+RUN chmod 755 /app /etc/nginx/templates
+USER nginx
 COPY --chmod=755 ops/15-validate-runtime-config.sh /docker-entrypoint.d/15-validate-runtime-config.sh
 COPY --chmod=755 ops/16-wait-for-compatible-api.sh /docker-entrypoint.d/16-wait-for-compatible-api.sh
 

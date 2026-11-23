@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---------- build stage ----------
-FROM node:20-alpine AS builder
+FROM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
@@ -29,7 +29,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
  && pnpm nx build api
 
 # ---------- runtime stage ----------
-FROM node:20-alpine AS runtime
+FROM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS runtime
 
 # tzdata ships the IANA timezone database. Without it a TZ env var
 # silently falls back to UTC — and the core-time / off-hours logic

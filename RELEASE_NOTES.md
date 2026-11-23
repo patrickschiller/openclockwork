@@ -1,3 +1,25 @@
+# OpenClockwork v2.2.2
+
+## Container security update
+
+- Build the application and run the API on Node.js 24 LTS, replacing the
+  end-of-life Node.js 20 base. CI and release checks use the same Node.js version.
+- Serve the web application on the patched nginx 1.30.8 non-root image. The
+  container still listens on port 8080.
+
+## Upgrading from 2.2.1
+
+- Back up your PostgreSQL databases and attachment volumes. Deploy the matching
+  API and web images. If deploying them separately, apply the API image first
+  and check that `/api/health` reports `2.2.2` before replacing the web image.
+- No new database migrations, configuration changes, or seed/reset operations
+  are required for this patch.
+
+## Docker images
+
+- `ghcr.io/patrickschiller/openclockwork-api:2.2.2`
+- `ghcr.io/patrickschiller/openclockwork-web:2.2.2`
+
 # OpenClockwork v2.2.1
 
 ## Requests and approvals in Team mode

@@ -5047,7 +5047,7 @@
   "info": {
     "title": "OpenClockwork API",
     "description": "Self-hostable working-time tracker — REST + WebSocket surface.",
-    "version": "2.2.1",
+    "version": "2.2.2",
     "contact": {}
   },
   "tags": [],
@@ -5868,7 +5868,7 @@
           },
           "version": {
             "type": "string",
-            "example": "2.2.1"
+            "example": "2.2.2"
           },
           "utcTimestamp": {
             "type": "string",

@@ -2094,7 +2094,7 @@ export interface components {
       status: string;
       /** @example openclockwork-api */
       service: string;
-      /** @example 2.2.1 */
+      /** @example 2.2.2 */
       version: string;
       /** Format: date-time */
       utcTimestamp: string;
